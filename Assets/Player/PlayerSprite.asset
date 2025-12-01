@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0cac35879531a7141af9f2f8f3237659, type: 3}
+  m_Name: PlayerSprite
+  m_EditorClassIdentifier: Assembly-CSharp::SpriteAppearanceData
+  tiers:
+  - key: Prototype
+    priority: 0
+    animatorController: {fileID: 0}
+    defaultSprite: {fileID: 7482667652216324306, guid: 92315bf87077bcf4db6fbe766d84c0d5, type: 3}
+  - key: Sketch
+    priority: 1
+    animatorController: {fileID: 0}
+    defaultSprite: {fileID: -7582522387685710772, guid: 61226b63be5fe2b429cf3d847769d42e, type: 3}

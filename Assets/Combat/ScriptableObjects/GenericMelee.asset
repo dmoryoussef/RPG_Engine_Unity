@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ddcedca0147ec8f449c6089efcbceedd, type: 3}
+  m_Name: GenericMelee
+  m_EditorClassIdentifier: Assembly-CSharp::Combat.MoveDef
+  moveName: GenericMelee
+  phases:
+  - phaseId: 0
+    durationMs: 50
+    oneHitPerPhase: 0
+    rateLimitMs: 0
+    sweeps: []
+    damage:
+      baseDamage: 0
+      damageType: 
+      stunMs: 0
+      hitstopFrames: 0
+      knockbackPower: 0
+      impulseDirectionMode: 0
+      authorDirection: {x: 0, y: 0, z: 0}
+      tags: []
+  - phaseId: 1
+    durationMs: 50
+    oneHitPerPhase: 1
+    rateLimitMs: 0
+    sweeps: []
+    damage:
+      baseDamage: 10
+      damageType: 
+      stunMs: 0
+      hitstopFrames: 0
+      knockbackPower: 10
+      impulseDirectionMode: 0
+      authorDirection: {x: 0, y: 0, z: 0}
+      tags: []
+  - phaseId: 2
+    durationMs: 50
+    oneHitPerPhase: 0
+    rateLimitMs: 0
+    sweeps: []
+    damage:
+      baseDamage: 0
+      damageType: 
+      stunMs: 0
+      hitstopFrames: 0
+      knockbackPower: 0
+      impulseDirectionMode: 0
+      authorDirection: {x: 0, y: 0, z: 0}
+      tags: []

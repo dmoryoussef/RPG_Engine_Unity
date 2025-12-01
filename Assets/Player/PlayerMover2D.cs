@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace RPG.Player
+namespace Player
 {
     /// <summary>
     /// Responsibility: Read input each frame and move the player in world space.

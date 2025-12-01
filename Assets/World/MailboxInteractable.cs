@@ -1,20 +1,20 @@
 using UnityEngine;
-using RPG.Foundation;
+using Interaction;
 
-namespace RPG.World
-{
-    [DisallowMultipleComponent]
+
+
+    [DisallowMultipleComponent] 
     [RequireComponent(typeof(Collider2D))]
     public class MailboxInteractable : InteractableBase
     {
         [Header("Message")]
-        [TextArea][SerializeField] private string singleMessage = "You've got mail!";
-        [SerializeField] private bool useSequence = false;
-        [TextArea][SerializeField] private string[] messages;
-        [SerializeField] private bool loopSequence = true;
+        [TextArea][SerializeField] private string _singleMessage = "You've got mail!";
+        [SerializeField] private bool _useSequence = false;
+        [TextArea][SerializeField] private string[] _messages;
+        [SerializeField] private bool _loopSequence = true;
 
         [Header("Runtime (read-only)")]
-        [SerializeField] private int messageIndex = 0;
+        [SerializeField] private int _messageIndex = 0;
 
         protected override bool DoInteract()
         {
@@ -27,32 +27,32 @@ namespace RPG.World
         }
 
 #if UNITY_EDITOR
-        protected override void ValidateExtra()
+        protected void ValidateExtra()
         {
-            if (useSequence && (messages == null || messages.Length == 0))
+            if (_useSequence && (_messages == null || _messages.Length == 0))
                 Debug.Log($"<color=red>[Mailbox]</color> 'useSequence' is true but 'messages' is empty on '{name}'.");
-            if (!useSequence && string.IsNullOrWhiteSpace(singleMessage))
+            if (!_useSequence && string.IsNullOrWhiteSpace(_singleMessage))
                 Debug.Log($"<color=red>[Mailbox]</color> 'singleMessage' is empty on '{name}'.");
         }
 #endif
 
         private string GetMessage()
         {
-            if (!useSequence)
-                return singleMessage;
+            if (!_useSequence)
+                return _singleMessage;
 
-            if (messages == null || messages.Length == 0)
+            if (_messages == null || _messages.Length == 0)
                 return string.Empty;
 
-            int idx = Mathf.Clamp(messageIndex, 0, messages.Length - 1);
-            string line = messages[idx];
+            int idx = Mathf.Clamp(_messageIndex, 0, _messages.Length - 1);
+            string line = _messages[idx];
 
-            if (messageIndex < messages.Length - 1)
-                messageIndex++;
-            else if (loopSequence && messages.Length > 0)
-                messageIndex = 0;
+            if (_messageIndex < _messages.Length - 1)
+                _messageIndex++;
+            else if (_loopSequence && _messages.Length > 0)
+                _messageIndex = 0;
 
             return line;
         }
     }
-}
+

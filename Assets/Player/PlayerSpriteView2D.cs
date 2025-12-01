@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace RPG.Player
+namespace Player
 {
     /// <summary>
     /// Responsibility: Own the SpriteRenderer and react visually to movement state.
