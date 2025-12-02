@@ -1,6 +1,4 @@
-using Inspection;
 using Interaction;
-using UI;
 using UnityEngine;
 
 namespace UI
@@ -28,6 +26,7 @@ namespace UI
             if (_interactable == null || context == null)
                 return;
 
+            // generic interact button
             context.AddAction(
                 label: "Interact",
                 callback: () => _interactable.OnInteract(),

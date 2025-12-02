@@ -9,5 +9,6 @@ namespace Interaction
 
         /// Attempts to interact with the currently best target (if any).
         bool TryInteract();
+
     }
 }

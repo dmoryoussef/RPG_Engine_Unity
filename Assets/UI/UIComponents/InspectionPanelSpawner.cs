@@ -78,7 +78,8 @@ namespace UI
                 }
             }
 
-            _activePanel.Show(data);
+            // NEW: pass the inspector through so the root can resolve the interactor.
+            _activePanel.Show(data, _inspector);
         }
 
         private void HandleInspectionCleared()

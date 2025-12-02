@@ -12,9 +12,6 @@ namespace UI
         [Tooltip("Optional prefix, e.g. 'Status:'. Leave empty for none.")]
         [SerializeField] private string _prefix = "";
 
-        [Tooltip("Separator between multiple state lines.")]
-        [SerializeField] private string _separator = "\n";
-
         public void OnPopulate(InspectionData data, InspectionPanelContext context)
         {
             if (_stateLabel == null)
@@ -31,18 +28,17 @@ namespace UI
 
             var sb = new System.Text.StringBuilder();
 
-            if (!string.IsNullOrEmpty(_prefix))
-            {
-                sb.Append(_prefix);
-                sb.Append(" ");
-            }
+
 
             for (int i = 0; i < context.States.Count; i++)
             {
-                if (i > 0)
-                    sb.Append(_separator);
+                if (!string.IsNullOrEmpty(_prefix))
+                {
+                    sb.Append(_prefix);
+                    sb.Append(" ");
+                }
 
-                sb.Append(context.States[i].Label);
+                sb.AppendLine(context.States[i].Label);
             }
 
             _stateLabel.text = sb.ToString();

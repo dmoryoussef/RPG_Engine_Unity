@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Inspection;
+using Interaction;
 
 namespace UI
 {
@@ -47,10 +48,64 @@ namespace UI
         /// </summary>
         public InspectionPanelRoot PanelRoot { get; }
 
-        public InspectionPanelContext(InspectionData data, InspectionPanelRoot panelRoot)
+
+        /// <summary>
+        /// Snapshot of interaction gating between the current inspector's interactor
+        /// (usually the player) and the inspected target.
+        /// This is filled by the panel root and is read-only for contributors.
+        /// </summary>
+        public InteractionGateInfo InteractionInfo { get; private set; } = InteractionGateInfo.Empty;
+
+        /// <summary>
+        /// Internal hook for the panel root (or other orchestrators) to attach
+        /// interaction gating data without going through States/Actions.
+        /// </summary>
+        public void SetInteractionInfo(InteractionGateInfo info)
+        {
+            InteractionInfo = info;
+        }
+
+        /// <summary>
+        /// The inspector that produced this inspection, if any.
+        /// Useful for advanced contributors that want to query or
+        /// request refreshes based on the inspecting entity.
+        /// </summary>
+        public IInspector Inspector { get; }
+
+
+        /// <summary>
+        /// Primary constructor: use this from the panel root / spawner so
+        /// the context has full knowledge of the inspector and interaction
+        /// gating state.
+        /// </summary>
+        public InspectionPanelContext(
+            InspectionData data,
+            InspectionPanelRoot panelRoot,
+            IInspector inspector,
+            InteractionGateInfo interactionInfo)
         {
             Data = data;
             PanelRoot = panelRoot;
+            Inspector = inspector;
+            InteractionInfo = interactionInfo;
+        }
+
+        /// <summary>
+        /// Backwards-compatible constructor used when you don't have
+        /// inspector / interaction info or don't care about it.
+        /// </summary>
+        public InspectionPanelContext(InspectionData data, InspectionPanelRoot panelRoot)
+            : this(data, panelRoot, inspector: null, interactionInfo: InteractionGateInfo.Empty)
+        {
+        }
+
+        /// <summary>
+        /// Backwards-compatible constructor used when there is no panel root
+        /// and no inspector / interaction info.
+        /// </summary>
+        public InspectionPanelContext(InspectionData data)
+            : this(data, panelRoot: null, inspector: null, interactionInfo: InteractionGateInfo.Empty)
+        {
         }
 
         /// <summary>
@@ -129,11 +184,6 @@ namespace UI
         /// annotating. This comes from the core InspectionData flow.
         /// </summary>
         public InspectionData Data { get; }
-
-        public InspectionPanelContext(InspectionData data)
-        {
-            Data = data;
-        }
 
         // ----------------- Generic contributor APIs -----------------
         // These are the ONLY methods normal contributors should use.

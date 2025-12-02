@@ -49,39 +49,39 @@ namespace UI
             if (ctx == null || _openCloseState == null)
                 return;
 
-            // 🔑 Grab the specific panel root from the context the first time.
+            // Grab the specific panel root from the context the first time.
             if (_panelRoot == null && ctx.PanelRoot != null)
             {
                 _panelRoot = ctx.PanelRoot;
             }
 
             bool isOpen = _openCloseState.IsOpen;
-            bool isLocked = _openCloseState.IsLocked;
+            //bool isLocked = _openCloseState.IsLocked;
 
             // --- State line ---
-            if (isLocked)
-            {
-                ctx.AddState("Locked", priority: 10, category: "Door");
-            }
-            else
+            //if (isLocked)
+            //{
+            //    ctx.AddState("Locked", priority: 10, category: "Door");
+            //}
+            //else
             {
                 ctx.AddState(isOpen ? "Open" : "Closed", priority: 10, category: "Door");
             }
 
             // --- Action button ---
-            ctx.AddAction(
-                label: isOpen ? "Close" : "Open",
-                callback: () =>
-                {
-                    _openCloseState.TryStateChange(OpenCloseAction.Toggle);
-                    // OnStateChanged will fire; HandleStateChanged will relay
-                    // to the correct panel root if one is inspecting this object.
-                },
-                isEnabled: !isLocked,
-                disabledReason: isLocked ? "Locked" : null,
-                priority: 10,
-                category: "Door"
-            );
+            //ctx.AddAction(
+            //    label: isOpen ? "Close" : "Open",
+            //    callback: () =>
+            //    {
+            //        _openCloseState.TryStateChange(OpenCloseAction.Toggle);
+            //        // OnStateChanged will fire; HandleStateChanged will relay
+            //        // to the correct panel root if one is inspecting this object.
+            //    },
+            //    //isEnabled: !isLocked,
+            //    //disabledReason: isLocked ? "Locked" : null,
+            //    priority: 10,
+            //    category: "Door"
+            //);
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Player;    // adjust/remove if your PlayerMover2D lives elsewhere
+﻿using Player;  
+using UI;
 using UnityEngine;
 
 namespace Interaction
@@ -112,6 +113,34 @@ namespace Interaction
                 lastInteractSucceeded = ok;
                 lastInteractTime = Time.realtimeSinceStartup;
             }
+        }
+
+        /// <summary>
+        /// Build an interaction gating snapshot for the given target.
+        /// This does NOT modify gameplay state; it only queries distance and facing
+        /// using the same logic as TryInteract / RefreshGatingDebug.
+        /// </summary>
+        public InteractionGateInfo BuildGateInfo(InteractableBase target)
+        {
+            if (!target)
+                return InteractionGateInfo.Empty;
+
+            bool inRangeLocal = IsInRange(target, out float dist);
+            bool facingOkLocal = IsFacingTarget(target, out float dot);
+            bool canInteractLocal = inRangeLocal && facingOkLocal;
+
+            return new InteractionGateInfo(
+                interactorRoot: gameObject,
+                interactableRoot: target.gameObject,
+                inRange: inRangeLocal,
+                distance: dist,
+                maxDistance: interactMaxDistance,
+                facingOk: facingOkLocal,
+                facingDot: dot,
+                facingThreshold: interactFacingDotThreshold,
+                canInteract: canInteractLocal,
+                lastFailReason: null // can be filled later by interactable if desired
+            );
         }
 
         // =====================================================================

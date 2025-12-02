@@ -25,7 +25,7 @@ namespace UI
     /// This subpanel does NOT know about interaction buttons or states; it is
     /// strictly about describing the object from the inspection system's perspective.
     /// </summary>
-    public sealed class InspectionTextSubpanel : MonoBehaviour, IInspectionSubpanel
+    public sealed class InspectionSummarySubpanel : MonoBehaviour, IInspectionSubpanel
     {
         [Header("Labels (Inspection Data)")]
         [SerializeField] private TMP_Text _titleLabel;

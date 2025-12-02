@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using Inspection;
+using Interaction;
 
 namespace UI
 {
@@ -27,6 +28,7 @@ namespace UI
         private InspectionData _currentData;
         private InspectionPanelContext _currentContext;
         private bool _isOpen;
+        private IInspector _currentInspector;   // NEW: remember who triggered this inspection
 
         public InspectionPanelContext CurrentContext => _currentContext;
         public InspectionData CurrentData => _currentData;
@@ -138,7 +140,11 @@ namespace UI
                 _rootObject.SetActive(active);
         }
 
-        public void Show(InspectionData data)
+        /// <summary>
+        /// Show using a known inspector source. Preferred entry point when called
+        /// from an InspectorComponent / InspectionPanelSpawner.
+        /// </summary>
+        public void Show(InspectionData data, IInspector inspector)
         {
             if (data == null)
             {
@@ -146,6 +152,7 @@ namespace UI
                 return;
             }
 
+            _currentInspector = inspector;
             _currentData = data;
             _currentContext = BuildContextFromContributors(data);
 
@@ -161,6 +168,14 @@ namespace UI
             {
                 panel.OnOpen();
             }
+        }
+
+        /// <summary>
+        /// Backwards-compatible show overload when no inspector is provided.
+        /// </summary>
+        public void Show(InspectionData data)
+        {
+            Show(data, inspector: null);
         }
 
         public void Refresh()
@@ -190,6 +205,7 @@ namespace UI
             _isOpen = false;
             _currentData = null;
             _currentContext = null;
+            _currentInspector = null;
         }
 
         // --------- Context building ---------
@@ -208,6 +224,26 @@ namespace UI
                     if (contributor == null) continue;
                     contributor.ContributeToPanel(ctx);
                 }
+
+                // After normal contributors, let the current interactor
+                // provide interaction gating info if available.
+                if (_currentInspector is Component inspectorComponent)
+                {
+                    var inspectorRoot = inspectorComponent.gameObject;
+                    var interactor = inspectorRoot.GetComponentInParent<PlayerInteractor>();
+                    if (interactor != null)
+                    {
+                        var interactable = data.TargetRoot.GetComponentInParent<InteractableBase>();
+                        if (interactable != null)
+                        {
+                            // Ask the interactor for a pure data snapshot...
+                            var gateInfo = interactor.BuildGateInfo(interactable);
+                            // ...and attach it to the context in its dedicated slot.
+                            ctx.SetInteractionInfo(gateInfo);
+                        }
+                    }
+                }
+
             }
 
             ctx.States.Sort((a, b) => a.Priority.CompareTo(b.Priority));
@@ -216,6 +252,5 @@ namespace UI
 
             return ctx;
         }
-
     }
 }

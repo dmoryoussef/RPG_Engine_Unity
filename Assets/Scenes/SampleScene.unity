@@ -372,53 +372,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &715647294
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 715647296}
-  - component: {fileID: 715647295}
-  m_Layer: 0
-  m_Name: SpriteAppearance
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &715647295
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 715647294}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3027755e2437fa74d9a282850af46de7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SpriteAppearance
-  appearanceData: {fileID: 0}
-  preferredTierKey: 
-  _activeTierKey: 
---- !u!4 &715647296
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 715647294}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -3.08224, y: -0.59923, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1106162213
 GameObject:
   m_ObjectHideFlags: 0
@@ -656,7 +609,6 @@ GameObject:
   - component: {fileID: 1145219837}
   - component: {fileID: 1145219839}
   - component: {fileID: 1145219840}
-  - component: {fileID: 1145219841}
   - component: {fileID: 1145219842}
   - component: {fileID: 1145219843}
   - component: {fileID: 1145219844}
@@ -664,6 +616,7 @@ GameObject:
   - component: {fileID: 1145219845}
   - component: {fileID: 1145219847}
   - component: {fileID: 1145219848}
+  - component: {fileID: 1145219849}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -771,42 +724,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mover: {fileID: 0}
---- !u!114 &1145219841
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1145219836}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8f71fcc5d33aee3489602f1ee6a4cae8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  probeMode: 0
-  rayDistance: 0.9
-  circleRadius: 0.6
-  circleOffset: 0.5
-  selectionSort: 0
-  minFacingDot: 0
-  maxResults: 4
-  currentTarget: {fileID: 0}
-  currentTargetDistance: 3.4028235e+38
-  currentTargetId: <none>
-  drawGizmos: 0
-  lastOrigin: {x: 0, y: 0, z: 0}
-  lastDir: {x: 0, y: 0, z: 0}
-  lastCircleCenter: {x: 0, y: 0, z: 0}
-  lastPicked: <none>
-  playerCamera: {fileID: 0}
-  mover: {fileID: 1145219839}
-  interactKey: 101
-  interactMaxDistance: 1.5
-  interactFacingDotThreshold: 0.4
-  idleFacing2D: {x: 0, y: -1}
-  hoverDistanceFromPlayer: 0
-  lastInteractSucceeded: 0
-  lastInteractTime: -999
 --- !u!61 &1145219842
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -949,14 +866,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Inspection.InspectorComponent
   _inspectKey: 324
-  _useMousePosition: 1
   _camera: {fileID: 519420031}
+  _useMousePosition: 1
   _maxDistance: 20
-  _physicsMode: 1
-  _inspectableMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  _enableDebugLogs: 1
+  _enableVerboseDebug: 0
+  _hoverTarget: {fileID: 0}
+  _hoverTargetName: <none>
+  _hoverDistance: 0
+  _hasHoverTarget: 0
+  _canInspectHover: 0
+  _hoverBlockReason: 
+  _hoverRayT: 0
   _debugState:
     LastInspectedTarget: {fileID: 0}
     LastDisplayName: 
@@ -977,6 +897,45 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAttack2D
   mover: {fileID: 1145219839}
   attackRoot: {fileID: 1952485571}
+--- !u!114 &1145219849
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1145219836}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0fbb7858dc2eefb4581e7106e580ed2a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Interaction.PlayerInteractor
+  probeMode: 0
+  rayDistance: 0
+  circleRadius: 0.6
+  circleOffset: 0.5
+  selectionSort: 0
+  minFacingDot: -1
+  maxResults: 8
+  currentTarget: {fileID: 0}
+  currentTargetDistance: 3.4028235e+38
+  currentTargetId: <none>
+  drawGizmos: 0
+  lastOrigin: {x: 0, y: 0, z: 0}
+  lastDir: {x: 0, y: 0, z: 0}
+  lastCircleCenter: {x: 0, y: 0, z: 0}
+  lastPicked: <none>
+  playerCamera: {fileID: 519420031}
+  mover: {fileID: 1145219839}
+  interactKey: 101
+  interactMaxDistance: 1.5
+  interactFacingDotThreshold: 0.4
+  idleFacing2D: {x: 0, y: -1}
+  hoverDistanceFromPlayer: 0
+  facingTarget: 0
+  inRange: 0
+  canInteract: 0
+  lastInteractSucceeded: 0
+  lastInteractTime: -999
 --- !u!1 &1252769399
 GameObject:
   m_ObjectHideFlags: 0
@@ -995,7 +954,6 @@ GameObject:
   - component: {fileID: 1252769407}
   - component: {fileID: 1252769408}
   - component: {fileID: 1252769409}
-  - component: {fileID: 1252769410}
   - component: {fileID: 1252769411}
   m_Layer: 0
   m_Name: Door
@@ -1201,7 +1159,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1252769399}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3eb80070410eea449a22953648651cde, type: 3}
   m_Name: 
@@ -1254,7 +1212,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1252769399}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: da82931465941bf4abf78d9814bed4f4, type: 3}
   m_Name: 
@@ -1311,9 +1269,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd021a82fcb52914d96e7783edc246a4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Inspection.InspectableComponent
-  _displayName: Test Door
-  _shortDescription: its a door
-  _longDescription: 'can be opened or closed
+  _displayName: Door
+  _shortDescription: This is a door.
+  _longDescription: 'it can be opened or closed.  Sometimes it is locked. You might
+    need a key.
 
 '
   _icon: {fileID: 0}
@@ -1321,19 +1280,6 @@ MonoBehaviour:
   _boundsRenderer: {fileID: 0}
   _manualCenter: {x: 0, y: 0, z: 0}
   _manualSize: {x: 0, y: 0, z: 0}
---- !u!114 &1252769410
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1252769399}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7b59a6a1a3423994c82c45d300e1a1e9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::InteractableInspectorContributor
-  _interactable: {fileID: 0}
 --- !u!114 &1252769411
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1347,7 +1293,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UI.OpenCloseInspectionContributor
   _openCloseState: {fileID: 1252769400}
-  _panelRoot: {fileID: 0}
 --- !u!1 &1557330375
 GameObject:
   m_ObjectHideFlags: 0
@@ -1713,7 +1658,6 @@ SceneRoots:
   m_Roots:
   - {fileID: 519420032}
   - {fileID: 1145219838}
-  - {fileID: 715647296}
   - {fileID: 1635001849}
   - {fileID: 1252769404}
   - {fileID: 1106162216}
