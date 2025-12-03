@@ -1,10 +1,11 @@
-ï»¿using System;
+using System;
 using UnityEngine;
 
-namespace Interaction
+namespace State
 {
     public enum OpenCloseAction { Toggle, Open, Close }
-    public enum StateChangeResult
+
+    public enum OpenCloseResult
     {
         Opened,
         Closed,
@@ -15,11 +16,12 @@ namespace Interaction
     }
 
     /// <summary>
-    /// Owns the door/chest/etc. state. Optionally observes a LockState to guard changes.
-    /// Responsible for: state value, collider blocking, animation, and change events.
+    /// Owns the door/chest/etc. open/closed state.
+    /// Handles collider blocking, animation, and change events.
+    /// Optionally observes a LockState to guard changes.
     /// </summary>
     [DisallowMultipleComponent]
-    public class OpenCloseState : MonoBehaviour
+    public class OpenCloseState : BaseState
     {
         [Header("State")]
         [SerializeField] private bool _isOpen = false;
@@ -27,7 +29,7 @@ namespace Interaction
 
         [Header("Optional Lock")]
         [Tooltip("If assigned/found, changing state will fail while locked.")]
-        [SerializeField] private LockState _lockState; // optional reference
+        [SerializeField] private LockState _lockState;
         public bool IsLocked => _lockState && _lockState.IsLocked;
 
         [Header("Blocking (auto-setup)")]
@@ -43,14 +45,20 @@ namespace Interaction
         [SerializeField] private Animator _animator;
         [SerializeField] private string _animIsOpenParam = "IsOpen";
 
-        /// <summary>Fired only when the open/closed value actually changes.</summary>
-        public event Action<bool /*oldIsOpen*/, bool /*newIsOpen*/> OnStateChanged;
+        [Header("Description")]
+        [SerializeField] private string _descriptionCategory = "Door";
+        [SerializeField] private int _descriptionPriority = 10;
+
+        /// <summary>
+        /// Fired only when the open/closed value actually changes (old, new).
+        /// Use this for domain-specific responses.
+        /// </summary>
+        public event Action<bool /*oldIsOpen*/, bool /*newIsOpen*/> OnIsOpenChanged;
 
         private void Awake()
         {
-            // Be resilient: try to auto-wire a LockState if not manually assigned.
             if (!_lockState)
-                _lockState = GetComponent<LockState>() ?? GetComponentInParent<LockState>(true);
+                _lockState = GetComponentInParent<LockState>(true);
 
             EnsureBlockingCollider();
             EnsureAnimator();
@@ -62,7 +70,7 @@ namespace Interaction
         private void OnValidate()
         {
             if (!_lockState)
-                _lockState = GetComponent<LockState>() ?? GetComponentInParent<LockState>(true);
+                _lockState = GetComponentInParent<LockState>(true);
 
             EnsureBlockingCollider();
             EnsureAnimator();
@@ -71,15 +79,16 @@ namespace Interaction
         }
 #endif
 
-        // ------------------- Single public surface -------------------
+        // ---------------- Domain-level API (used by scripts/quests/etc.) ----------------
 
         /// <summary>
-        /// Request a state change. Returns a detailed result.
+        /// Request a state change with a specific action.
         /// Lock checks are internal and will return FailedLocked when applicable.
         /// </summary>
-        public StateChangeResult TryStateChange(OpenCloseAction action)
+        public OpenCloseResult TryStateChange(OpenCloseAction action)
         {
-            if (IsLocked) return StateChangeResult.FailedLocked;
+            if (IsLocked)
+                return OpenCloseResult.FailedLocked;
 
             bool desiredOpen = action switch
             {
@@ -90,20 +99,66 @@ namespace Interaction
             };
 
             if (desiredOpen == _isOpen)
-                return _isOpen ? StateChangeResult.AlreadyOpen : StateChangeResult.AlreadyClosed;
+                return _isOpen ? OpenCloseResult.AlreadyOpen : OpenCloseResult.AlreadyClosed;
 
             bool old = _isOpen;
             _isOpen = desiredOpen;
 
-            // Side-effects on real changes
             ApplyBlocking();
             ApplyAnimation();
-            OnStateChanged?.Invoke(old, _isOpen);
 
-            return _isOpen ? StateChangeResult.Opened : StateChangeResult.Closed;
+            // Domain-specific detailed event
+            OnIsOpenChanged?.Invoke(old, _isOpen);
+
+            // Generic BaseState “something changed” hook (for inspection, etc.)
+            NotifyStateChanged();
+
+            return _isOpen ? OpenCloseResult.Opened : OpenCloseResult.Closed;
         }
 
-        // ------------------- Internals -------------------
+        // --------------- Interaction-facing API (for InteractableComponent) ---------------
+
+        /// <summary>
+        /// Default "interact" behavior for this state (e.g., press E on the door).
+        /// Wraps the domain API in a generic StateResult.
+        /// </summary>
+        public override StateResult TryStateChange()
+        {
+            var domainResult = TryStateChange(OpenCloseAction.Toggle);
+
+            var generic = domainResult switch
+            {
+                OpenCloseResult.Opened =>
+                    StateResult.Succeed("opened"),
+
+                OpenCloseResult.Closed =>
+                    StateResult.Succeed("closed"),
+
+                OpenCloseResult.AlreadyOpen or OpenCloseResult.AlreadyClosed =>
+                    StateResult.AlreadyInState("already_in_state"),
+
+                OpenCloseResult.FailedLocked =>
+                    StateResult.Blocked("locked"),
+
+                _ =>
+                    StateResult.Fail("failed")
+            };
+
+            return Report(generic);
+        }
+
+        // ---------------- Description (used by PanelContributorComponent) ----------------
+
+        public override string GetDescriptionText()
+            => IsOpen ? "Open" : "Closed";
+
+        public override int GetDescriptionPriority()
+            => _descriptionPriority;
+
+        public override string GetDescriptionCategory()
+            => _descriptionCategory;
+
+        // ---------------- Internals ----------------
 
         private void ApplyBlocking()
         {
@@ -122,7 +177,11 @@ namespace Interaction
             if (!_autoCreateBlockingCollider) return;
 
             var any = GetComponent<Collider2D>();
-            if (any && !any.isTrigger) { _blockingCollider = any; return; }
+            if (any && !any.isTrigger)
+            {
+                _blockingCollider = any;
+                return;
+            }
 
             var box = GetComponent<BoxCollider2D>();
             if (!box) box = gameObject.AddComponent<BoxCollider2D>();
@@ -152,7 +211,6 @@ namespace Interaction
             box.offset = b.center;
         }
 
-        // -------- Optional helpers for wiring (if needed by spawners/editors) --------
         public void SetLockState(LockState lockState) => _lockState = lockState;
     }
 }

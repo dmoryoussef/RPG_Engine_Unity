@@ -947,14 +947,15 @@ GameObject:
   - component: {fileID: 1252769404}
   - component: {fileID: 1252769403}
   - component: {fileID: 1252769402}
+  - component: {fileID: 1252769401}
+  - component: {fileID: 1252769400}
+  - component: {fileID: 1252769406}
+  - component: {fileID: 1252769405}
   - component: {fileID: 1252769407}
   - component: {fileID: 1252769408}
   - component: {fileID: 1252769409}
-  - component: {fileID: 1252769413}
+  - component: {fileID: 1252769411}
   - component: {fileID: 1252769412}
-  - component: {fileID: 1252769414}
-  - component: {fileID: 1252769416}
-  - component: {fileID: 1252769415}
   m_Layer: 0
   m_Name: Door
   m_TagString: Untagged
@@ -962,6 +963,77 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &1252769400
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1252769399}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d57ca45849a51cc4cb7dfd7ebb26b481, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _isOpen: 0
+  _lockState: {fileID: 1252769406}
+  _blockingCollider: {fileID: 1252769402}
+  _manageBlockingCollider: 1
+  _autoCreateBlockingCollider: 1
+  _animator: {fileID: 1252769408}
+  _animIsOpenParam: IsOpen
+--- !u!114 &1252769401
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1252769399}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 79381dc0789e2bf4281d2804ad6bed7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  interactableId: 
+  cooldownSeconds: 0
+  maxUses: 0
+  disableOnSuccess: 0
+  destroyOnSuccess: 0
+  destroyDelaySeconds: 0
+  selectionPriority: 0
+  boundsRenderer: {fileID: 0}
+  manualCenter: {x: 0, y: 0, z: 0}
+  manualSize: {x: 0, y: 0, z: 0}
+  validationStatus: OK
+  validationPassed: 1
+  drawBounds: 0
+  onInteractSuccess:
+    m_PersistentCalls:
+      m_Calls: []
+  onCooldownBlocked:
+    m_PersistentCalls:
+      m_Calls: []
+  onOutOfUses:
+    m_PersistentCalls:
+      m_Calls: []
+  onEnterRange:
+    m_PersistentCalls:
+      m_Calls: []
+  onLeaveRange:
+    m_PersistentCalls:
+      m_Calls: []
+  onInteractFailed:
+    m_PersistentCalls:
+      m_Calls: []
+  usesSoFar: 0
+  lastUseTime: -999
+  lastSuccess: 0
+  isInRange: 0
+  lastRangeEnterTime: -999
+  lastRangeExitTime: -999
+  lastInteractTime: -999
+  lastFailReason: 0
+  openCloseState: {fileID: 1252769400}
 --- !u!61 &1252769402
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -1081,6 +1153,74 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1252769405
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1252769399}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3eb80070410eea449a22953648651cde, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  interactableId: 
+  cooldownSeconds: 0
+  maxUses: 0
+  disableOnSuccess: 0
+  destroyOnSuccess: 0
+  destroyDelaySeconds: 0
+  selectionPriority: 0
+  boundsRenderer: {fileID: 0}
+  manualCenter: {x: 0, y: 0, z: 0}
+  manualSize: {x: 0, y: 0, z: 0}
+  validationStatus: OK
+  validationPassed: 1
+  drawBounds: 0
+  onInteractSuccess:
+    m_PersistentCalls:
+      m_Calls: []
+  onCooldownBlocked:
+    m_PersistentCalls:
+      m_Calls: []
+  onOutOfUses:
+    m_PersistentCalls:
+      m_Calls: []
+  onEnterRange:
+    m_PersistentCalls:
+      m_Calls: []
+  onLeaveRange:
+    m_PersistentCalls:
+      m_Calls: []
+  onInteractFailed:
+    m_PersistentCalls:
+      m_Calls: []
+  usesSoFar: 0
+  lastUseTime: -999
+  lastSuccess: 0
+  isInRange: 0
+  lastRangeEnterTime: -999
+  lastRangeExitTime: -999
+  lastInteractTime: -999
+  lastFailReason: 0
+  targetLockState: {fileID: 1252769406}
+  mode: 0
+--- !u!114 &1252769406
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1252769399}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da82931465941bf4abf78d9814bed4f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _isLocked: 0
+  _animator: {fileID: 1252769408}
+  _animIsLockedParam: IsLocked
 --- !u!114 &1252769407
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1141,6 +1281,19 @@ MonoBehaviour:
   _boundsRenderer: {fileID: 0}
   _manualCenter: {x: 0, y: 0, z: 0}
   _manualSize: {x: 0, y: 0, z: 0}
+--- !u!114 &1252769411
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1252769399}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4009a37478b33f64786f0ca09b9137cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI.OpenCloseInspectionContributor
+  _openCloseState: {fileID: 1252769400}
 --- !u!114 &1252769412
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1150,115 +1303,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1252769399}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6c75d08a6edb2d949800c4675915e271, type: 3}
+  m_Script: {fileID: 11500000, guid: 1e46253e059a3b64e937714fe1f09cec, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::State.OpenCloseState
-  _debugLogging: 0
-  _isOpen: 0
-  _lockState: {fileID: 1252769415}
-  _blockingCollider: {fileID: 1252769402}
-  _manageBlockingCollider: 1
-  _autoCreateBlockingCollider: 1
-  _animator: {fileID: 1252769408}
-  _animIsOpenParam: IsOpen
-  _descriptionCategory: Door
-  _descriptionPriority: 10
---- !u!114 &1252769413
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1252769399}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea13bf41d541684a9e69d94b4570d98, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Interaction.InteractableComponent
-  interactableId: 
-  cooldownSeconds: 0
-  maxUses: 0
-  disableOnSuccess: 0
-  destroyOnSuccess: 0
-  destroyDelaySeconds: 0
-  selectionPriority: 0
-  boundsRenderer: {fileID: 0}
-  manualCenter: {x: 0, y: 0, z: 0}
-  manualSize: {x: 0, y: 0, z: 0}
-  validationStatus: OK
-  validationPassed: 1
-  drawBounds: 0
-  onInteractSuccess:
-    m_PersistentCalls:
-      m_Calls: []
-  onCooldownBlocked:
-    m_PersistentCalls:
-      m_Calls: []
-  onOutOfUses:
-    m_PersistentCalls:
-      m_Calls: []
-  onEnterRange:
-    m_PersistentCalls:
-      m_Calls: []
-  onLeaveRange:
-    m_PersistentCalls:
-      m_Calls: []
-  onInteractFailed:
-    m_PersistentCalls:
-      m_Calls: []
-  usesSoFar: 0
-  lastUseTime: -999
-  lastSuccess: 0
-  isInRange: 0
-  lastRangeEnterTime: -999
-  lastRangeExitTime: -999
-  lastInteractTime: -999
-  lastFailReason: 0
-  stateComponent: {fileID: 0}
---- !u!114 &1252769414
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1252769399}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ddb6912458dac5a45ab0d7bf6b3c8158, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UI.PanelContributorComponent
-  state: {fileID: 1252769412}
---- !u!114 &1252769415
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1252769399}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8cd4ed67d3c57ea4c97464e7237f82c1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::State.LockState
-  _debugLogging: 0
-  _isLocked: 0
-  _animator: {fileID: 1252769408}
-  _animIsLockedParam: IsLocked
-  _descriptionCategory: Door
-  _descriptionPriority: 10
---- !u!114 &1252769416
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1252769399}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ddb6912458dac5a45ab0d7bf6b3c8158, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UI.PanelContributorComponent
-  state: {fileID: 1252769415}
+  m_EditorClassIdentifier: Assembly-CSharp::UI.LockInspectionContributor
+  _lockState: {fileID: 1252769406}
 --- !u!1 &1557330375
 GameObject:
   m_ObjectHideFlags: 0

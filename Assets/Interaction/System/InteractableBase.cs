@@ -30,6 +30,12 @@ namespace Interaction
     /// </summary>
     public abstract class InteractableBase : MonoBehaviour, IInteractable
     {
+        /// <summary>
+        /// The key this interactable wants the interactor to listen for.
+        /// Default is E; override in subclasses if needed.
+        /// </summary>
+        public virtual KeyCode InteractionKey => KeyCode.E;
+
         // ----- Identity -----
         [Header("Identity")]
         [SerializeField] private string interactableId = "";

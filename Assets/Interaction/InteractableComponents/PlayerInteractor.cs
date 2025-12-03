@@ -106,12 +106,24 @@ namespace Interaction
             // 2) Keep debug bools in sync with the current target.
             RefreshGatingDebug(currentTarget);
 
-            // 3) Interact on key press, gated by distance + facing.
-            if (Input.GetKeyDown(interactKey))
+            // 3) Interact on the current target's key, gated by distance + facing.
+            if (currentTarget != null)
             {
-                bool ok = TryInteract();
-                lastInteractSucceeded = ok;
-                lastInteractTime = Time.realtimeSinceStartup;
+                // Per-interactable key, with a fallback to the global interactKey if desired.
+                var key = currentTarget.InteractionKey;
+
+                if (key == KeyCode.None)
+                {
+                    // Optional: treat None as "use the global key", or just skip entirely.
+                    key = interactKey;
+                }
+
+                if (key != KeyCode.None && Input.GetKeyDown(key))
+                {
+                    bool ok = TryInteract();
+                    lastInteractSucceeded = ok;
+                    lastInteractTime = Time.realtimeSinceStartup;
+                }
             }
         }
 
