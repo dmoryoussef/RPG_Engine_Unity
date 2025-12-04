@@ -37,7 +37,7 @@ namespace Interaction
 
                 if (_state == null && !isEditorPhase)
                 {
-                    Debug.LogError(
+                    Debug.Log(
                         $"[{nameof(InteractableComponent)}] No IState found on '{name}'. " +
                         "Assign a component that implements State.IState.",
                         this);

@@ -1,33 +1,26 @@
-﻿using Player;  
-using UI;
+﻿using Player;
 using UnityEngine;
 
 namespace Interaction
 {
     /// <summary>
-    /// Player interactor with point-based mouse hover and color-coded gizmo:
+    /// Player interactor with point-based mouse hover and gizmo:
     ///
     /// Hover:
     /// - Convert mouse position to a world point on z = 0.
     /// - Choose the InteractableBase whose world bounds contain that point.
     /// - Prefer the closest one to the player (and highest SelectionPriority for ties).
-    /// - UpdateCurrentTarget() (from InteractorBase) then fires OnEnterRange / OnLeaveRange.
+    /// - UpdateCurrentTarget() (from InteractorBase) sets the hovered target.
     ///
-    /// Interact:
-    /// - When the interact key is pressed:
-    ///     * Player must be within interactMaxDistance of the target.
-    ///     * Player must be facing the target sufficiently (optional).
-    ///     * Then target.OnInteract() is called.
+    /// Locked:
+    /// - Right-click on a hovered interactable: locks it as lockedTarget.
+    /// - Right-click on empty space: clears lockedTarget.
+    /// - Gating (distance + facing) and gizmos use lockedTarget if present, else hoverTarget.
     ///
-    /// Gizmo:
-    /// - Draws a line from player toward the mouse.
-    /// - Line is GREEN if:
-    ///     * there is a currentTarget, and
-    ///     * distance <= interactMaxDistance, and
-    ///     * facing dot >= interactFacingDotThreshold.
-    /// - Otherwise the line is RED.
-    ///
-    /// No colliders or rigidbodies are required. InteractableBase uses world-space Bounds.
+    /// Input:
+    /// - Each InteractableBase exposes InteractionKey (KeyCode).
+    /// - On key press, we scan interactables on the hovered object first, then on the locked object.
+    /// - Distance + facing gates must pass before calling OnInteract().
     /// </summary>
     [DisallowMultipleComponent]
     public class PlayerInteractor : InteractorBase
@@ -38,10 +31,6 @@ namespace Interaction
 
         [SerializeField, Tooltip("Provides player Facing direction (Vector2) in world space.")]
         private PlayerMover2D mover;
-
-        [Header("Input")]
-        [SerializeField]
-        private KeyCode interactKey = KeyCode.E;
 
         [Header("Interaction Gating")]
         [SerializeField, Tooltip("Maximum distance from player to target to allow interaction.")]
@@ -55,13 +44,13 @@ namespace Interaction
         private Vector2 idleFacing2D = Vector2.down;
 
         [Header("Runtime (Read-Only)")]
-        [SerializeField, Tooltip("Distance from the player to the current hovered target.")]
+        [SerializeField, Tooltip("Distance from the player to the active target (locked or hovered).")]
         private float hoverDistanceFromPlayer = 0f;
 
-        [SerializeField, Tooltip("Is the player currently facing the hovered target sufficiently?")]
+        [SerializeField, Tooltip("Is the player currently facing the active target sufficiently?")]
         private bool facingTarget = false;
 
-        [SerializeField, Tooltip("Is the hovered target within interactMaxDistance?")]
+        [SerializeField, Tooltip("Is the active target within interactMaxDistance?")]
         private bool inRange = false;
 
         [SerializeField, Tooltip("Would an interaction attempt succeed right now (distance + facing)?")]
@@ -72,6 +61,13 @@ namespace Interaction
 
         [SerializeField]
         private float lastInteractTime = -999f;
+
+        [Header("Debug Targets")]
+        [SerializeField, Tooltip("Current hovered interactable (under the mouse).")]
+        private InteractableBase hoverTarget;
+
+        [SerializeField, Tooltip("Last explicitly locked interactable (via right-click).")]
+        private InteractableBase lockedTarget;
 
         private void Awake()
         {
@@ -100,31 +96,89 @@ namespace Interaction
 
         private void Update()
         {
-            // 1) Mouse-driven hover picking (sets currentTarget via InteractorBase).
-            UpdateCurrentTarget();   // uses our overridden TryPick()
+            // 1) Mouse-driven hover picking (InteractorBase sets currentTarget via TryPick()).
+            UpdateCurrentTarget();           // uses our overridden TryPick()
+            hoverTarget = currentTarget;     // cache for inspector clarity
 
-            // 2) Keep debug bools in sync with the current target.
-            RefreshGatingDebug(currentTarget);
-
-            // 3) Interact on the current target's key, gated by distance + facing.
-            if (currentTarget != null)
+            // 2) Right-click lock/unlock (consistent with inspection behavior).
+            if (Input.GetMouseButtonDown(1)) // Right Mouse Button
             {
-                // Per-interactable key, with a fallback to the global interactKey if desired.
-                var key = currentTarget.InteractionKey;
-
-                if (key == KeyCode.None)
+                if (hoverTarget != null)
                 {
-                    // Optional: treat None as "use the global key", or just skip entirely.
-                    key = interactKey;
+                    // Right-click on something → lock it.
+                    lockedTarget = hoverTarget;
                 }
-
-                if (key != KeyCode.None && Input.GetKeyDown(key))
+                else
                 {
-                    bool ok = TryInteract();
-                    lastInteractSucceeded = ok;
-                    lastInteractTime = Time.realtimeSinceStartup;
+                    // Right-click empty space → clear lock.
+                    lockedTarget = null;
                 }
             }
+
+            // 3) Choose an "active" target for debug/gating: locked if present, else hover.
+            var activeTarget = lockedTarget ? lockedTarget : hoverTarget;
+            RefreshGatingDebug(activeTarget);
+
+            // 4) Handle key-driven interactions:
+            //    - First check interactables on the hovered object;
+            //    - If none match, check interactables on the locked object.
+            bool interacted =
+                TryHandleKeyInteractionsForRoot(hoverTarget) ||
+                TryHandleKeyInteractionsForRoot(lockedTarget);
+
+            if (interacted)
+            {
+                lastInteractTime = Time.realtimeSinceStartup;
+            }
+        }
+
+        /// <summary>
+        /// Try to dispatch key presses to interactables attached to the given root.
+        /// Returns true if any interaction was triggered.
+        /// </summary>
+        private bool TryHandleKeyInteractionsForRoot(InteractableBase root)
+        {
+            if (!root)
+                return false;
+
+            // Get all interactables on the same GameObject.
+            var interactables = root.GetComponents<InteractableBase>();
+            if (interactables.Length == 0)
+                interactables = new[] { root }; // safety fallback
+
+            foreach (var it in interactables)
+            {
+                if (!it) continue;
+
+                var key = it.InteractionKey;
+                if (key == KeyCode.None)
+                    continue; // this interactable doesn't respond to keys
+
+                if (Input.GetKeyDown(key))
+                {
+                    bool ok = TryInteractWith(it);
+                    lastInteractSucceeded = ok;
+                    return ok;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Try to interact with a specific interactable, applying distance + facing gates.
+        /// </summary>
+        private bool TryInteractWith(InteractableBase target)
+        {
+            if (!target)
+                return false;
+
+            bool inRangeLocal = IsInRange(target, out _);
+            bool facingOkLocal = IsFacingTarget(target, out _);
+            if (!inRangeLocal || !facingOkLocal)
+                return false;
+
+            return target.OnInteract();
         }
 
         /// <summary>
@@ -151,7 +205,7 @@ namespace Interaction
                 facingDot: dot,
                 facingThreshold: interactFacingDotThreshold,
                 canInteract: canInteractLocal,
-                lastFailReason: null // can be filled later by interactable if desired
+                lastFailReason: null
             );
         }
 
@@ -159,9 +213,6 @@ namespace Interaction
         //  PICKING: point-based mouse hover (no rayDistance)
         // =====================================================================
 
-        /// <summary>
-        /// Player position on z=0 plane, used for distance + gizmo.
-        /// </summary>
         protected override Vector3 GetOrigin()
         {
             Vector3 p = transform.position;
@@ -169,10 +220,6 @@ namespace Interaction
             return p;
         }
 
-        /// <summary>
-        /// For gizmos only: direction from player toward mouse on the gameplay plane.
-        /// Hover picking itself is done by Bounds.Contains(mouseWorld).
-        /// </summary>
         protected override Vector3 GetFacingDir()
         {
             if (!TryGetMouseWorldOnPlane(out var mouseWorld))
@@ -187,35 +234,22 @@ namespace Interaction
             return dir.normalized;
         }
 
-        /// <summary>
-        /// OVERRIDE: point-based picking under the mouse, independent of rayDistance.
-        /// - Converts mouse position to a world point on z=0.
-        /// - Chooses the InteractableBase whose bounds contain that point.
-        /// - Prefers closest to player (and SelectionPriority for ties).
-        /// </summary>
         public override bool TryPick(out InteractableBase target, out float distance)
         {
             target = null;
             distance = float.MaxValue;
 
-            // Get mouse world point on the gameplay plane.
             if (!TryGetMouseWorldOnPlane(out var mouseWorld))
                 return false;
 
-            Vector3 playerPos = GetOrigin(); // player position flattened to z=0
+            Vector3 playerPos = GetOrigin();
 
-            // For gizmo/debug line: store lastOrigin/lastDir so InteractorBase can draw.
             UpdateLastRayDebug(playerPos, mouseWorld);
 
-            // Choose the best interactable at the mouse point.
             target = FindBestCandidateAtPoint(mouseWorld, playerPos, out distance);
             return target != null;
         }
 
-        /// <summary>
-        /// Convert mouse screen position to world position on the z = 0 plane.
-        /// Returns false if no camera or ray-plane intersection fails.
-        /// </summary>
         private bool TryGetMouseWorldOnPlane(out Vector3 mouseWorld)
         {
             mouseWorld = Vector3.zero;
@@ -237,9 +271,6 @@ namespace Interaction
             return true;
         }
 
-        /// <summary>
-        /// Update the lastOrigin / lastDir fields used by InteractorBase for gizmos.
-        /// </summary>
         private void UpdateLastRayDebug(Vector3 origin, Vector3 point)
         {
             lastOrigin = origin;
@@ -251,10 +282,6 @@ namespace Interaction
             lastDir = dir.normalized;
         }
 
-        /// <summary>
-        /// Scan registry candidates and return the best interactable whose bounds
-        /// contain the given world-space point. "Best" = closest to player, then by SelectionPriority.
-        /// </summary>
         private InteractableBase FindBestCandidateAtPoint(Vector3 point, Vector3 playerPos, out float bestDistance)
         {
             _pool.Clear();
@@ -274,11 +301,9 @@ namespace Interaction
             {
                 Bounds b = it.GetWorldBounds();
 
-                // Check if mouse is inside this interactable's bounds.
                 if (!b.Contains(point))
                     continue;
 
-                // Distance from player to this interactable (for gating later).
                 float playerDist = Vector3.Distance(playerPos, it.transform.position);
 
                 bool better =
@@ -300,20 +325,14 @@ namespace Interaction
         //  INTERACTING: distance + facing gates
         // =====================================================================
 
-        /// <summary>
-        /// Uses:
-        /// - currentTarget (set by hover)
-        /// - player → target distance (interactMaxDistance)
-        /// - mover.Facing vs direction to target (interactFacingDotThreshold)
-        /// Only then calls target.OnInteract().
-        /// </summary>
         public override bool TryInteract()
         {
-            var target = currentTarget;
+            // Use lockedTarget if present, else fall back to hoverTarget.
+            var target = lockedTarget ? lockedTarget : hoverTarget;
 
             if (!target)
             {
-                // Fallback: if hover target wasn't set, we can still try a one-off pick.
+                // Fallback: if neither is set, try a one-off pick.
                 if (!TryPick(out target, out _))
                 {
                     lastPicked = "<none>";
@@ -323,7 +342,6 @@ namespace Interaction
 
             lastPicked = target.InteractableId ?? target.name;
 
-            // Evaluate gates (and keep debug fields in sync).
             bool inRangeLocal = IsInRange(target, out float dist);
             bool facingOkLocal = IsFacingTarget(target, out _);
 
@@ -335,13 +353,14 @@ namespace Interaction
             if (!canInteract)
                 return false;
 
-            // All gates passed: actually interact.
-            return target.OnInteract();
+            bool ok = target.OnInteract();
+            lastInteractSucceeded = ok;
+            if (ok)
+                lastInteractTime = Time.realtimeSinceStartup;
+
+            return ok;
         }
 
-        /// <summary>
-        /// Distance gate: returns true if target is within interactMaxDistance.
-        /// </summary>
         private bool IsInRange(InteractableBase target, out float distance)
         {
             distance = 0f;
@@ -356,10 +375,6 @@ namespace Interaction
             return distance <= interactMaxDistance;
         }
 
-        /// <summary>
-        /// Facing gate: returns true if the player's facing direction is
-        /// sufficiently aligned with the direction to the target.
-        /// </summary>
         private bool IsFacingTarget(InteractableBase target, out float dot)
         {
             dot = 0f;
@@ -376,7 +391,6 @@ namespace Interaction
 
             if (toTarget.sqrMagnitude < 1e-6f)
             {
-                // Same position – treat as always facing.
                 dot = 1f;
                 return true;
             }
@@ -388,11 +402,6 @@ namespace Interaction
             return dot >= interactFacingDotThreshold;
         }
 
-        /// <summary>
-        /// Centralized helper to keep hoverDistanceFromPlayer / inRange /
-        /// facingTarget / canInteract in sync with the current target.
-        /// Called from Update(), but also used implicitly via TryInteract().
-        /// </summary>
         private void RefreshGatingDebug(InteractableBase target)
         {
             if (!target)
@@ -414,16 +423,9 @@ namespace Interaction
         }
 
         // =====================================================================
-        //  GIZMOS: red/green line for range + facing correctness
+        //  GIZMOS
         // =====================================================================
 
-        /// <summary>
-        /// Draws a line from the player toward the mouse:
-        /// - GREEN if we have a currentTarget and both:
-        ///     * distance <= interactMaxDistance
-        ///     * facing dot >= interactFacingDotThreshold
-        /// - RED otherwise.
-        /// </summary>
         protected override void OnDrawGizmosSelected()
         {
             if (!drawGizmos)
@@ -432,27 +434,25 @@ namespace Interaction
             Vector3 playerPos = transform.position;
             playerPos.z = 0f;
 
-            // Compute mouse world position on z = 0 plane.
-            Vector3 mouseWorld = playerPos + Vector3.right * 2f; // safe fallback
+            Vector3 mouseWorld = playerPos + Vector3.right * 2f;
             if (TryGetMouseWorldOnPlane(out var hit))
             {
                 mouseWorld = hit;
             }
 
             bool gizmoCanInteract = false;
+            var gizmoTarget = lockedTarget ? lockedTarget : hoverTarget;
 
-            if (currentTarget != null)
+            if (gizmoTarget != null)
             {
                 if (Application.isPlaying)
                 {
-                    // In play mode, just mirror the debug fields from Update().
                     gizmoCanInteract = canInteract;
                 }
                 else
                 {
-                    // In edit mode, recompute quickly so the scene view is meaningful.
-                    bool inRangeLocal = IsInRange(currentTarget, out _);
-                    bool facingOkLocal = IsFacingTarget(currentTarget, out _);
+                    bool inRangeLocal = IsInRange(gizmoTarget, out _);
+                    bool facingOkLocal = IsFacingTarget(gizmoTarget, out _);
                     gizmoCanInteract = inRangeLocal && facingOkLocal;
                 }
             }

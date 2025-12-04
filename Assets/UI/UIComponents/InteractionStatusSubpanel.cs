@@ -12,10 +12,16 @@ namespace UI
     /// (range + facing + canInteract + reason).
     ///
     /// Behavior:
-    /// - OnPopulate: reads initial InteractionInfo from context just to discover
-    ///   the interactor and interactable roots.
-    /// - Each frame while open: calls interactor.BuildGateInfo(interactable)
-    ///   to get fresh gating info and updates the labels.
+    /// - OnPopulate: reads InteractionInfo from the context to discover the
+    ///   interactor and interactable roots. If none, it hides its own UI but
+    ///   does NOT affect the overall inspection panel root.
+    /// - OnOpen: if we have valid wiring, shows the panel and forces an immediate
+    ///   refresh; otherwise hides itself.
+    /// - Update: while open and wired, polls the PlayerInteractor for a fresh
+    ///   InteractionGateInfo each frame and updates the labels.
+    ///
+    /// This subpanel MUST NOT deactivate the InspectionPanelRoot. It only
+    /// toggles its own _rootContainer.
     /// </summary>
     public sealed class InteractionStatusSubpanel : MonoBehaviour, IInspectionSubpanel
     {
@@ -24,28 +30,22 @@ namespace UI
         private GameObject _rootContainer;
 
         [Header("Labels")]
-        [SerializeField]
-        private TMP_Text _targetingEntityLabel;
+        [SerializeField] private TMP_Text _targetingEntityLabel;
+        [SerializeField] private TMP_Text _distanceLabel;
+        [SerializeField] private TMP_Text _facingLabel;
+        [SerializeField] private TMP_Text _canInteractLabel;
+        [SerializeField] private TMP_Text _reasonLabel;
 
-        [SerializeField]
-        private TMP_Text _distanceLabel;
-
-        [SerializeField]
-        private TMP_Text _facingLabel;
-
-        [SerializeField]
-        private TMP_Text _canInteractLabel;
-
-        [SerializeField]
-        private TMP_Text _reasonLabel;
+        [Header("Icon")]
+        [SerializeField] private Image _canInteractIcon;
+        [SerializeField] private Sprite _canInteractSprite;
+        [SerializeField] private Sprite _cannotInteractSprite;
 
         [Header("Visuals")]
-        [SerializeField]
-        private Color _canInteractColor = Color.green;
+        [SerializeField] private Color _canInteractColor = Color.green;
+        [SerializeField] private Color _cannotInteractColor = Color.red;
 
-        [SerializeField]
-        private Color _cannotInteractColor = Color.red;
-
+        // Runtime state
         private bool _isOpen;
 
         // Cached wiring discovered via context.InteractionInfo
@@ -54,7 +54,9 @@ namespace UI
 
         private void Awake()
         {
-            if (!_rootContainer)
+            // Default to our own GameObject if no explicit container is assigned,
+            // but we still guard against accidentally turning off the panel root.
+            if (_rootContainer == null)
                 _rootContainer = gameObject;
 
             SetVisible(false);
@@ -67,7 +69,6 @@ namespace UI
 
         public void OnPopulate(InspectionData data, InspectionPanelContext context)
         {
-            // Reset caches
             _interactor = null;
             _interactable = null;
 
@@ -88,26 +89,25 @@ namespace UI
                 return;
             }
 
-            // Try to cache the live components from the roots.
-            if (info.InteractorRoot)
+            // Cache interactor / interactable roots from the snapshot.
+            // (These are GameObjects; we want the components.)
+            if (info.InteractorRoot != null)
                 _interactor = info.InteractorRoot.GetComponentInParent<PlayerInteractor>();
 
-            if (info.InteractableRoot)
+            if (info.InteractableRoot != null)
                 _interactable = info.InteractableRoot.GetComponentInParent<InteractableBase>();
 
-            // If we can't find both, hide.
-            if (_interactor == null || _interactable == null)
-            {
-                ClearLabels();
-                SetVisible(false);
-                return;
-            }
-
             // If we are already open, immediately show a first update.
-            if (_isOpen)
+            if (_isOpen && _interactor != null && _interactable != null)
             {
                 SetVisible(true);
                 RefreshFromInteractor();
+            }
+            else
+            {
+                // We have interaction info in the snapshot but couldn't resolve components;
+                // hide just this subpanel.
+                SetVisible(false);
             }
         }
 
@@ -144,7 +144,6 @@ namespace UI
             if (_interactor == null || _interactable == null)
             {
                 SetVisible(false);
-                ClearLabels();
                 return;
             }
 
@@ -153,18 +152,22 @@ namespace UI
 
         private void RefreshFromInteractor()
         {
-            // Ask the interactor for fresh gating data.
-            InteractionGateInfo info = _interactor.BuildGateInfo(_interactable);
-
-            // If either root is missing, hide.
-            if (!info.HasInteractor || !info.HasInteractable)
+            if (_interactor == null || _interactable == null)
             {
                 SetVisible(false);
-                ClearLabels();
                 return;
             }
 
-            // Ensure we're visible while we have valid data.
+            var info = _interactor.BuildGateInfo(_interactable);
+
+            // If we somehow lost interaction context, just hide our own UI.
+            if (!info.HasInteractor || !info.HasInteractable)
+            {
+                ClearLabels();
+                SetVisible(false);
+                return;
+            }
+
             SetVisible(true);
             PopulateLabels(info);
         }
@@ -175,8 +178,24 @@ namespace UI
 
         private void SetVisible(bool visible)
         {
-            if (_rootContainer)
-                _rootContainer.SetActive(visible);
+            if (_rootContainer == null)
+                return;
+
+            // Safety: never let this subpanel turn off the entire inspection panel root.
+            var panelRoot = _rootContainer.GetComponent<InspectionPanelRoot>() ??
+                            _rootContainer.GetComponentInParent<InspectionPanelRoot>();
+
+            if (!visible && panelRoot != null && _rootContainer == panelRoot.gameObject)
+            {
+                Debug.LogWarning(
+                    $"{nameof(InteractionStatusSubpanel)} on '{name}' " +
+                    "was asked to hide its Root Container, but that container is the " +
+                    "InspectionPanelRoot. Assign a child GameObject as the Root Container instead.",
+                    this);
+                return;
+            }
+
+            _rootContainer.SetActive(visible);
         }
 
         private void ClearLabels()
@@ -186,6 +205,12 @@ namespace UI
             if (_facingLabel) _facingLabel.text = string.Empty;
             if (_canInteractLabel) _canInteractLabel.text = string.Empty;
             if (_reasonLabel) _reasonLabel.text = string.Empty;
+
+            if (_canInteractIcon)
+            {
+                _canInteractIcon.enabled = false;
+                _canInteractIcon.sprite = null;
+            }
         }
 
         private void PopulateLabels(InteractionGateInfo info)
@@ -194,60 +219,62 @@ namespace UI
             if (_targetingEntityLabel)
             {
                 string name = info.InteractorRoot ? info.InteractorRoot.name : "Unknown";
-                _targetingEntityLabel.text = $"Targeting: {name}";
+                _targetingEntityLabel.text = name;
             }
 
-            // Distance
+            // Distance (we just always show Distance; you can clamp/format as needed)
             if (_distanceLabel)
             {
-                string rangeText = info.MaxDistance > 0f
-                    ? $"{info.Distance:0.00} / {info.MaxDistance:0.00}"
-                    : $"{info.Distance:0.00}";
-
-                string stateText = info.InRange ? "in range" : "out of range";
-                _distanceLabel.text = $"Distance: {rangeText} ({stateText})";
+                _distanceLabel.text = info.InRange
+                    ? $"{info.Distance:0.0}m"
+                    : $"{info.Distance:0.0}m (out of range)";
             }
 
             // Facing
             if (_facingLabel)
             {
-                string facingState = info.FacingOk ? "facing" : "not facing";
-                _facingLabel.text =
-                    $"Facing: {facingState} (dot {info.FacingDot:0.00} / {info.FacingThreshold:0.00})";
+                _facingLabel.text = info.FacingOk
+                    ? $"{info.FacingDot:0.00}"
+                    : $"{info.FacingDot:0.00} (bad facing)";
             }
 
-            // CanInteract
+            bool canInteract = info.CanInteract;
+
+            // Can interact text + color
             if (_canInteractLabel)
             {
-                _canInteractLabel.text = info.CanInteract ? "Can Interact" : "Cannot Interact";
-                _canInteractLabel.color = info.CanInteract ? _canInteractColor : _cannotInteractColor;
+                _canInteractLabel.text = canInteract ? "Can interact" : "Cannot interact";
+                _canInteractLabel.color = canInteract ? _canInteractColor : _cannotInteractColor;
             }
 
-            // Reason
+            // Reason (nullable)
             if (_reasonLabel)
             {
-                _reasonLabel.text = BuildReasonLine(info);
+                if (!canInteract && info.LastFailReason.HasValue)
+                    _reasonLabel.text = GetReasonText(info.LastFailReason.Value);
+                else
+                    _reasonLabel.text = string.Empty;
+            }
+
+            // Icon
+            if (_canInteractIcon)
+            {
+                _canInteractIcon.enabled = true;
+                _canInteractIcon.sprite = canInteract ? _canInteractSprite : _cannotInteractSprite;
+                _canInteractIcon.color = canInteract ? _canInteractColor : _cannotInteractColor;
             }
         }
 
-        private static string BuildReasonLine(InteractionGateInfo info)
+        private string GetReasonText(InteractionFailReason reason)
         {
-            if (info.CanInteract)
-                return "Ready to interact.";
-
-            if (!info.LastFailReason.HasValue)
+            switch (reason)
             {
-                if (!info.InRange && !info.FacingOk)
-                    return "Out of range and not facing the target.";
-                if (!info.InRange)
-                    return "Out of range.";
-                if (!info.FacingOk)
-                    return "Not facing the target.";
-                return "Interaction blocked.";
-            }
-
-            switch (info.LastFailReason.Value)
-            {
+                case InteractionFailReason.None:
+                    return string.Empty;
+                case InteractionFailReason.OutOfRange:
+                    return "Too far away.";
+                case InteractionFailReason.NotFacing:
+                    return "Not facing target.";
                 case InteractionFailReason.Cooldown:
                     return "On cooldown.";
                 case InteractionFailReason.OutOfUses:

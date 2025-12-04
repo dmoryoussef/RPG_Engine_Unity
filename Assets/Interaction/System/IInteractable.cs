@@ -22,6 +22,8 @@ namespace Interaction
         Locked,
         Blocked,
         AlreadyInDesiredState,
+        OutOfRange,
+        NotFacing,
 
         // Catch-all bucket when nothing more specific is set.
         Other

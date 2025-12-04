@@ -78,8 +78,9 @@ namespace UI
                 }
             }
 
-            // NEW: pass the inspector through so the root can resolve the interactor.
+            // pass the inspector through so the root can resolve the interactor.
             _activePanel.Show(data, _inspector);
+            Debug.Log("Showing inspection panel.");
         }
 
         private void HandleInspectionCleared()

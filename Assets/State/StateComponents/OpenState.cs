@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using UnityEngine;
 
 namespace State
@@ -11,14 +11,15 @@ namespace State
         Closed,
         AlreadyOpen,
         AlreadyClosed,
-        FailedLocked,
-        Failed
+        Failed,        // generic failure
+        FailedBlocked, // blocked (non-lock or unknown reason)
+        FailedLocked   // specifically blocked by "locked"
     }
 
     /// <summary>
     /// Owns the door/chest/etc. open/closed state.
     /// Handles collider blocking, animation, and change events.
-    /// Optionally observes a LockState to guard changes.
+    /// Blockers are configured via BaseState._blockingStates.
     /// </summary>
     [DisallowMultipleComponent]
     public class OpenCloseState : BaseState
@@ -26,11 +27,6 @@ namespace State
         [Header("State")]
         [SerializeField] private bool _isOpen = false;
         public bool IsOpen => _isOpen;
-
-        [Header("Optional Lock")]
-        [Tooltip("If assigned/found, changing state will fail while locked.")]
-        [SerializeField] private LockState _lockState;
-        public bool IsLocked => _lockState && _lockState.IsLocked;
 
         [Header("Blocking (auto-setup)")]
         [Tooltip("Enabled when CLOSED, disabled when OPEN. Auto-created if missing.")]
@@ -57,9 +53,6 @@ namespace State
 
         private void Awake()
         {
-            if (!_lockState)
-                _lockState = GetComponentInParent<LockState>(true);
-
             EnsureBlockingCollider();
             EnsureAnimator();
             ApplyBlocking();
@@ -69,9 +62,6 @@ namespace State
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            if (!_lockState)
-                _lockState = GetComponentInParent<LockState>(true);
-
             EnsureBlockingCollider();
             EnsureAnimator();
             ApplyBlocking();
@@ -83,12 +73,21 @@ namespace State
 
         /// <summary>
         /// Request a state change with a specific action.
-        /// Lock checks are internal and will return FailedLocked when applicable.
+        /// Block checks are handled by BaseState.CheckBlockers().
         /// </summary>
         public OpenCloseResult TryStateChange(OpenCloseAction action)
         {
-            if (IsLocked)
-                return OpenCloseResult.FailedLocked;
+            // Generic blocking hook via BaseState.
+            var block = CheckBlockers();
+            if (!block.IsSuccess)
+            {
+                // If any blocker reported the canonical "locked" reason key,
+                // preserve that as a distinct enum value for UX / quest logic.
+                if (block.Status == StateStatus.Blocked && block.Message == "locked")
+                    return OpenCloseResult.FailedLocked;
+
+                return OpenCloseResult.FailedBlocked;
+            }
 
             bool desiredOpen = action switch
             {
@@ -110,7 +109,7 @@ namespace State
             // Domain-specific detailed event
             OnIsOpenChanged?.Invoke(old, _isOpen);
 
-            // Generic BaseState “something changed” hook (for inspection, etc.)
+            // Generic BaseState â€œsomething changedâ€ hook (for inspection, etc.)
             NotifyStateChanged();
 
             return _isOpen ? OpenCloseResult.Opened : OpenCloseResult.Closed;
@@ -139,6 +138,9 @@ namespace State
 
                 OpenCloseResult.FailedLocked =>
                     StateResult.Blocked("locked"),
+
+                OpenCloseResult.FailedBlocked =>
+                    StateResult.Blocked("blocked"),
 
                 _ =>
                     StateResult.Fail("failed")
@@ -210,7 +212,5 @@ namespace State
             box.size = b.size;
             box.offset = b.center;
         }
-
-        public void SetLockState(LockState lockState) => _lockState = lockState;
     }
 }

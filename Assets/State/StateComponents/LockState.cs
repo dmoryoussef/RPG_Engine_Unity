@@ -110,6 +110,24 @@ namespace State
             return Report(generic);
         }
 
+        // ---------------- Blocking ----------------
+
+        /// <summary>
+        /// While locked, this state blocks any states that reference it in their _blockingStates list.
+        /// Reason key: "locked".
+        /// </summary>
+        public override bool IsBlocking(BaseState target, out string reasonKey)
+        {
+            if (_isLocked)
+            {
+                reasonKey = "locked";
+                return true;
+            }
+
+            reasonKey = null;
+            return false;
+        }
+
         // ---------------- Description (for PanelContributorComponent) ----------------
 
         public override string GetDescriptionText()

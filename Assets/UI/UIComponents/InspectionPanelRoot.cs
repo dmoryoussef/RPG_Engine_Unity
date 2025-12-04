@@ -136,6 +136,8 @@ namespace UI
 
         private void SetRootActive(bool active)
         {
+            Debug.Log($"[PanelRoot] SetRootActive({active}) on {name}", this);
+
             if (_rootObject != null && _rootObject.activeSelf != active)
                 _rootObject.SetActive(active);
         }
@@ -225,24 +227,24 @@ namespace UI
                     contributor.ContributeToPanel(ctx);
                 }
 
-                // After normal contributors, let the current interactor
+                //After normal contributors, let the current interactor
                 // provide interaction gating info if available.
                 if (_currentInspector is Component inspectorComponent)
-                {
-                    var inspectorRoot = inspectorComponent.gameObject;
-                    var interactor = inspectorRoot.GetComponentInParent<PlayerInteractor>();
-                    if (interactor != null)
                     {
-                        var interactable = data.TargetRoot.GetComponentInParent<InteractableBase>();
-                        if (interactable != null)
+                        var inspectorRoot = inspectorComponent.gameObject;
+                        var interactor = inspectorRoot.GetComponentInParent<PlayerInteractor>();
+                        if (interactor != null)
                         {
-                            // Ask the interactor for a pure data snapshot...
-                            var gateInfo = interactor.BuildGateInfo(interactable);
-                            // ...and attach it to the context in its dedicated slot.
-                            ctx.SetInteractionInfo(gateInfo);
+                            var interactable = data.TargetRoot.GetComponentInParent<InteractableBase>();
+                            if (interactable != null)
+                            {
+                                // Ask the interactor for a pure data snapshot...
+                                var gateInfo = interactor.BuildGateInfo(interactable);
+                                // ...and attach it to the context in its dedicated slot.
+                                ctx.SetInteractionInfo(gateInfo);
+                            }
                         }
                     }
-                }
 
             }
 

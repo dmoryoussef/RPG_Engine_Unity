@@ -1936,12 +1936,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fad9517ff7ae9d942b23f33525a3ceb0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UI.InteractionStatusSubpanel
-  _rootContainer: {fileID: 4956535343914805918}
+  _rootContainer: {fileID: 7566844889525549945}
   _targetingEntityLabel: {fileID: 7173669350078595879}
   _distanceLabel: {fileID: 5684744498052893888}
   _facingLabel: {fileID: 5684691431353126059}
   _canInteractLabel: {fileID: 8306738869703686966}
   _reasonLabel: {fileID: 4958997668366578055}
+  _canInteractIcon: {fileID: 0}
+  _canInteractSprite: {fileID: 0}
+  _cannotInteractSprite: {fileID: 0}
   _canInteractColor: {r: 0, g: 1, b: 0, a: 1}
   _cannotInteractColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!1 &8269493727879978242

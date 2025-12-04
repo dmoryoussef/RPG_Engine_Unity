@@ -13,14 +13,16 @@ namespace State
 
     /// <summary>
     /// Generic result of a state-change attempt, agnostic of specific systems.
+    /// Message is a reason key or detail string ("opened", "locked", "jammed", etc.).
     /// </summary>
     public readonly struct StateResult
     {
         public readonly StateStatus Status;
-        public readonly string Message; // state-specific text or key
+        public readonly string Message;
 
         public bool IsSuccess => Status == StateStatus.Success;
         public bool IsAlreadyInState => Status == StateStatus.AlreadyInDesiredState;
+        public bool IsBlocked => Status == StateStatus.Blocked;
 
         public StateResult(StateStatus status, string message = null)
         {
@@ -52,13 +54,17 @@ namespace State
 
     /// <summary>
     /// Shared base for interactable state components.
-    /// Gives you debug and a common interaction hook.
+    /// Gives you debug, description, blocking, and a common interaction hook.
     /// Purely optional – non-interactable states don't need to inherit.
     /// </summary>
     public abstract class BaseState : MonoBehaviour, IState
     {
         [Header("State Debug")]
         [SerializeField] protected bool _debugLogging = false;
+
+        [Header("Blocking")]
+        [Tooltip("States that can block this state from changing.")]
+        [SerializeField] protected BaseState[] _blockingStates;
 
         /// <summary>
         /// Fired whenever this state runs its interaction-facing TryStateChange().
@@ -79,10 +85,56 @@ namespace State
 
         public override string ToString() => base.ToString();
 
+        /// <summary>
+        /// Generic hook: ask all configured blocking states if they are blocking us.
+        /// Returns Blocked(reasonKey) if any blocker says yes; otherwise Success().
+        /// NOTE: no logging here — Report() handles standardized debug output.
+        /// </summary>
+        protected StateResult CheckBlockers()
+        {
+            if (_blockingStates == null || _blockingStates.Length == 0)
+                return StateResult.Succeed();
+
+            foreach (var other in _blockingStates)
+            {
+                if (!other) continue;
+
+                if (other.IsBlocking(this, out var reasonKey))
+                {
+                    var message = string.IsNullOrEmpty(reasonKey) ? "blocked" : reasonKey;
+                    return StateResult.Blocked(message);
+                }
+            }
+
+            return StateResult.Succeed();
+        }
+
+        /// <summary>
+        /// Override in states that can block other states.
+        /// Default: this state never blocks anything.
+        /// </summary>
+        public virtual bool IsBlocking(BaseState target, out string reasonKey)
+        {
+            reasonKey = null;
+            return false;
+        }
+
+        /// <summary>
+        /// Standardized debug + event hook for ALL interaction attempts
+        /// (success, already, failed, blocked).
+        /// Call this at the end of TryStateChange() in derived classes.
+        /// </summary>
         protected StateResult Report(StateResult result)
         {
-            if (_debugLogging && !string.IsNullOrEmpty(result.Message))
-                Debug.Log($"[{GetType().Name}] {name}: {result.Message}", this);
+            if (_debugLogging)
+            {
+                var hasMessage = !string.IsNullOrEmpty(result.Message);
+                var msgPart = hasMessage ? $" ({result.Message})" : string.Empty;
+
+                Debug.Log(
+                    $"[{GetType().Name}] {name}: {result.Status}{msgPart}",
+                    this);
+            }
 
             OnInteractionAttempted?.Invoke(this, result);
             return result;
@@ -97,5 +149,4 @@ namespace State
             OnStateChanged?.Invoke(this);
         }
     }
-    
 }
