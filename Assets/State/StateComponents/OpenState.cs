@@ -79,6 +79,7 @@ namespace State
         {
             // Generic blocking hook via BaseState.
             var block = CheckBlockers();
+            // TODO:: only block with lock if door is closed
             if (!block.IsSuccess)
             {
                 // If any blocker reported the canonical "locked" reason key,

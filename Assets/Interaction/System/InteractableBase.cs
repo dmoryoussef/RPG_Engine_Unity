@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.Events;
-using System.Collections.Generic;
+using Logging;
 
 #if UNITY_EDITOR
 using UnityEditor.SceneManagement;
@@ -14,39 +14,32 @@ namespace Interaction
     /// - NO Collider2D or Rigidbody requirement.
     /// - Selection is done via InteractorBase → RayTest → Bounds.IntersectRay.
     /// - Cooldown / max uses handled here.
-    /// - UnityEvents for success/failure, plus overridable virtual hooks.
-    ///
-    /// 🔧 HOW TO USE (TUTORIAL):
-    /// 1. Inherit from InteractableBase.
-    /// 2. Implement DoInteract() to perform your logic and return true/false.
-    /// 3. Optionally override:
-    ///      - OnEnterRange / OnLeaveRange      → show/hide prompts, highlights.
-    ///      - OnInteractionSucceeded           → play SFX, send events.
-    ///      - OnInteractionFailed(reason)      → show error barks / UI.
-    /// 4. In the Inspector:
-    ///      - Set cooldownSeconds / maxUses as needed.
-    ///      - Wire onInteractSuccess / onCooldownBlocked / onOutOfUses /
-    ///        onInteractFailed / onEnterRange / onLeaveRange events.
+    /// - UnityEvents and overridable hooks for interaction + range.
     /// </summary>
-    public abstract class InteractableBase : MonoBehaviour, IInteractable
+    public abstract class InteractableBase : MonoBehaviour
     {
-        /// <summary>
-        /// The key this interactable wants the interactor to listen for.
-        /// Default is E; override in subclasses if needed.
-        /// </summary>
-        public virtual KeyCode InteractionKey => KeyCode.E;
+        // =====================================================================
+        //  IDENTITY
+        // =====================================================================
 
-        // ----- Identity -----
         [Header("Identity")]
-        [SerializeField] private string interactableId = "";
+        [SerializeField, Tooltip("Optional ID used for debugging / analytics / save data. Leave empty to use GameObject.name.")]
+        private string interactableId = "";
+
+        /// <summary>
+        /// Optional identifier for this interactable. If empty, use GameObject.name.
+        /// </summary>
         public string InteractableId => interactableId;
 
-        // ----- Rules -----
+        // =====================================================================
+        //  RULES
+        // =====================================================================
+
         [Header("Rules")]
-        [SerializeField, Tooltip("Seconds between successful interactions.")]
+        [SerializeField, Tooltip("Seconds between successful interactions. 0 = no cooldown.")]
         private float cooldownSeconds = 0f;
 
-        [SerializeField, Tooltip("0 = infinite uses.")]
+        [SerializeField, Tooltip("Maximum number of successful uses. 0 = infinite.")]
         private int maxUses = 0;
 
         [SerializeField, Tooltip("Disable this GameObject after a successful interaction.")]
@@ -58,33 +51,60 @@ namespace Interaction
         [SerializeField, Tooltip("Delay before destruction when DestroyOnSuccess is true.")]
         private float destroyDelaySeconds = 0f;
 
-        // Optional selection priority (used by InteractorBase picker)
+        /// <summary>
+        /// Default key this interactable wants the interactor to listen for.
+        /// PlayerInteractor inspects this in TryHandleKeyInteractionsForRoot.
+        /// </summary>
+        public virtual KeyCode InteractionKey => KeyCode.E;
+
+        // =====================================================================
+        //  SELECTION & BOUNDS
+        // =====================================================================
+
         [Header("Selection")]
         [SerializeField, Tooltip("Higher wins when choosing between overlapping targets.")]
         private float selectionPriority = 0f;
+
+        /// <summary>
+        /// Used by InteractorBase when multiple interactables overlap.
+        /// Higher values are preferred.
+        /// </summary>
         public float SelectionPriority => selectionPriority;
 
-        // ----- Bounds source for ray tests -----
-        [Header("Bounds Source")]
-        [SerializeField, Tooltip(
-            "If set, use this renderer's bounds for ray hit-testing.\n" +
-            "If null, auto-pick the first Renderer on this object or its children.\n" +
-            "If still null, falls back to a small box around transform.")]
+        [Header("Bounds")]
+        [SerializeField, Tooltip("Optional renderer used to derive world-space bounds. If null, we'll auto-find one.")]
         private Renderer boundsRenderer;
 
-        [SerializeField, Tooltip("Optional manual bounds override (local space).")]
+        [SerializeField, Tooltip("Manual local center override for bounds. Zero = unused.")]
         private Vector3 manualCenter = Vector3.zero;
 
-        [SerializeField, Tooltip("Optional manual bounds size (local space). Leave zero to ignore.")]
+        [SerializeField, Tooltip("Manual local size override for bounds. Zero = unused.")]
         private Vector3 manualSize = Vector3.zero;
 
-        // ----- Debug & Validation -----
+        // =====================================================================
+        //  DEBUG / VALIDATION / LOGGING
+        // =====================================================================
+
         [Header("Debug & Validation")]
         [SerializeField] private string validationStatus = "Not validated";
         [SerializeField] private bool validationPassed = true;
         [SerializeField] private bool drawBounds = false;
 
-        // ----- Events -----
+        [Header("Logging")]
+        [SerializeField, Tooltip("If true, logs interaction gates and results via GameLog.")]
+        private bool debugLogging = false;
+
+        /// <summary>
+        /// Protected accessor so derived classes can opt into the same debug flag.
+        /// </summary>
+        protected bool DebugLogging => debugLogging;
+
+        private const string SystemTag = "Interactable";
+
+        // =====================================================================
+        //  EVENTS
+        // =====================================================================
+
         [Header("Interaction Events")]
         [SerializeField] private UnityEvent onInteractSuccess;
         [SerializeField] private UnityEvent onCooldownBlocked;
@@ -101,59 +121,96 @@ namespace Interaction
         [SerializeField, Tooltip("Fired on any non-specific interaction failure (including 'Other').")]
         private UnityEvent onInteractFailed;
 
-        // ----- Runtime (Read-Only) -----
+        // =====================================================================
+        //  RUNTIME (READ-ONLY)
+        // =====================================================================
+
         [Header("Runtime (Read-Only)")]
         [SerializeField] private int usesSoFar = 0;
         [SerializeField] private float lastUseTime = -999f;
         [SerializeField] private bool lastSuccess;
-
+        [SerializeField] private InteractionFailReason lastFailReason = InteractionFailReason.None;
         [SerializeField] private bool isInRange;
         [SerializeField] private float lastRangeEnterTime = -999f;
-        [SerializeField] private float lastRangeExitTime = -999f;
-        [SerializeField] private float lastInteractTime = -999f;
-        [SerializeField] private InteractionFailReason lastFailReason = InteractionFailReason.None;
 
-        // ----- Template contract -----
-        /// <summary>
-        /// Implement your game logic here.
-        /// Return true on success, false on failure.
-        /// - Do NOT apply cooldown/uses logic in here; that is handled by OnInteract().
-        /// - If you want a specific fail reason, call OnInteractionFailed(reason)
-        ///   before returning false.
-        /// </summary>
-        protected abstract bool DoInteract();
+        public bool IsInRange => isInRange;
+        public int UsesSoFar => usesSoFar;
+        public bool LastSuccess => lastSuccess;
+        public InteractionFailReason LastFailReason => lastFailReason;
 
-        /// <summary>
-        /// Extra validation for subclasses. Called from SoftValidate().
-        /// </summary>
-        protected virtual void ValidateExtra(bool isEditorPhase) { }
-
-        /// <summary>
-        /// Candidate provider.
-        /// Override this if you want zone-based or manually-curated sets.
-        /// By default, uses the global InteractableRegistry.
-        /// </summary>
-        protected virtual IEnumerable<InteractableBase> GetCandidates()
-        {
-            return InteractableRegistry.All;
-        }
-
+        // =====================================================================
+        //  VALIDATION LIFECYCLE
+        // =====================================================================
 
 #if UNITY_EDITOR
-        protected virtual void OnValidate()
+        private void OnValidate()
         {
-            SoftValidate(isEditorPhase: true);   // quiet/passive in editor
+            SoftValidate(isEditorPhase: true);
         }
 #endif
 
         protected virtual void Awake()
         {
-            SoftValidate(isEditorPhase: false);  // authoritative at runtime
+            SoftValidate(isEditorPhase: false); // authoritative at runtime
+        }
+
+        /// <summary>
+        /// Lightweight validation that does not allocate heavy resources.
+        /// Called both in-editor and at runtime; use isEditorPhase to branch.
+        /// </summary>
+        protected void SoftValidate(bool isEditorPhase)
+        {
+            validationPassed = true;
+
+            ValidateBounds();
+            ValidateExtra(isEditorPhase);
+
+            validationStatus = validationPassed ? "OK" : "Has issues";
+
+#if UNITY_EDITOR
+            if (isEditorPhase && !Application.isPlaying)
+            {
+                EditorSceneManager.MarkSceneDirty(gameObject.scene);
+            }
+#endif
+        }
+
+        private void ValidateBounds()
+        {
+            if (manualSize != Vector3.zero)
+            {
+                validationStatus = "Using manual bounds override.";
+                return;
+            }
+
+            if (!boundsRenderer)
+            {
+                boundsRenderer = GetComponentInChildren<Renderer>();
+            }
+
+            if (!boundsRenderer)
+            {
+                validationPassed = false;
+                validationStatus = "No Renderer or manual bounds; using fallback.";
+            }
+            else
+            {
+                validationStatus = "Using Renderer bounds.";
+            }
+        }
+
+        /// <summary>
+        /// Hook for derived classes to extend validation logic.
+        /// </summary>
+        protected virtual void ValidateExtra(bool isEditorPhase)
+        {
+            // Default: nothing extra.
         }
 
         // =====================================================================
         //  CORE INTERACTION ENTRY POINT
         // =====================================================================
+
         public bool OnInteract()
         {
             // Hook: interaction has been requested
@@ -166,6 +223,16 @@ namespace Interaction
                 lastSuccess = false;
                 lastFailReason = InteractionFailReason.Cooldown;
 
+                if (debugLogging)
+                {
+                    GameLog.Log(
+                        this,
+                        system: SystemTag,
+                        action: "OnInteract",
+                        result: "CooldownBlocked",
+                        message: $"since={since:F2}, cooldown={cooldownSeconds:F2}");
+                }
+
                 onCooldownBlocked?.Invoke();
                 OnInteractionFailed(lastFailReason);
                 return false;
@@ -176,6 +243,16 @@ namespace Interaction
             {
                 lastSuccess = false;
                 lastFailReason = InteractionFailReason.OutOfUses;
+
+                if (debugLogging)
+                {
+                    GameLog.Log(
+                        this,
+                        system: SystemTag,
+                        action: "OnInteract",
+                        result: "OutOfUses",
+                        message: $"usesSoFar={usesSoFar}, maxUses={maxUses}");
+                }
 
                 onOutOfUses?.Invoke();
                 OnInteractionFailed(lastFailReason);
@@ -191,6 +268,16 @@ namespace Interaction
                 usesSoFar++;
                 lastUseTime = Time.realtimeSinceStartup;
                 lastFailReason = InteractionFailReason.None;
+
+                if (debugLogging)
+                {
+                    GameLog.Log(
+                        this,
+                        system: SystemTag,
+                        action: "OnInteract",
+                        result: "Success",
+                        message: $"usesSoFar={usesSoFar}, cooldownSeconds={cooldownSeconds:F2}");
+                }
 
                 onInteractSuccess?.Invoke();
                 OnInteractionSucceeded();
@@ -213,11 +300,28 @@ namespace Interaction
                     lastFailReason = InteractionFailReason.Other;
                 }
 
+                if (debugLogging)
+                {
+                    GameLog.Log(
+                        this,
+                        system: SystemTag,
+                        action: "OnInteract",
+                        result: "Failed",
+                        message: $"reason={lastFailReason}");
+                }
+
                 OnInteractionFailed(lastFailReason);
             }
 
             return ok;
         }
+
+        /// <summary>
+        /// Implement this in derived classes to define the actual interaction behavior.
+        /// Return true on success, false on failure.
+        /// Set lastFailReason in the failure case to provide more context.
+        /// </summary>
+        protected abstract bool DoInteract();
 
         // =====================================================================
         //  RANGE + INTERACTION HOOKS (override or wire via UnityEvents)
@@ -228,8 +332,6 @@ namespace Interaction
         /// Default behavior:
         /// - Marks isInRange and timestamps it.
         /// - Invokes onEnterRange UnityEvent.
-        ///
-        /// Override this to: show highlight, show prompt, etc.
         /// </summary>
         public virtual void OnEnterRange()
         {
@@ -239,60 +341,69 @@ namespace Interaction
         }
 
         /// <summary>
+        /// Called each frame while this is the active target.
+        /// Default behavior: does nothing.
+        /// </summary>
+        public virtual void OnStayInRange()
+        {
+        }
+
+        /// <summary>
         /// Called by InteractorBase when this stops being the current target.
         /// Default behavior:
-        /// - Clears isInRange and timestamps exit.
+        /// - Clears isInRange.
         /// - Invokes onLeaveRange UnityEvent.
         /// </summary>
         public virtual void OnLeaveRange()
         {
             isInRange = false;
-            lastRangeExitTime = Time.realtimeSinceStartup;
             onLeaveRange?.Invoke();
         }
 
         /// <summary>
-        /// Called at the start of any interaction attempt (before gates).
-        /// Override to update UI ('Attempting...', etc.) or start FX.
+        /// Called at the start of any interaction attempt, before gates are evaluated.
+        /// Default behavior: does nothing; override for custom behavior.
         /// </summary>
         protected virtual void OnInteractionStarted()
         {
-            lastInteractTime = Time.realtimeSinceStartup;
-            lastFailReason = InteractionFailReason.None;
         }
 
         /// <summary>
-        /// Called after a successful interaction (after DoInteract returns true).
-        /// Override to add common success FX, journal notes, etc.
+        /// Called after a successful interaction.
+        /// Default behavior: does nothing (UnityEvent fired earlier).
         /// </summary>
         protected virtual void OnInteractionSucceeded()
         {
-            // Intentionally empty. Subclasses may override.
         }
 
         /// <summary>
-        /// Called on any failed attempt.
-        /// - This is called for both gate failures (cooldown/uses) and
-        ///   DoInteract() = false.
-        /// - Subclasses can call this manually with a more specific reason
-        ///   before returning false from DoInteract().
+        /// Called after a failed interaction (for any reason).
+        /// Default behavior: invokes onInteractFailed UnityEvent.
         /// </summary>
-        /// <param name="reason">Why the interaction failed.</param>
         protected virtual void OnInteractionFailed(InteractionFailReason reason)
         {
-            lastFailReason = reason;
             onInteractFailed?.Invoke();
         }
 
         // =====================================================================
-        //  RAY TEST / BOUNDS HELPERS
+        //  REGISTRY + BOUNDS + RAY TEST
         // =====================================================================
+
+        protected virtual void OnEnable()
+        {
+            InteractableRegistry.Register(this);
+        }
+
+        protected virtual void OnDisable()
+        {
+            InteractableRegistry.Unregister(this);
+        }
 
         /// <summary>
         /// Default ray hit-test: Ray vs world-space AABB using Unity's Bounds.IntersectRay.
-        /// Override for custom shapes if needed (sprite masks, polygons, etc.).
+        /// Override for custom shapes if needed.
         /// </summary>
-        public virtual bool RayTest(in Ray ray, out float distance)
+        public virtual bool RayTest(Ray ray, out float distance)
         {
             var b = GetWorldBounds();
             return b.IntersectRay(ray, out distance);
@@ -337,45 +448,13 @@ namespace Interaction
 
         private static void EnsureMinThickness(ref Bounds b)
         {
-            const float minZ = 0.05f;
-            var s = b.size;
-            if (s.z < minZ)
+            var size = b.size;
+            const float minZ = 0.1f;
+            if (size.z < minZ)
             {
-                s.z = minZ;
-                b.size = s;
+                size.z = minZ;
+                b.size = size;
             }
-        }
-
-        // =====================================================================
-        //  VALIDATION
-        // =====================================================================
-
-        protected void SoftValidate(bool isEditorPhase)
-        {
-            validationPassed = true;
-            validationStatus = "OK";
-
-#if UNITY_EDITOR
-            // Skip prefab assets / prefab stage to avoid false-null refs in editor
-            if (isEditorPhase)
-            {
-                if (!gameObject.scene.IsValid()) return; // prefab asset
-                var stage = PrefabStageUtility.GetCurrentPrefabStage();
-                if (stage != null && stage.scene == gameObject.scene) return; // prefab isolation stage
-            }
-#endif
-            // No collider enforcement; purely ray-based selection now.
-            ValidateExtra(isEditorPhase);
-        }
-
-        protected virtual void OnEnable()
-        {
-            InteractableRegistry.Register(this);
-        }
-
-        protected virtual void OnDisable()
-        {
-            InteractableRegistry.Unregister(this);
         }
 
         protected virtual void OnDrawGizmosSelected()

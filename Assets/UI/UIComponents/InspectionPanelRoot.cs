@@ -136,7 +136,7 @@ namespace UI
 
         private void SetRootActive(bool active)
         {
-            Debug.Log($"[PanelRoot] SetRootActive({active}) on {name}", this);
+            //Debug.Log($"[PanelRoot] SetRootActive({active}) on {name}", this);
 
             if (_rootObject != null && _rootObject.activeSelf != active)
                 _rootObject.SetActive(active);

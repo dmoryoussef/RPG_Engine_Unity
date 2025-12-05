@@ -1,5 +1,6 @@
 ﻿using Player;
 using UnityEngine;
+using Logging;
 
 namespace Interaction
 {
@@ -14,30 +15,27 @@ namespace Interaction
     ///
     /// Locked:
     /// - Right-click on a hovered interactable: locks it as lockedTarget.
-    /// - Right-click on empty space: clears lockedTarget.
-    /// - Gating (distance + facing) and gizmos use lockedTarget if present, else hoverTarget.
+    /// - Right-click empty space: clears lock.
     ///
-    /// Input:
-    /// - Each InteractableBase exposes InteractionKey (KeyCode).
-    /// - On key press, we scan interactables on the hovered object first, then on the locked object.
-    /// - Distance + facing gates must pass before calling OnInteract().
+    /// Interacting:
+    /// - Uses distance + facing gates:
+    ///   - Distance <= interactMaxDistance
+    ///   - Facing: dot(playerFacing, toTarget) >= interactFacingDotThreshold
+    ///
+    /// Gizmos:
+    /// - Shows a line from player to mouse, and colors it green/red based on gating.
     /// </summary>
-    [DisallowMultipleComponent]
     public class PlayerInteractor : InteractorBase
     {
-        [Header("References")]
-        [SerializeField]
-        private Camera playerCamera;
-
-        [SerializeField, Tooltip("Provides player Facing direction (Vector2) in world space.")]
-        private PlayerMover2D mover;
+        [Header("Dependencies")]
+        [SerializeField] private Camera playerCamera;
+        [SerializeField] private PlayerMover2D mover;
 
         [Header("Interaction Gating")]
-        [SerializeField, Tooltip("Maximum distance from player to target to allow interaction.")]
+        [SerializeField, Tooltip("Maximum distance from player to target for interaction.")]
         private float interactMaxDistance = 1.5f;
 
-        [Range(-1f, 1f)]
-        [SerializeField, Tooltip("Minimum player-facing dot to allow interaction (1 = exact, 0 = 90°, -1 = opposite).")]
+        [SerializeField, Range(-1f, 1f), Tooltip("Minimum dot product between player's facing and direction to target.")]
         private float interactFacingDotThreshold = 0.4f;
 
         [SerializeField, Tooltip("Fallback facing direction if mover is missing or idle.")]
@@ -68,6 +66,12 @@ namespace Interaction
 
         [SerializeField, Tooltip("Last explicitly locked interactable (via right-click).")]
         private InteractableBase lockedTarget;
+
+        [Header("Debug Logging")]
+        [SerializeField, Tooltip("If true, PlayerInteractor will emit detailed interaction logs via GameLog.")]
+        private bool debugLogging = false;
+
+        private const string SystemTag = "PlayerInteractor";
 
         private void Awake()
         {
@@ -100,8 +104,8 @@ namespace Interaction
             UpdateCurrentTarget();           // uses our overridden TryPick()
             hoverTarget = currentTarget;     // cache for inspector clarity
 
-            // 2) Right-click lock/unlock (consistent with inspection behavior).
-            if (Input.GetMouseButtonDown(1)) // Right Mouse Button
+            // 2) Right-click lock/unlock behavior.
+            if (Input.GetMouseButtonDown(1))
             {
                 if (hoverTarget != null)
                 {
@@ -173,40 +177,55 @@ namespace Interaction
             if (!target)
                 return false;
 
-            bool inRangeLocal = IsInRange(target, out _);
-            bool facingOkLocal = IsFacingTarget(target, out _);
-            if (!inRangeLocal || !facingOkLocal)
-                return false;
-
-            return target.OnInteract();
-        }
-
-        /// <summary>
-        /// Build an interaction gating snapshot for the given target.
-        /// This does NOT modify gameplay state; it only queries distance and facing
-        /// using the same logic as TryInteract / RefreshGatingDebug.
-        /// </summary>
-        public InteractionGateInfo BuildGateInfo(InteractableBase target)
-        {
-            if (!target)
-                return InteractionGateInfo.Empty;
-
             bool inRangeLocal = IsInRange(target, out float dist);
             bool facingOkLocal = IsFacingTarget(target, out float dot);
-            bool canInteractLocal = inRangeLocal && facingOkLocal;
 
-            return new InteractionGateInfo(
-                interactorRoot: gameObject,
-                interactableRoot: target.gameObject,
-                inRange: inRangeLocal,
-                distance: dist,
-                maxDistance: interactMaxDistance,
-                facingOk: facingOkLocal,
-                facingDot: dot,
-                facingThreshold: interactFacingDotThreshold,
-                canInteract: canInteractLocal,
-                lastFailReason: null
-            );
+            if (!inRangeLocal || !facingOkLocal)
+            {
+                if (debugLogging)
+                {
+                    string resultStr;
+                    if (!inRangeLocal && !facingOkLocal)
+                        resultStr = "BlockedDistanceAndFacing";
+                    else if (!inRangeLocal)
+                        resultStr = "BlockedDistance";
+                    else
+                        resultStr = "BlockedFacing";
+
+                    string targetId = target.InteractableId ?? target.name;
+                    string msg =
+                        $"target={targetId}, dist={dist:F2}, dot={dot:F2}, " +
+                        $"threshold={interactFacingDotThreshold:F2}, maxDist={interactMaxDistance:F2}";
+
+                    GameLog.Log(
+                        this,
+                        system: SystemTag,
+                        action: "TryInteractWith",
+                        result: resultStr,
+                        message: msg);
+                }
+
+
+
+                return false;
+            }
+
+            bool ok = target.OnInteract();
+
+            if (debugLogging)
+            {
+                string targetId = target.InteractableId ?? target.name;
+                string msg = $"target={targetId}, dist={dist:F2}, dot={dot:F2}";
+
+                GameLog.Log(
+                    this,
+                    system: SystemTag,
+                    action: "TryInteractWith",
+                    result: ok ? "Success" : "Failed",
+                    message: msg);
+            }
+
+            return ok;
         }
 
         // =====================================================================
@@ -304,18 +323,17 @@ namespace Interaction
                 if (!b.Contains(point))
                     continue;
 
-                float playerDist = Vector3.Distance(playerPos, it.transform.position);
+                // Distance from player to interactable center.
+                float playerDist = Vector3.Distance(playerPos, b.center);
+                float priority = it.SelectionPriority;
 
-                bool better =
-                    playerDist < bestDistance ||
-                    (Mathf.Approximately(playerDist, bestDistance) && it.SelectionPriority > bestPriority);
-
-                if (!better)
-                    continue;
-
-                best = it;
-                bestDistance = playerDist;
-                bestPriority = it.SelectionPriority;
+                if (priority > bestPriority ||
+                    (Mathf.Approximately(priority, bestPriority) && playerDist < bestDistance))
+                {
+                    best = it;
+                    bestDistance = playerDist;
+                    bestPriority = priority;
+                }
             }
 
             return best;
@@ -336,6 +354,18 @@ namespace Interaction
                 if (!TryPick(out target, out _))
                 {
                     lastPicked = "<none>";
+
+                    if (debugLogging)
+                    {
+                        GameLog.Log(
+                            this,
+                            system: SystemTag,
+                            action: "TryInteract",
+                            result: "NoTarget",
+                            message: "No interactable under cursor or locked.");
+                    }
+
+                    lastInteractSucceeded = false;
                     return false;
                 }
             }
@@ -343,7 +373,7 @@ namespace Interaction
             lastPicked = target.InteractableId ?? target.name;
 
             bool inRangeLocal = IsInRange(target, out float dist);
-            bool facingOkLocal = IsFacingTarget(target, out _);
+            bool facingOkLocal = IsFacingTarget(target, out float dot);
 
             hoverDistanceFromPlayer = dist;
             inRange = inRangeLocal;
@@ -351,12 +381,48 @@ namespace Interaction
             canInteract = inRange && facingTarget;
 
             if (!canInteract)
+            {
+                if (debugLogging)
+                {
+                    string resultStr;
+                    if (!inRangeLocal && !facingOkLocal)
+                        resultStr = "BlockedDistanceAndFacing";
+                    else if (!inRangeLocal)
+                        resultStr = "BlockedDistance";
+                    else
+                        resultStr = "BlockedFacing";
+
+                    string msg =
+                        $"target={lastPicked}, dist={dist:F2}, dot={dot:F2}, " +
+                        $"threshold={interactFacingDotThreshold:F2}, maxDist={interactMaxDistance:F2}";
+
+                    GameLog.Log(
+                        this,
+                        system: SystemTag,
+                        action: "TryInteract",
+                        result: resultStr,
+                        message: msg);
+                }
+
+                lastInteractSucceeded = false;
                 return false;
+            }
 
             bool ok = target.OnInteract();
             lastInteractSucceeded = ok;
             if (ok)
                 lastInteractTime = Time.realtimeSinceStartup;
+
+            if (debugLogging)
+            {
+                string msg = $"target={lastPicked}, dist={dist:F2}, dot={dot:F2}";
+                GameLog.Log(
+                    this,
+                    system: SystemTag,
+                    action: "TryInteract",
+                    result: ok ? "Success" : "Failed",
+                    message: msg);
+            }
 
             return ok;
         }
@@ -396,15 +462,15 @@ namespace Interaction
             }
 
             Vector3 facing3D = new Vector3(facing2D.x, facing2D.y, 0f).normalized;
-            Vector3 flatToTarget = new Vector3(toTarget.x, toTarget.y, 0f).normalized;
+            Vector3 toTargetNorm = toTarget.normalized;
+            dot = Vector3.Dot(facing3D, toTargetNorm);
 
-            dot = Vector3.Dot(facing3D, flatToTarget);
             return dot >= interactFacingDotThreshold;
         }
 
-        private void RefreshGatingDebug(InteractableBase target)
+        private void RefreshGatingDebug(InteractableBase activeTarget)
         {
-            if (!target)
+            if (!activeTarget)
             {
                 hoverDistanceFromPlayer = 0f;
                 inRange = false;
@@ -413,35 +479,58 @@ namespace Interaction
                 return;
             }
 
-            bool inRangeLocal = IsInRange(target, out float dist);
-            bool facingOkLocal = IsFacingTarget(target, out _);
+            bool inRangeLocal = IsInRange(activeTarget, out float dist);
+            bool facingOkLocal = IsFacingTarget(activeTarget, out _);
+            bool canInteractLocal = inRangeLocal && facingOkLocal;
 
             hoverDistanceFromPlayer = dist;
             inRange = inRangeLocal;
             facingTarget = facingOkLocal;
-            canInteract = inRange && facingTarget;
+            canInteract = canInteractLocal;
         }
 
-        // =====================================================================
-        //  GIZMOS
-        // =====================================================================
-
-        protected override void OnDrawGizmosSelected()
+        /// <summary>
+        /// Build an interaction gating snapshot for the given target.
+        /// This does NOT modify gameplay state; it only queries distance and facing
+        /// using the same logic as TryInteract / RefreshGatingDebug.
+        /// </summary>
+        public InteractionGateInfo BuildGateInfo(InteractableBase target)
         {
-            if (!drawGizmos)
+            if (!target)
+                return InteractionGateInfo.Empty;
+
+            bool inRangeLocal = IsInRange(target, out float dist);
+            bool facingOkLocal = IsFacingTarget(target, out float dot);
+            bool canInteractLocal = inRangeLocal && facingOkLocal;
+
+            return new InteractionGateInfo(
+                interactorRoot: gameObject,
+                interactableRoot: target.gameObject,
+                inRange: inRangeLocal,
+                distance: dist,
+                maxDistance: interactMaxDistance,
+                facingOk: facingOkLocal,
+                facingDot: dot,
+                facingThreshold: interactFacingDotThreshold,
+                canInteract: canInteractLocal,
+                lastFailReason: null
+            );
+        }
+
+
+        private void OnDrawGizmosSelected()
+        {
+            if (!TryGetMouseWorldOnPlane(out var mouseWorld))
                 return;
 
-            Vector3 playerPos = transform.position;
-            playerPos.z = 0f;
+            Vector3 playerPos = GetOrigin();
 
-            Vector3 mouseWorld = playerPos + Vector3.right * 2f;
-            if (TryGetMouseWorldOnPlane(out var hit))
-            {
-                mouseWorld = hit;
-            }
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(playerPos, mouseWorld);
+            Gizmos.DrawSphere(mouseWorld, 0.05f);
 
+            var gizmoTarget = hoverTarget ? hoverTarget : lockedTarget;
             bool gizmoCanInteract = false;
-            var gizmoTarget = lockedTarget ? lockedTarget : hoverTarget;
 
             if (gizmoTarget != null)
             {

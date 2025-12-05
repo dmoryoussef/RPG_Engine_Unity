@@ -77,8 +77,8 @@ namespace Inspection
         /// </summary>
         public virtual void BuildInspectionData(InspectionContext context, InspectionData data)
         {
-            Debug.Log($"[InspectableComponent] BuildInspectionData called on '{name}'. " +
-                      $"Inspector='{context.InspectorRoot?.name}', TargetRoot='{context.TargetRoot?.name}'");
+            //Debug.Log($"[InspectableComponent] BuildInspectionData called on '{name}'. " +
+            //          $"Inspector='{context.InspectorRoot?.name}', TargetRoot='{context.TargetRoot?.name}'");
 
             data.TargetRoot = gameObject;
             data.DisplayName = _displayName;

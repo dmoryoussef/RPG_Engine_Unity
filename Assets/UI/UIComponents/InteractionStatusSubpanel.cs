@@ -158,6 +158,7 @@ namespace UI
                 return;
             }
 
+            // FIXED: call the method on PlayerInteractor instead of treating it like a delegate
             var info = _interactor.BuildGateInfo(_interactable);
 
             // If we somehow lost interaction context, just hide our own UI.
@@ -222,7 +223,7 @@ namespace UI
                 _targetingEntityLabel.text = name;
             }
 
-            // Distance (we just always show Distance; you can clamp/format as needed)
+            // Distance
             if (_distanceLabel)
             {
                 _distanceLabel.text = info.InRange

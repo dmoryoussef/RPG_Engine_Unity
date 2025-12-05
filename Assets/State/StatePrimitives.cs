@@ -1,3 +1,4 @@
+using Logging;
 using System;
 using UnityEngine;
 
@@ -60,7 +61,7 @@ namespace State
     public abstract class BaseState : MonoBehaviour, IState
     {
         [Header("State Debug")]
-        [SerializeField] protected bool _debugLogging = false;
+        [SerializeField] protected bool _debugLogging = true;
 
         [Header("Blocking")]
         [Tooltip("States that can block this state from changing.")]
@@ -128,12 +129,17 @@ namespace State
         {
             if (_debugLogging)
             {
-                var hasMessage = !string.IsNullOrEmpty(result.Message);
-                var msgPart = hasMessage ? $" ({result.Message})" : string.Empty;
+                // System tag: "State"
+                // Action: "TryStateChange"
+                var status = result.Status.ToString();
+                var message = result.Message;
 
-                Debug.Log(
-                    $"[{GetType().Name}] {name}: {result.Status}{msgPart}",
-                    this);
+                GameLog.Log(
+                    this,
+                    system: "State",
+                    action: "TryStateChange",
+                    result: status,
+                    message: message);
             }
 
             OnInteractionAttempted?.Invoke(this, result);

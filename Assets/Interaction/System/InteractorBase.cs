@@ -1,29 +1,11 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-using UI;
 
 namespace Interaction
 {
     /// <summary>
     /// Physics-agnostic interaction picker that talks to InteractableBase via RayTest/Bounds.
     /// Subclass to provide origin, facing, and candidate source logic.
-    ///
-    /// 🔧 HOW TO USE (TUTORIAL):
-    /// - Derive a PlayerInteractor (or NPCInteractor) from this class.
-    /// - Implement:
-    ///     GetOrigin()   → usually player eye/center position.
-    ///     GetFacingDir()→ normalized world direction (e.g., from movement or aim).
-    /// - In your player Update():
-    ///     1) Call UpdateCurrentTarget() every frame to:
-    ///         - pick the best InteractableBase
-    ///         - fire OnEnterRange / OnLeaveRange / focus hooks
-    ///         - update debug fields
-    ///     2) When the player presses the interact key:
-    ///         - Call TryInteract().
-    ///
-    /// This class does NOT depend on physics colliders or rigidbodies.
-    /// It uses InteractableBase.RayTest() + Bounds, so objects are
-    /// "interactable" even with no Collider2D present.
     /// </summary>
     public abstract class InteractorBase : MonoBehaviour, IInteractor
     {
@@ -85,11 +67,9 @@ namespace Interaction
         // =====================================================================
 
         /// <summary>
-        /// Updates the currentTarget using the same selection rules as TryPick(),
-        /// and fires OnEnterRange / OnLeaveRange (and IInteractableFocusable hooks)
-        /// when the target changes.
-        ///
-        /// Call this once per frame from your player/NPC controller.
+        /// Updates currentTarget based on the defined probe + selection rules.
+        /// Also drives OnEnterRange/OnLeaveRange + focus hooks.
+        /// Call this once per frame from your player/NPC Update().
         /// </summary>
         public void UpdateCurrentTarget()
         {
@@ -134,9 +114,10 @@ namespace Interaction
         }
 
         /// <summary>
-        /// Attempts to pick a target given current settings (does not invoke it).
-        /// This is stateless and will NOT fire range/focus hooks; use
-        /// UpdateCurrentTarget() + CurrentTarget for that behavior.
+        /// Use the current probe mode to pick an InteractableBase.
+        /// Returns true if a target was found, with distance set to either:
+        /// - Ray t (for Ray mode)
+        /// - World distance from origin to target (for Circle mode)
         /// </summary>
         public virtual bool TryPick(out InteractableBase target, out float distance)
         {
@@ -147,7 +128,6 @@ namespace Interaction
             foreach (var it in GetCandidates())
             {
                 if (!it || !it.isActiveAndEnabled) continue;
-                //Debug.Log("Candidate: " + it.name);
                 _pool.Add(it);
             }
 
@@ -176,10 +156,9 @@ namespace Interaction
         }
 
         /// <summary>
-        /// Attempts to interact with the best available target.
-        ///
-        /// If UpdateCurrentTarget() has been called, that target is used.
-        /// Otherwise, a one-off TryPick() is performed.
+        /// Convenience method: tries to interact with the currentTarget (or picked target if none).
+        /// This does NOT apply any distance/facing gating; concrete interactors
+        /// (e.g., PlayerInteractor) can override and add gating.
         /// </summary>
         public virtual bool TryInteract()
         {
@@ -187,6 +166,7 @@ namespace Interaction
 
             if (!target)
             {
+                // Fall back to on-demand pick if no current target is set.
                 if (!TryPick(out target, out _))
                 {
                     lastPicked = "<none>";
@@ -248,7 +228,7 @@ namespace Interaction
 
         /// <summary>
         /// Circle-based selection (useful for radial, non-precision interaction).
-        /// Honors circleRadius, minFacingDot, and selectionSort.
+        /// Honors circleRadius, circleOffset, minFacingDot, and SelectionSort.
         /// </summary>
         protected virtual bool PickInCircle(
             Vector3 center,

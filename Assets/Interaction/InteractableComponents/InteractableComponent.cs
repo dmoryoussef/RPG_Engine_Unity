@@ -1,5 +1,6 @@
 using UnityEngine;
-using State; 
+using State;
+using Logging;
 
 namespace Interaction
 {
@@ -18,18 +19,24 @@ namespace Interaction
         [Tooltip("Key used to trigger this interactable. Use None to disable direct key input.")]
         [SerializeField] private KeyCode interactionKey = KeyCode.E;
 
-        public override KeyCode InteractionKey => interactionKey;
-
         private IState _state;
+
+        private const string SystemTag = "Interactable";
+
+        /// <summary>
+        /// Allow PlayerInteractor to query which key triggers this interactable.
+        /// </summary>
+        public override KeyCode InteractionKey => interactionKey;
 
         // --------------------------------------------------
         // VALIDATION / RESOLUTION
         // --------------------------------------------------
 
+        /// <summary>
+        /// Resolve the IState target and report configuration errors.
+        /// </summary>
         protected override void ValidateExtra(bool isEditorPhase)
         {
-            // Reset validation to a good default; base.SoftValidate() has already done this.
-            // We just refine the status based on the stateComponent.
             if (stateComponent == null)
             {
                 // Auto-find on this GameObject
@@ -37,25 +44,28 @@ namespace Interaction
 
                 if (_state == null && !isEditorPhase)
                 {
-                    Debug.Log(
-                        $"[{nameof(InteractableComponent)}] No IState found on '{name}'. " +
-                        "Assign a component that implements State.IState.",
-                        this);
+                    GameLog.LogWarning(
+                        this,
+                        system: SystemTag,
+                        action: "ValidateExtra",
+                        message:
+                            $"No IState found on '{name}'. " +
+                            "Assign a component that implements State.IState.");
                 }
 
                 return;
             }
 
             _state = stateComponent as IState;
-            if (_state == null)
+            if (_state == null && !isEditorPhase)
             {
-                if (!isEditorPhase)
-                {
-                    Debug.LogError(
-                        $"[{nameof(InteractableComponent)}] Assigned stateComponent on '{name}' " +
-                        $"does not implement State.IState.",
-                        this);
-                }
+                GameLog.LogError(
+                    this,
+                    system: SystemTag,
+                    action: "ValidateExtra",
+                    message:
+                        $"Assigned stateComponent on '{name}' " +
+                        "does not implement State.IState.");
             }
         }
 
@@ -67,15 +77,27 @@ namespace Interaction
         {
             if (_state == null)
             {
+                GameLog.LogWarning(
+                    this,
+                    system: SystemTag,
+                    action: "DoInteract",
+                    message: "Interaction attempted with no IState assigned.");
+
                 OnInteractionFailed(InteractionFailReason.Other);
                 return false;
             }
 
             var result = _state.TryStateChange();
 
-            if (!string.IsNullOrEmpty(result.Message))
+            // Optional per-interaction state logs – controlled by the base debug flag.
+            if (DebugLogging)
             {
-                Debug.Log($"[Interact] {name}: {result.Message}", this);
+                GameLog.Log(
+                    this,
+                    system: "Interact",
+                    action: "DoInteract",
+                    result: result.Status.ToString(),
+                    message: result.Message);
             }
 
             if (!result.IsSuccess)
