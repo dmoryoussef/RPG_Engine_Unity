@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using UnityEngine;
+using Targeting; // <-- TargeterComponent, FocusTarget, etc.
 
 namespace Inspection
 {
@@ -8,12 +8,12 @@ namespace Inspection
     /// InspectorComponent
     ///
     /// Physics-free object inspection system.
-    /// Matches the PlayerInteractor-style pattern:
-    ///  - Continuous hover detection via ray
-    ///  - Hover debug info in the inspector
-    ///  - Clean gating + single-point inspection action
-    ///  - Registry-driven candidate lookup
-    ///  - Bounds-based ray testing (no Physics.Raycast)
+    ///
+    /// NOW:
+    /// - Selection/hover comes from TargeterComponent (no internal picking).
+    /// - Subscribes to TargeterComponent.Model.HoverChanged.
+    /// - Maps FocusTarget -> InspectableComponent (via logical target root).
+    /// - Runs a simple inspection pipeline with no distance gating.
     ///
     /// UI is handled separately by InspectionPanelSpawner listening to:
     ///  - InspectionCompleted
@@ -29,18 +29,16 @@ namespace Inspection
         [SerializeField]
         private KeyCode _inspectKey = KeyCode.Mouse1;
 
-        [Header("Ray Settings (non-physics)")]
-        [SerializeField, Tooltip("Camera used for inspection rays. If null, Reset() assigns Camera.main.")]
+        [Header("Targeting")]
+        [SerializeField, Tooltip("TargeterComponent that provides the current hover/selection.")]
+        private TargeterComponent _targeter;
+
+        [Header("Camera (optional, for debug distance only)")]
+        [SerializeField, Tooltip("Camera used for debug distance visualization. If null, Reset() assigns Camera.main.")]
         private Camera _camera;
 
-        [SerializeField, Tooltip("If true, build the ray from the mouse position; otherwise from camera forward.")]
-        private bool _useMousePosition = true;
-
-        [SerializeField, Tooltip("Maximum distance along the ray to consider inspectable targets.")]
-        private float _maxDistance = 20f;
-
         [Header("Debug")]
-        [Tooltip("Print detailed logs for inspection events. Hover is always silent.")]
+        [Tooltip("Print detailed logs for inspection events.")]
         [SerializeField]
         private bool _enableVerboseDebug = false;
 
@@ -61,13 +59,13 @@ namespace Inspection
         // =====================================================================
 
         [Header("Hover Debug (Read-Only)")]
-        [SerializeField, Tooltip("Current inspectable under the ray, if any.")]
+        [SerializeField, Tooltip("Current inspectable resolved from the Targeter hover, if any.")]
         private InspectableComponent _hoverTarget;
 
         [SerializeField, Tooltip("Name of the current hover target.")]
         private string _hoverTargetName = "<none>";
 
-        [SerializeField, Tooltip("Distance from camera to the hover target.")]
+        [SerializeField, Tooltip("Distance from camera to the hover target (for debug only).")]
         private float _hoverDistance = 0f;
 
         [SerializeField, Tooltip("Is there a valid hover target right now?")]
@@ -79,7 +77,8 @@ namespace Inspection
         [SerializeField, Tooltip("If inspection on hover is blocked, this explains why.")]
         private string _hoverBlockReason = string.Empty;
 
-        [SerializeField, Tooltip("Ray parameter t for the hover hit (ray.origin + ray.direction * t).")]
+        // Ray t is no longer meaningful here, but we keep it as a debug approximation.
+        [SerializeField, Tooltip("Approximate distance to the hover target (for legacy debug).")]
         private float _hoverRayT = 0f;
 
         // =====================================================================
@@ -119,15 +118,6 @@ namespace Inspection
 
         private readonly InspectionData _buffer = new InspectionData();
 
-        /// <summary>
-        /// Source of inspectable candidates. By default uses the global registry,
-        /// but subclasses can override for zone-specific logic.
-        /// </summary>
-        protected virtual IReadOnlyList<InspectableComponent> GetCandidates()
-        {
-            return InspectableRegistry.All;
-        }
-
         // =====================================================================
         // UNITY
         // =====================================================================
@@ -138,122 +128,128 @@ namespace Inspection
             {
                 _camera = Camera.main;
             }
+
+            if (_targeter == null)
+            {
+                _targeter = GetComponent<TargeterComponent>();
+            }
         }
+
+        // =====================================================================
+        // LIFECYCLE
+        // =====================================================================
+
+        private void Awake()
+        {
+            if (_camera == null)
+            {
+                _camera = Camera.main;
+            }
+
+            if (_targeter == null)
+            {
+                _targeter = GetComponent<TargeterComponent>();
+            }
+        }
+
+        private void OnEnable()
+        {
+            if (_targeter != null && _targeter.Model != null)
+            {
+                _targeter.Model.HoverChanged += OnTargeterHoverChanged;
+            }
+            else if (_enableVerboseDebug)
+            {
+                Debug.LogWarning("[Inspector] No TargeterComponent/Model found; " +
+                                 "inspection hover will never resolve.");
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (_targeter != null && _targeter.Model != null)
+            {
+                _targeter.Model.HoverChanged -= OnTargeterHoverChanged;
+            }
+        }
+
 
         private void Update()
         {
-            if (_camera == null)
+            if (_targeter == null)
                 return;
 
-            // 1) Build ray every frame
-            Ray ray = BuildRay();
-
-            // 2) Update hover debug state
-            UpdateHover(ray);
-
-            // 3) On key press, attempt inspection using current hover target
+            // Just handle input – hover is kept up to date via Targeter events.
             if (Input.GetKeyDown(_inspectKey))
             {
-                TryInspectWithHover(ray);
+                TryInspectWithHover();
             }
         }
 
         // =====================================================================
-        // RAY CONSTRUCTION
+        // HOVER UPDATE (via TargeterComponent events)
         // =====================================================================
 
-        private Ray BuildRay()
+        private void OnTargeterHoverChanged(FocusChange change)
         {
-            if (_useMousePosition)
+            var hoverFocus = change.Current;
+
+            if (hoverFocus == null || hoverFocus.LogicalTarget == null)
             {
-                return _camera.ScreenPointToRay(Input.mousePosition);
-            }
-
-            return new Ray(_camera.transform.position, _camera.transform.forward);
-        }
-
-        // =====================================================================
-        // HOVER UPDATE
-        // =====================================================================
-
-        private void UpdateHover(in Ray ray)
-        {
-            if (!TryPickByRay(ray, _maxDistance, out var best, out float t))
-            {
-                _hoverTarget = null;
-                _hoverTargetName = "<none>";
-                _hoverDistance = 0f;
-                _hoverRayT = 0f;
-                _hasHoverTarget = false;
-                _canInspectHover = false;
-                _hoverBlockReason = string.Empty;
+                ClearHoverDebug();
                 return;
             }
 
-            _hoverTarget = best;
-            _hoverTargetName = best.name;
-            _hoverRayT = t;
-            _hoverDistance = Vector3.Distance(_camera.transform.position, best.transform.position);
+            // Map FocusTarget -> InspectableComponent
+            Transform logicalRoot = hoverFocus.LogicalTarget.TargetTransform;
+            var inspectable = logicalRoot.GetComponentInParent<InspectableComponent>();
+
+            if (inspectable == null || !inspectable.isActiveAndEnabled)
+            {
+                ClearHoverDebug();
+                return;
+            }
+
+            _hoverTarget = inspectable;
+            _hoverTargetName = inspectable.name;
+
+            if (_camera != null)
+            {
+                Vector3 camPos = _camera.transform.position;
+                Vector3 targetPos = inspectable.transform.position;
+                _hoverDistance = Vector3.Distance(camPos, targetPos);
+                _hoverRayT = _hoverDistance; // kept as an approximate legacy value
+            }
+            else
+            {
+                _hoverDistance = 0f;
+                _hoverRayT = 0f;
+            }
+
             _hasHoverTarget = true;
 
-            // Silent gating for hover.
-            bool ok = EvaluateCanInspect(best, out string reason, verboseLog: false);
+            // Simple gating for now (no distance requirement)
+            bool ok = EvaluateCanInspect(inspectable, out string reason, verboseLog: false);
             _canInspectHover = ok;
             _hoverBlockReason = ok ? string.Empty : reason;
         }
 
-        // =====================================================================
-        // PICKING (physics-free, registry-driven)
-        // =====================================================================
-
-        private bool TryPickByRay(
-            in Ray ray,
-            float maxDistance,
-            out InspectableComponent best,
-            out float bestT)
+        private void ClearHoverDebug()
         {
-            best = null;
-            bestT = float.MaxValue;
-            float bestPriority = float.NegativeInfinity;
-
-            var candidates = GetCandidates();
-            if (candidates == null || candidates.Count == 0)
-                return false;
-
-            float maxT = maxDistance > 0f ? maxDistance : float.MaxValue;
-
-            for (int i = 0; i < candidates.Count; i++)
-            {
-                var it = candidates[i];
-                if (!it || !it.isActiveAndEnabled)
-                    continue;
-
-                if (!it.RayTest(ray, out float t))
-                    continue;
-
-                if (t > maxT)
-                    continue;
-
-                bool closer = t < bestT;
-                bool tieAndHigherPriority = Mathf.Approximately(t, bestT) &&
-                                            it.SelectionPriority > bestPriority;
-
-                if (closer || tieAndHigherPriority)
-                {
-                    best = it;
-                    bestT = t;
-                    bestPriority = it.SelectionPriority;
-                }
-            }
-
-            return best != null;
+            _hoverTarget = null;
+            _hoverTargetName = "<none>";
+            _hoverDistance = 0f;
+            _hoverRayT = 0f;
+            _hasHoverTarget = false;
+            _canInspectHover = false;
+            _hoverBlockReason = string.Empty;
         }
 
         // =====================================================================
         // INSPECTION ACTION
         // =====================================================================
 
-        private void TryInspectWithHover(in Ray ray)
+        private void TryInspectWithHover()
         {
             if (!_hasHoverTarget || _hoverTarget == null)
             {
@@ -279,14 +275,20 @@ namespace Inspection
                 return;
             }
 
-            float t = _hoverRayT;
-            Vector3 hitPoint = ray.origin + ray.direction * t;
+            // Prefer Targeter’s hover world position if available,
+            // otherwise fall back to the inspectable transform position.
+            Vector3 hitPoint = inspectable.transform.position;
+            var hoverFocus = _targeter.Model.Hover;
+            if (hoverFocus != null)
+            {
+                hitPoint = hoverFocus.WorldPosition;
+            }
 
             Inspect(inspectable, hitPoint);
 
             if (_enableVerboseDebug)
             {
-                Debug.Log($"[Inspector] Inspected '{_hoverTargetName}' at {hitPoint}");
+                Debug.Log($"[Inspector] Inspected '{(_hoverTargetName ?? "<null>")}' at {hitPoint}");
             }
         }
 
@@ -298,23 +300,12 @@ namespace Inspection
         {
             reason = string.Empty;
 
-            if (!(target is Component comp))
+            if (!(target is Component))
             {
                 reason = "Target is not a Component.";
                 if (verboseLog && _enableVerboseDebug)
                 {
                     Debug.LogWarning("[Inspector] CanInspect: target is not a Component.");
-                }
-                return false;
-            }
-
-            float dist = Vector3.Distance(_camera.transform.position, comp.transform.position);
-            if (dist > _maxDistance)
-            {
-                reason = "Target is too far away.";
-                if (verboseLog && _enableVerboseDebug)
-                {
-                    Debug.LogWarning("[Inspector] CanInspect: target too far away.");
                 }
                 return false;
             }
@@ -369,7 +360,7 @@ namespace Inspection
             _debugState.LastLongDescription = _buffer.LongDescription;
             _debugState.LastIcon = _buffer.Icon;
 
-            // 🔔 Notify UI / listeners
+            // Notify UI / listeners
             InspectionCompleted?.Invoke(_buffer);
         }
 
@@ -385,33 +376,8 @@ namespace Inspection
             _debugState.LastLongDescription = string.Empty;
             _debugState.LastIcon = null;
 
-            // 🔔 Notify UI / listeners that inspection is cleared
+            // Notify UI / listeners that inspection is cleared
             InspectionCleared?.Invoke();
-        }
-
-        // =====================================================================
-        // GIZMOS
-        // =====================================================================
-
-        private void OnDrawGizmosSelected()
-        {
-            if (_camera == null)
-                return;
-
-            Ray ray;
-
-            if (_useMousePosition && Application.isPlaying)
-            {
-                ray = _camera.ScreenPointToRay(Input.mousePosition);
-            }
-            else
-            {
-                ray = new Ray(_camera.transform.position, _camera.transform.forward);
-            }
-
-            Gizmos.color = (_hasHoverTarget && _canInspectHover) ? Color.green : Color.red;
-            Vector3 end = ray.origin + ray.direction * _maxDistance;
-            Gizmos.DrawLine(ray.origin, end);
         }
     }
 }

@@ -1,306 +1,273 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
+using Targeting; // For TargeterComponent, FocusTarget, FocusChange
 
 namespace Interaction
 {
-    /// <summary>
-    /// Physics-agnostic interaction picker that talks to InteractableBase via RayTest/Bounds.
-    /// Subclass to provide origin, facing, and candidate source logic.
-    /// </summary>
     public abstract class InteractorBase : MonoBehaviour, IInteractor
     {
-        public enum ProbeMode { Ray, Circle }
-        public enum SelectionSort { Nearest, First, BestFacing }
+        [Header("Targeting Source (Optional)")]
+        [SerializeField, Tooltip("If set, this Interactor will automatically bind to the Targeter and use its CurrentTarget as the interaction target.")]
+        protected TargeterComponent targeter;
 
-        [Header("Probe Settings")]
-        [SerializeField] protected ProbeMode probeMode = ProbeMode.Ray;
-        [SerializeField] protected float rayDistance = 1.25f;
-        [SerializeField] protected float circleRadius = 0.6f;
-        [SerializeField] protected float circleOffset = 0.5f;
+        [SerializeField, Tooltip("If true, InteractorBase will auto-resolve TargeterComponent from this GameObject in Awake when not explicitly assigned.")]
+        protected bool autoFindTargeter = true;
 
-        [Header("Selection Rules")]
-        [SerializeField] protected SelectionSort selectionSort = SelectionSort.Nearest;
-        [Range(-1f, 1f)]
-        [SerializeField] protected float minFacingDot = 0.0f;
+        [SerializeField, Tooltip("If true, InteractorBase subscribes to Targeter.Model.CurrentTargetChanged and caches that as its current target.")]
+        protected bool bindToTargeterCurrent = true;
 
-        [Header("Limits")]
-        [SerializeField] protected int maxResults = 8;
+        [Header("Gating")]
+        [SerializeField] protected float interactMaxDistance = 1.5f;
 
-        [Header("Runtime Target (Read-Only)")]
+        [SerializeField, Range(-1f, 1f)]
+        protected float interactFacingDotThreshold = 0.4f;
+
+        [Header("Target Cache (Read-Only)")]
         [SerializeField] protected InteractableBase currentTarget;
-        [SerializeField] protected float currentTargetDistance = float.MaxValue;
-        [SerializeField] protected string currentTargetId = "<none>";
+        [SerializeField] protected InteractableBase previousTarget;
 
-        [Header("Debug Probe")]
-        [SerializeField] protected bool drawGizmos = false;
-        [SerializeField] protected Vector3 lastOrigin;
-        [SerializeField] protected Vector3 lastDir;
-        [SerializeField] protected Vector3 lastCircleCenter;
-        [SerializeField] protected string lastPicked = "<none>";
+        [SerializeField, Tooltip("Optional debug label for where currentTarget came from (Targeter, AI, script, etc.).")]
+        protected string currentTargetSource;
 
-        protected readonly List<InteractableBase> _pool = new List<InteractableBase>(128);
+        [SerializeField, Tooltip("Last FocusTarget received from Targeter, if any.")]
+        protected FocusTarget currentFocusTarget;
 
-        private InteractableBase _previousTarget;
+        [SerializeField] protected float distanceToTarget;
+        [SerializeField] protected bool inRange;
+        [SerializeField] protected bool facingOk;
+        [SerializeField] protected bool canInteract;
 
-        /// <summary>
-        /// Public accessor in case external systems need to inspect the current target.
-        /// </summary>
-        public InteractableBase CurrentTarget => currentTarget;
+        // --------------------------------------------------------------------
+        // Lifecycle: standard wiring
+        // --------------------------------------------------------------------
 
-        // ---- Subclass must provide these (e.g., player camera/mover data) ----
-        protected abstract Vector3 GetOrigin();
-        protected abstract Vector3 GetFacingDir(); // normalized world dir
-
-        /// <summary>
-        /// Candidate provider.
-        /// Override this if you want zone-based or manually-curated sets.
-        /// By default, uses the global InteractableRegistry to avoid
-        /// FindObjectsOfType and to later plug into a WorldIndex.
-        /// </summary>
-        protected virtual IEnumerable<InteractableBase> GetCandidates()
+        protected virtual void Awake()
         {
-            return InteractableRegistry.All;
-        }
-
-        // =====================================================================
-        //  HIGH-LEVEL API
-        // =====================================================================
-
-        /// <summary>
-        /// Updates currentTarget based on the defined probe + selection rules.
-        /// Also drives OnEnterRange/OnLeaveRange + focus hooks.
-        /// Call this once per frame from your player/NPC Update().
-        /// </summary>
-        public void UpdateCurrentTarget()
-        {
-            _previousTarget = currentTarget;
-
-            if (TryPick(out var picked, out var dist))
+            if (autoFindTargeter && targeter == null)
             {
-                currentTarget = picked;
-                currentTargetDistance = dist;
-                currentTargetId = picked.InteractableId ?? picked.name;
-            }
-            else
-            {
-                currentTarget = null;
-                currentTargetDistance = float.MaxValue;
-                currentTargetId = "<none>";
-            }
-
-            // Range / focus hooks on change
-            if (_previousTarget != currentTarget)
-            {
-                if (_previousTarget != null)
-                {
-                    _previousTarget.OnLeaveRange();
-
-                    if (_previousTarget is IInteractableFocusable prevFocus)
-                    {
-                        prevFocus.OnFocusLost();
-                    }
-                }
-
-                if (currentTarget != null)
-                {
-                    currentTarget.OnEnterRange();
-
-                    if (currentTarget is IInteractableFocusable newFocus)
-                    {
-                        newFocus.OnFocusGained();
-                    }
-                }
+                targeter = GetComponent<TargeterComponent>();
             }
         }
 
-        /// <summary>
-        /// Use the current probe mode to pick an InteractableBase.
-        /// Returns true if a target was found, with distance set to either:
-        /// - Ray t (for Ray mode)
-        /// - World distance from origin to target (for Circle mode)
-        /// </summary>
-        public virtual bool TryPick(out InteractableBase target, out float distance)
+        protected virtual void OnEnable()
         {
-            target = null;
-            distance = float.MaxValue;
-
-            _pool.Clear();
-            foreach (var it in GetCandidates())
+            if (bindToTargeterCurrent && targeter != null && targeter.Model != null)
             {
-                if (!it || !it.isActiveAndEnabled) continue;
-                _pool.Add(it);
-            }
-
-            Vector3 origin = GetOrigin();
-            Vector3 dir = GetFacingDir();
-            if (dir.sqrMagnitude < 1e-6f) dir = Vector3.up;
-            dir.Normalize();
-
-            lastOrigin = origin;
-            lastDir = dir;
-
-            switch (probeMode)
-            {
-                case ProbeMode.Ray:
-                    Debug.DrawLine(origin, origin + dir * rayDistance, Color.red, 0.1f);
-                    return PickByRay(origin, dir, out target, out distance);
-
-                case ProbeMode.Circle:
-                    var center = origin + dir * circleOffset;
-                    lastCircleCenter = center;
-                    return PickInCircle(center, dir, out target, out distance);
-
-                default:
-                    return false;
+                targeter.Model.CurrentTargetChanged += OnTargeterCurrentTargetChanged;
             }
         }
 
-        /// <summary>
-        /// Convenience method: tries to interact with the currentTarget (or picked target if none).
-        /// This does NOT apply any distance/facing gating; concrete interactors
-        /// (e.g., PlayerInteractor) can override and add gating.
-        /// </summary>
-        public virtual bool TryInteract()
+        protected virtual void OnDisable()
         {
-            InteractableBase target = currentTarget;
+            if (bindToTargeterCurrent && targeter != null && targeter.Model != null)
+            {
+                targeter.Model.CurrentTargetChanged -= OnTargeterCurrentTargetChanged;
+            }
+        }
+
+        // --------------------------------------------------------------------
+        // Targeter -> Interactor bridge
+        // --------------------------------------------------------------------
+
+        private void OnTargeterCurrentTargetChanged(FocusTarget focus)
+        {
+            currentFocusTarget = focus;
+            var interactable = ResolveInteractableFromFocus(focus);
+            SetCurrentTarget(interactable, sourceLabel: "Targeter.CurrentTarget");
+        }
+
+        /// <summary>
+        /// Default resolution from FocusTarget to InteractableBase.
+        /// Override if a given game uses a different mapping.
+        /// </summary>
+        protected virtual InteractableBase ResolveInteractableFromFocus(FocusTarget focus)
+        {
+            if (focus == null)
+                return null;
+
+            var logical = focus.LogicalTarget;
+            if (logical == null)
+                return null;
+
+            var root = logical.TargetTransform;
+            if (!root)
+                return null;
+
+            // Default rule: InteractableBase on logical root.
+            return root.GetComponent<InteractableBase>();
+        }
+
+        public virtual InteractionGateInfo BuildGateInfo(InteractableBase target = null)
+        {
+            // Default to the cached target if none provided.
+            if (!target)
+                target = currentTarget;
 
             if (!target)
-            {
-                // Fall back to on-demand pick if no current target is set.
-                if (!TryPick(out target, out _))
-                {
-                    lastPicked = "<none>";
-                    return false;
-                }
-            }
+                return InteractionGateInfo.Empty;
 
-            lastPicked = target.InteractableId ?? target.name;
-            return target.OnInteract();
-        }
+            bool inRangeLocal = IsInRange(target, out float dist);
+            bool facingOkLocal = IsFacing(target, out float dot);
+            bool canInteractLocal = inRangeLocal && facingOkLocal;
 
-        // =====================================================================
-        //  PICKING IMPLEMENTATIONS
-        // =====================================================================
-
-        /// <summary>
-        /// Ray-based selection using InteractableBase.RayTest().
-        /// Honors rayDistance, minFacingDot, and SelectionPriority.
-        /// </summary>
-        protected virtual bool PickByRay(
-            Vector3 origin,
-            Vector3 dir,
-            out InteractableBase best,
-            out float bestT
-        )
-        {
-            best = null;
-            bestT = float.MaxValue;
-            float bestPriority = float.NegativeInfinity;
-
-            var ray = new Ray(origin, dir);
-
-            foreach (var it in _pool)
-            {
-                if (!it.RayTest(ray, out float t)) continue;
-
-                // If rayDistance > 0, enforce a max distance along the ray.
-                // If rayDistance <= 0, treat it as "unlimited" for ray picking.
-                if (rayDistance > 0f && t > rayDistance) continue;
-
-                // Facing gate
-                var to = (it.transform.position - origin).normalized;
-                float dot = Vector3.Dot(dir, to);
-                if (dot < minFacingDot) continue;
-
-                bool closer = t < bestT ||
-                    (Mathf.Approximately(t, bestT) && it.SelectionPriority > bestPriority);
-
-                if (closer)
-                {
-                    best = it;
-                    bestT = t;
-                    bestPriority = it.SelectionPriority;
-                }
-            }
-
-            return best != null;
-        }
-
-        /// <summary>
-        /// Circle-based selection (useful for radial, non-precision interaction).
-        /// Honors circleRadius, circleOffset, minFacingDot, and SelectionSort.
-        /// </summary>
-        protected virtual bool PickInCircle(
-            Vector3 center,
-            Vector3 dir,
-            out InteractableBase best,
-            out float bestDist
-        )
-        {
-            best = null;
-            bestDist = float.MaxValue;
-            float bestScore = float.NegativeInfinity;
-
-            float r2 = circleRadius * circleRadius;
-
-            foreach (var it in _pool)
-            {
-                var b = it.GetWorldBounds();
-                Vector3 p = b.center;
-                Vector3 to = p - center;
-                float d2 = to.sqrMagnitude;
-                if (d2 > r2) continue;
-
-                float dot = Vector3.Dot(dir, to.normalized);
-                if (dot < minFacingDot) continue;
-
-                float score = selectionSort switch
-                {
-                    SelectionSort.First => 0f,
-                    SelectionSort.Nearest => -d2,
-                    SelectionSort.BestFacing => dot * 10f - d2 * 0.1f,
-                    _ => -d2
-                };
-
-                if (score > bestScore)
-                {
-                    bestScore = score;
-                    best = it;
-                    bestDist = Mathf.Sqrt(d2);
-                }
-            }
-
-            return best != null;
-        }
-
-        // =====================================================================
-        //  GIZMOS
-        // =====================================================================
-
-        protected virtual void OnDrawGizmosSelected()
-        {
-            if (!drawGizmos) return;
-
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawLine(
-                lastOrigin,
-                lastOrigin + lastDir * Mathf.Max(rayDistance, circleOffset)
+            return new InteractionGateInfo(
+                interactorRoot: gameObject,
+                interactableRoot: target.gameObject,
+                inRange: inRangeLocal,
+                distance: dist,
+                maxDistance: interactMaxDistance,
+                facingOk: facingOkLocal,
+                facingDot: dot,
+                facingThreshold: interactFacingDotThreshold,
+                canInteract: canInteractLocal,
+                lastFailReason: null
             );
-
-            if (probeMode == ProbeMode.Circle)
-            {
-#if UNITY_EDITOR
-                UnityEditor.Handles.color = new Color(0f, 1f, 1f, 0.25f);
-                UnityEditor.Handles.DrawSolidDisc(lastCircleCenter, Vector3.forward, circleRadius);
-#endif
-                Gizmos.color = Color.cyan;
-                Gizmos.DrawWireSphere(lastCircleCenter, circleRadius);
-            }
-            else
-            {
-                Gizmos.color = Color.yellow;
-                Gizmos.DrawLine(lastOrigin, lastOrigin + lastDir * rayDistance);
-            }
         }
+
+
+        /// <summary>
+        /// External systems (Targeter, AI, scripts) can set the current target explicitly.
+        /// This is also where focus/range hooks live.
+        /// </summary>
+        public virtual void SetCurrentTarget(InteractableBase target, string sourceLabel = null)
+        {
+            if (currentTarget == target && currentTargetSource == sourceLabel)
+                return;
+
+            if (currentTarget != null)
+            {
+                currentTarget.OnLeaveRange();
+
+                if (currentTarget is IInteractableFocusable lostFocus)
+                {
+                    lostFocus.OnFocusLost();
+                }
+            }
+
+            previousTarget = currentTarget;
+            currentTarget = target;
+            currentTargetSource = sourceLabel;
+
+            if (currentTarget != null)
+            {
+                currentTarget.OnEnterRange();
+
+                if (currentTarget is IInteractableFocusable gainedFocus)
+                {
+                    gainedFocus.OnFocusGained();
+                }
+            }
+
+            OnCurrentTargetChanged(previousTarget, currentTarget);
+        }
+
+        protected virtual void OnCurrentTargetChanged(InteractableBase oldTarget, InteractableBase newTarget)
+        {
+            // Override in subclasses if you want UI/etc.
+        }
+
+        public void ClearCurrentTarget(string sourceLabel = null)
+        {
+            SetCurrentTarget(null, sourceLabel);
+        }
+
+        // --------------------------------------------------------------------
+        // Abstract hooks for gating
+        // --------------------------------------------------------------------
+
+        protected abstract Vector3 GetOrigin();
+        protected abstract Vector3 GetFacingDirection();
+
+        // --------------------------------------------------------------------
+        // Interaction ability
+        // --------------------------------------------------------------------
+
+        public bool TryInteract()
+        {
+            return TryInteract(currentTarget);
+        }
+
+        public virtual bool TryInteract(InteractableBase target)
+        {
+            if (!target)
+                return false;
+
+            bool inRangeLocal = IsInRange(target, out float dist);
+            bool facingLocal = IsFacing(target, out float dot);
+            bool canInteractLocal = inRangeLocal && facingLocal;
+
+            distanceToTarget = dist;
+            inRange = inRangeLocal;
+            facingOk = facingLocal;
+            canInteract = canInteractLocal;
+
+            if (!canInteractLocal)
+            {
+                OnInteractionBlocked(target, inRangeLocal, facingLocal, dist, dot);
+                return false;
+            }
+
+            bool ok = target.OnInteract();
+            OnInteractionPerformed(target, ok, dist, dot);
+            return ok;
+        }
+
+        // --------------------------------------------------------------------
+        // Gating helpers
+        // --------------------------------------------------------------------
+
+        protected bool IsInRange(InteractableBase target, out float distance)
+        {
+            distance = 0f;
+            if (!target)
+                return false;
+
+            Vector3 origin = GetOrigin();
+            Vector3 targetPos = target.transform.position;
+            distance = Vector3.Distance(origin, targetPos);
+            return distance <= interactMaxDistance;
+        }
+
+        protected bool IsFacing(InteractableBase target, out float dot)
+        {
+            dot = 0f;
+            if (!target)
+                return false;
+
+            Vector3 origin = GetOrigin();
+            Vector3 toTarget = (target.transform.position - origin);
+            if (toTarget.sqrMagnitude < 1e-6f)
+            {
+                dot = 1f;
+                return true;
+            }
+
+            Vector3 facing = GetFacingDirection();
+            if (facing.sqrMagnitude < 1e-6f)
+            {
+                dot = 0f;
+                return false;
+            }
+
+            facing.Normalize();
+            toTarget.Normalize();
+            dot = Vector3.Dot(facing, toTarget);
+            return dot >= interactFacingDotThreshold;
+        }
+
+        // Optional debug / logging hooks
+        protected virtual void OnInteractionBlocked(
+            InteractableBase target,
+            bool inRangeLocal,
+            bool facingOkLocal,
+            float distance,
+            float dot)
+        { }
+
+        protected virtual void OnInteractionPerformed(
+            InteractableBase target,
+            bool success,
+            float distance,
+            float dot)
+        { }
     }
 }
