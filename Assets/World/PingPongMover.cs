@@ -2,6 +2,10 @@
 
 public class PingPongMover : MonoBehaviour
 {
+    // setup: have a parent entity - empty
+    // and 3 child entities
+    //  sprite + script, pointA, pointB
+
     public Transform pointA;
     public Transform pointB;
     public float speed = 1f;
@@ -52,6 +56,7 @@ public class PingPongMover : MonoBehaviour
 
     void SinPingPong()
     {
+        // use a sin wave - creates natural easing
         float t = (Mathf.Sin(Time.time * speed) + 1f) * 0.5f;
         transform.position = Vector3.Lerp(pointA.position, pointB.position, t);
     }
