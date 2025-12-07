@@ -14,7 +14,7 @@ namespace Targeting
     /// Designed for top-down 2D where gameplay happens in the XY plane
     /// and PlayerMover2D.Facing is a Vector2 in that same plane.
     /// </summary>
-    public sealed class TargeterComponent : MonoBehaviour
+    public sealed class TargeterComponent : MonoBehaviour, ITargeter
     {
         // ====================================================================
         // Core model & references
@@ -176,39 +176,45 @@ namespace Targeting
 
         private void OnHoverChanged(FocusChange change)
         {
-            // Anchor before/after the change
-            var prevAnchor = change.Previous?.Anchor;
-            var newAnchor = change.Current?.Anchor;
+            var prev = change.Previous;
+            var current = change.Current;
 
-            // Fire unhover on the old anchor (if it changed)
+            var prevAnchor = prev?.Anchor;
+            var newAnchor = current?.Anchor;
+
+            // previous hover lost
             if (prevAnchor != null && prevAnchor != newAnchor)
-                prevAnchor.RaiseUnhovered();
+                prevAnchor.RaiseUnhovered(prev);
 
-            // Fire hover on the new anchor (if it changed)
+            // new hover gained
             if (newAnchor != null && newAnchor != prevAnchor)
-                newAnchor.RaiseHovered();
+                newAnchor.RaiseHovered(current);
 
-            // Keep your debug / inspector mirrors
-            CurrentHover = change.Current;
-            debugHoverLabel = change.Current?.TargetLabel ?? "(null)";
+            CurrentHover = current;
+            debugHoverLabel = current?.TargetLabel ?? "(null)";
         }
+
 
         private void OnLockedChanged(FocusChange change)
         {
-            var prevAnchor = change.Previous?.Anchor;
-            var newAnchor = change.Current?.Anchor;
+            var prev = change.Previous;
+            var current = change.Current;
 
-            // Old locked anchor is no longer locked
+            var prevAnchor = prev?.Anchor;
+            var newAnchor = current?.Anchor;
+
+            // old locked target is no longer locked
             if (prevAnchor != null && prevAnchor != newAnchor)
-                prevAnchor.RaiseUntargeted();
+                prevAnchor.RaiseUntargeted(prev);
 
-            // New locked anchor
+            // new locked target
             if (newAnchor != null && newAnchor != prevAnchor)
-                newAnchor.RaiseTargeted();
+                newAnchor.RaiseTargeted(current);
 
-            CurrentLocked = change.Current;
-            debugLockedLabel = change.Current?.TargetLabel ?? "(null)";
+            CurrentLocked = current;
+            debugLockedLabel = current?.TargetLabel ?? "(null)";
         }
+
 
         private void OnFocusChanged(FocusChange change)
         {
@@ -294,6 +300,7 @@ namespace Targeting
                 var logical = (ITargetable)logicalRoot;
 
                 bestTarget = new FocusTarget(
+                    this,
                     logical,
                     anchor,
                     worldDistFromPlayer,
@@ -371,6 +378,7 @@ namespace Targeting
             float dist = Vector3.Distance(playerCenter.position, worldPos);
 
             var locked = new FocusTarget(
+                this,
                 logical,
                 anchor,
                 dist,
@@ -400,6 +408,7 @@ namespace Targeting
             float dist = Vector3.Distance(playerCenter.position, pos);
 
             var locked = new FocusTarget(
+                this,
                 logical,
                 next,
                 dist,

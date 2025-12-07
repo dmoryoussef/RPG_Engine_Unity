@@ -31,7 +31,7 @@ namespace Inspection
 
         [Header("Targeting")]
         [SerializeField, Tooltip("TargeterComponent that provides the current hover/selection.")]
-        private TargeterComponent _targeter;
+        private TargeterBase _targeter;
 
         [Header("Camera (optional, for debug distance only)")]
         [SerializeField, Tooltip("Camera used for debug distance visualization. If null, Reset() assigns Camera.main.")]
@@ -131,7 +131,9 @@ namespace Inspection
 
             if (_targeter == null)
             {
-                _targeter = GetComponent<TargeterComponent>();
+                _targeter = GetComponent<PlayerTargeter>();
+                if (_targeter == null)
+                    Debug.LogWarning("No targeter found on GameObject.");
             }
         }
 
@@ -148,7 +150,9 @@ namespace Inspection
 
             if (_targeter == null)
             {
-                _targeter = GetComponent<TargeterComponent>();
+                _targeter = GetComponent<TargeterBase>();
+                if (_targeter == null)
+                    Debug.LogWarning("No targeter on GameObject.");
             }
         }
 

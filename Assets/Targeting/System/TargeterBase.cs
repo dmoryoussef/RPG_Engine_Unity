@@ -24,7 +24,7 @@ namespace Targeting
     /// - CycleLockFromFov()
     /// - ClearLock()
     /// </summary>
-    public abstract class TargeterBase : MonoBehaviour
+    public abstract class TargeterBase : MonoBehaviour, ITargeter
     {
         // ====================================================================
         // Core model & references
@@ -174,10 +174,10 @@ namespace Targeting
             var newAnchor = change.Current?.Anchor;
 
             if (prevAnchor != null && prevAnchor != newAnchor)
-                prevAnchor.RaiseUnhovered();
+                prevAnchor.RaiseUnhovered(change.Previous);
 
             if (newAnchor != null && newAnchor != prevAnchor)
-                newAnchor.RaiseHovered();
+                newAnchor.RaiseHovered(change.Current);
 
             // Mirror for debugging/inspection
             CurrentHover = change.Current;
@@ -190,10 +190,10 @@ namespace Targeting
             var newAnchor = change.Current?.Anchor;
 
             if (prevAnchor != null && prevAnchor != newAnchor)
-                prevAnchor.RaiseUntargeted();
+                prevAnchor.RaiseUntargeted(change.Previous);
 
             if (newAnchor != null && newAnchor != prevAnchor)
-                newAnchor.RaiseTargeted();
+                newAnchor.RaiseTargeted(change.Current);
 
             CurrentLocked = change.Current;
             debugLockedLabel = change.Current?.TargetLabel ?? "(null)";
@@ -245,6 +245,7 @@ namespace Targeting
             float dist = Vector3.Distance(centerTransform.position, worldPos);
 
             var locked = new FocusTarget(
+                this,
                 logical,
                 anchor,
                 dist,
@@ -283,6 +284,7 @@ namespace Targeting
             float dist = Vector3.Distance(centerTransform.position, pos);
 
             var locked = new FocusTarget(
+                this,
                 logical,
                 nextAnchor,
                 dist,
@@ -341,6 +343,7 @@ namespace Targeting
                 var logical = (ITargetable)logicalRoot;
 
                 bestTarget = new FocusTarget(
+                    this,
                     logical,
                     anchor,
                     worldDistFromCenter,

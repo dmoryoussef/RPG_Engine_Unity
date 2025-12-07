@@ -26,6 +26,9 @@ namespace Targeting
         [Tooltip("If this is a child anchor, set this to the root TargetableComponent.")]
         [SerializeField] private TargetableComponent parentTarget;
 
+        [Header("Current targeter")]
+        ITargeter _targeter;
+
         /// <summary>
         /// The logical root TargetableComponent. If parentTarget is null, this instance is the root.
         /// </summary>
@@ -67,28 +70,32 @@ namespace Targeting
         /// <summary>
         /// Fired when this anchor becomes the current hover target.
         /// </summary>
-        public event Action<TargetableComponent> Hovered;
+        public event Action<TargetableComponent, FocusTarget> Hovered;
 
         /// <summary>
         /// Fired when this anchor stops being the current hover target.
         /// </summary>
-        public event Action<TargetableComponent> Unhovered;
+        public event Action<TargetableComponent, FocusTarget> Unhovered;
 
         /// <summary>
         /// Fired when this anchor becomes the current locked/targeted anchor.
         /// </summary>
-        public event Action<TargetableComponent> Targeted;
+        public event Action<TargetableComponent, FocusTarget> Targeted;
 
         /// <summary>
         /// Fired when this anchor stops being the current locked/targeted anchor.
         /// </summary>
-        public event Action<TargetableComponent> Untargeted;
+        public event Action<TargetableComponent, FocusTarget> Untargeted;
 
         // These are called by the TargeterComponent based on FocusChange events.
-        internal void RaiseHovered() => Hovered?.Invoke(this);
-        internal void RaiseUnhovered() => Unhovered?.Invoke(this);
-        internal void RaiseTargeted() => Targeted?.Invoke(this);
-        internal void RaiseUntargeted() => Untargeted?.Invoke(this);
+        internal void RaiseHovered(FocusTarget focus) => Hovered?.Invoke(this, focus);
+        internal void RaiseUnhovered(FocusTarget focus) => Unhovered?.Invoke(this, focus);
+        internal void RaiseTargeted(FocusTarget focus)
+        {
+            _targeter = focus.Targeter;
+            Targeted?.Invoke(this, focus);
+        }
+        internal void RaiseUntargeted(FocusTarget focus) => Untargeted?.Invoke(this, focus);
 
         // ---------- Lifecycle / Registry membership ---------- //
 

@@ -372,6 +372,56 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &730063995
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 730063996}
+  - component: {fileID: 730063997}
+  m_Layer: 0
+  m_Name: HudContributors
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &730063996
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 730063995}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1145219838}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &730063997
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 730063995}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 85016e7c0dbf5344aa1db10505865fa8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI.BasicHudContributor
+  _targetComponent: {fileID: 1145219851}
+  _priority: 0
+  _inMainPanelList: 1
+  _isClickable: 1
+  _clickMode: 1
+  _debugLogging: 0
 --- !u!1 &1106162213
 GameObject:
   m_ObjectHideFlags: 0
@@ -654,6 +704,7 @@ GameObject:
   - component: {fileID: 1145219847}
   - component: {fileID: 1145219848}
   - component: {fileID: 1145219849}
+  - component: {fileID: 1145219851}
   - component: {fileID: 1145219850}
   m_Layer: 0
   m_Name: Player
@@ -734,6 +785,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1952485571}
+  - {fileID: 730063996}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1145219839
@@ -969,30 +1021,44 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1145219836}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c747f198e6c3b3046a3382e49ec3c193, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI.UserHudSpawner
+  _userHudRootPrefab: {fileID: -4551197729455271242, guid: 5125a7f569527644a99b00862c2f512c, type: 3}
+  _controlledEntityRoot: {fileID: 1145219836}
+--- !u!114 &1145219851
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1145219836}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 694f5a44390a94b4b8d0a971e1b873b2, type: 3}
+  m_Script: {fileID: 11500000, guid: a305d630ffe69dd40a63b7a4b0a53927, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Targeting.TargeterComponent
-  playerCamera: {fileID: 0}
-  playerCenter: {fileID: 0}
-  hoverBaseWorldRadius: 0.5
-  hoverMinWorldRadius: 0.1
-  hoverWorldRadiusBuffer: 0
+  m_EditorClassIdentifier: Assembly-CSharp::Targeting.PlayerTargeter
+  targetCamera: {fileID: 0}
+  centerTransform: {fileID: 0}
+  hoverBaseWorldRadius: 1
+  hoverMinWorldRadius: 0.05
+  hoverWorldRadiusBuffer: 0.05
   hoverMaxRayDistance: 0
-  lockRadius: 10
-  lockFovDegrees: 60
-  lockFromHoverKey: 324
-  cycleLockKey: 9
-  clearLockKey: 27
+  lockRadius: 5
+  lockFovDegrees: 80
+  debugHoverLabel: (null)
+  debugLockedLabel: (null)
+  debugFocusLabel: (null)
+  debugCurrentLabel: (null)
   logCurrentTargetChanges: 0
-  debugHoverLabel: 
-  debugLockedLabel: 
-  debugFocusLabel: 
-  debugCurrentLabel: 
   _drawHoverGizmos: 1
   _drawLockGizmos: 1
   _drawAllAnchors: 0
+  lockFromHoverKey: 324
+  cycleLockKey: 9
+  clearLockKey: 27
 --- !u!1 &1252769399
 GameObject:
   m_ObjectHideFlags: 0

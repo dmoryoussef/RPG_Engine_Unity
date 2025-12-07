@@ -65,5 +65,25 @@ namespace Targeting
 
             return forward.normalized;
         }
+
+        public override string ToString()
+        {
+            var m = Model; // shorthand
+
+            string Format(FocusTarget ft)
+            {
+                if (ft == null)
+                    return "none";
+
+                var label = ft.TargetLabel ?? "unnamed";
+                return $"{label} ({ft.Distance:0.0}m)";
+            }
+
+            return
+                $"locked target: {Format(m?.Locked)}\n" +
+                $"hover target:  {Format(m?.Hover)}\n" +
+                $"current:       {Format(m?.CurrentTarget)}";
+        }
+
     }
 }
