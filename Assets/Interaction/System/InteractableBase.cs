@@ -154,11 +154,29 @@ namespace Interaction
             SoftValidate(isEditorPhase: false); // authoritative at runtime
         }
 
-        /// <summary>
-        /// Lightweight validation that does not allocate heavy resources.
-        /// Called both in-editor and at runtime; use isEditorPhase to branch.
-        /// </summary>
-        protected void SoftValidate(bool isEditorPhase)
+       
+        protected virtual void OnEnable()
+        {
+            // Register under both its concrete base and the interface.
+            World.Registry.Register<InteractableBase>(this);
+
+            if (this is IInteractable interactable)
+                World.Registry.Register<IInteractable>(interactable);
+        }
+
+        protected virtual void OnDisable()
+        {
+            World.Registry.Unregister<InteractableBase>(this);
+
+            if (this is IInteractable interactable)
+                World.Registry.Unregister<IInteractable>(interactable);
+        }
+
+    /// <summary>
+    /// Lightweight validation that does not allocate heavy resources.
+    /// Called both in-editor and at runtime; use isEditorPhase to branch.
+    /// </summary>
+    protected void SoftValidate(bool isEditorPhase)
         {
             validationPassed = true;
 
@@ -383,20 +401,6 @@ namespace Interaction
         protected virtual void OnInteractionFailed(InteractionFailReason reason)
         {
             onInteractFailed?.Invoke();
-        }
-
-        // =====================================================================
-        //  REGISTRY + BOUNDS + RAY TEST
-        // =====================================================================
-
-        protected virtual void OnEnable()
-        {
-            InteractableRegistry.Register(this);
-        }
-
-        protected virtual void OnDisable()
-        {
-            InteractableRegistry.Unregister(this);
         }
 
         /// <summary>

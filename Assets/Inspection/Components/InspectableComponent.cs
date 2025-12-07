@@ -1,3 +1,4 @@
+using Interaction;
 using UnityEngine;
 
 namespace Inspection
@@ -60,12 +61,18 @@ namespace Inspection
 
         protected virtual void OnEnable()
         {
-            InspectableRegistry.Register(this);
+            World.Registry.Register<InspectableComponent>(this);
+
+            if (this is IInspectable inspectable)
+                World.Registry.Register<IInspectable>(inspectable);
         }
 
         protected virtual void OnDisable()
         {
-            InspectableRegistry.Unregister(this);
+            World.Registry.Unregister<InspectableComponent>(this);
+
+            if (this is IInspectable inspectable)
+                World.Registry.Unregister<IInspectable>(inspectable);
         }
 
         // --------------------------------------------------------------------

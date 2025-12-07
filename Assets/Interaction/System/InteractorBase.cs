@@ -50,6 +50,11 @@ namespace Interaction
 
         protected virtual void OnEnable()
         {
+            World.Registry.Register<InteractorBase>(this);
+
+            if (this is IInteractor interactor)
+                World.Registry.Register<IInteractor>(interactor);
+
             if (bindToTargeterCurrent && targeter != null && targeter.Model != null)
             {
                 targeter.Model.CurrentTargetChanged += OnTargeterCurrentTargetChanged;
@@ -58,6 +63,11 @@ namespace Interaction
 
         protected virtual void OnDisable()
         {
+            World.Registry.Unregister<InteractorBase>(this);
+
+            if (this is IInteractor interactor)
+                World.Registry.Unregister<IInteractor>(interactor);
+
             if (bindToTargeterCurrent && targeter != null && targeter.Model != null)
             {
                 targeter.Model.CurrentTargetChanged -= OnTargeterCurrentTargetChanged;

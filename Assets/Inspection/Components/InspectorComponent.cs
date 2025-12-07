@@ -154,6 +154,11 @@ namespace Inspection
 
         private void OnEnable()
         {
+            World.Registry.Unregister<InspectorComponent>(this);
+
+            if (this is IInspector inspector)
+                World.Registry.Unregister<IInspector>(inspector);
+
             if (_targeter != null && _targeter.Model != null)
             {
                 _targeter.Model.HoverChanged += OnTargeterHoverChanged;

@@ -1,6 +1,7 @@
-﻿using Player;
-using UnityEngine;
+﻿using System.Collections.Generic;
 using Logging;
+using Player;
+using UnityEngine;
 
 namespace Interaction
 {
@@ -8,39 +9,37 @@ namespace Interaction
     /// Player-specific interactor built on top of InteractorBase.
     ///
     /// Responsibilities:
-    /// - Defines the player origin and facing direction for gating.
-    /// - Consumes the cached currentTarget that InteractorBase maintains
-    ///   (typically fed by a TargeterComponent on the same GameObject).
-    /// - Handles player input and invokes TryInteract() on demand.
+    /// - Provide player origin/facing for the base gating logic.
+    /// - Use the cached currentTarget from InteractorBase
+    ///   (fed by TargeterComponent via InteractorBase’s own wiring).
+    /// - Support multiple InteractableBase components on the same root,
+    ///   each with its own InteractionKey (E = open/close, L = lock, etc.).
+    /// - Optionally log interaction attempts/results via GameLog.
     ///
-    /// It no longer performs any picking itself; selection is handled by
-    /// Targeter/TargetingContextModel, and InteractorBase caches that as
-    /// currentTarget via its Targeter subscriptions.
+    /// It does NOT:
+    /// - Do its own target selection.
+    /// - Re-wire TargeterComponent events.
     /// </summary>
     public sealed class PlayerInteractor : InteractorBase
     {
         [Header("Dependencies")]
-        [SerializeField] private PlayerMover2D mover;
+        [SerializeField] private PlayerMover2D _mover;
 
-        [Header("Facing")]
-        [SerializeField, Tooltip("Fallback facing when the mover has no input (idle).")]
-        private Vector2 idleFacing2D = Vector2.down;
-
-        [Header("Input")]
-        [SerializeField, Tooltip("Primary interaction key used when interacting with the current target.")]
-        private KeyCode primaryInteractKey = KeyCode.E;
-
-        [Header("Debug State")]
+        [Header("Debug")]
         [SerializeField, Tooltip("If true, interaction attempts will be logged via GameLog.")]
-        private bool debugLogging = false;
+        private bool _debugLogging = false;
 
         [SerializeField, Tooltip("Did the last interaction attempt succeed?")]
-        private bool lastInteractSucceeded;
+        private bool _lastInteractSucceeded;
 
         [SerializeField, Tooltip("Realtime since startup of the last interaction attempt.")]
-        private float lastInteractTime = -999f;
+        private float _lastInteractTime = -999f;
 
         private const string SystemTag = "PlayerInteractor";
+
+        // Scratch list to avoid allocations when gathering interactables on the root.
+        private readonly List<InteractableBase> _interactablesOnRoot =
+            new List<InteractableBase>(8);
 
         // --------------------------------------------------------------------
         // Lifecycle
@@ -50,77 +49,105 @@ namespace Interaction
         {
             base.Awake();
 
-            if (!mover)
+            if (!_mover)
             {
-                mover = GetComponent<PlayerMover2D>();
+                _mover = GetComponent<PlayerMover2D>();
             }
         }
 
         private void Update()
         {
-            // Basic pattern: if the player presses the interaction key,
-            // attempt to interact with the cached currentTarget maintained
-            // by InteractorBase.
-            if (Input.GetKeyDown(primaryInteractKey))
-            {
-                bool ok = TryInteract();
-                lastInteractSucceeded = ok;
-                lastInteractTime = Time.realtimeSinceStartup;
-            }
+            // We rely entirely on InteractorBase's cached currentTarget,
+            // which is updated from TargeterComponent.Model.CurrentTargetChanged.
+            if (!currentTarget)
+                return;
 
-            // If you need per-frame UI prompts, you can read
-            // BuildGateInfo(currentTarget) from elsewhere (e.g., HUD script)
-            // to display "Press E" hints.
+            HandleKeyInteractionsForCurrentRoot();
         }
 
         // --------------------------------------------------------------------
-        // InteractorBase abstract hooks
+        // InteractorBase abstract hooks (gating origin/facing)
         // --------------------------------------------------------------------
 
-        /// <summary>
-        /// World position of the player for distance checks.
-        /// </summary>
         protected override Vector3 GetOrigin()
         {
             return transform.position;
         }
 
-        /// <summary>
-        /// World-space facing vector used for facing-dot gating.
-        /// </summary>
         protected override Vector3 GetFacingDirection()
         {
-            Vector2 facing2D;
+            // Use mover's facing if available and non-zero, otherwise fall back
+            // to a default (down) so gating never fails due to a zero vector.
+            Vector2 facing2D = Vector2.down;
 
-            if (mover != null && mover.Facing.sqrMagnitude > 1e-6f)
+            if (_mover != null && _mover.Facing.sqrMagnitude > 1e-6f)
             {
-                facing2D = mover.Facing.normalized;
-            }
-            else
-            {
-                facing2D = idleFacing2D;
+                facing2D = _mover.Facing.normalized;
             }
 
             return new Vector3(facing2D.x, facing2D.y, 0f);
         }
 
         // --------------------------------------------------------------------
-        // Optional interaction info passthrough
+        // Multi-interactable, multi-key behavior
         // --------------------------------------------------------------------
 
         /// <summary>
-        /// Convenience passthrough so existing code that calls
-        /// PlayerInteractor.BuildGateInfo(target) continues to work.
+        /// Looks at the GameObject of the currentTarget, finds all InteractableBase
+        /// components on that root, and checks each one's InteractionKey against input.
+        ///
+        /// On a key press, we call the base TryInteract(target) to apply distance+facing
+        /// gating and then OnInteract() on that specific interactable.
         /// </summary>
-        public override InteractionGateInfo BuildGateInfo(InteractableBase target) 
+        private void HandleKeyInteractionsForCurrentRoot()
         {
-            // Assumes InteractorBase implements BuildGateInfo; if the base
-            // signature changes, update this wrapper accordingly.
-            return base.BuildGateInfo(target);
+            var root = currentTarget.gameObject;
+
+            _interactablesOnRoot.Clear();
+            root.GetComponents(_interactablesOnRoot);
+
+            if (_interactablesOnRoot.Count == 0)
+            {
+                // Safety fallback: treat currentTarget as the only interactable.
+                _interactablesOnRoot.Add(currentTarget);
+            }
+
+            foreach (var interactable in _interactablesOnRoot)
+            {
+                if (!interactable)
+                    continue;
+
+                var key = interactable.InteractionKey;
+                if (key == KeyCode.None)
+                    continue;
+
+                if (!Input.GetKeyDown(key))
+                    continue;
+
+                // Use the base class gating + interaction logic:
+                bool ok = TryInteract(interactable);
+
+                _lastInteractSucceeded = ok;
+                _lastInteractTime = Time.realtimeSinceStartup;
+
+                if (_debugLogging)
+                {
+                    var id = interactable.InteractableId ?? interactable.name;
+                    GameLog.Log(
+                        this,
+                        system: SystemTag,
+                        action: "KeyInteract",
+                        result: ok ? "Success" : "Failed",
+                        message: $"key={key}, target={id}");
+                }
+
+                // Only fire one interact per frame/key press.
+                return;
+            }
         }
 
         // --------------------------------------------------------------------
-        // Logging hooks
+        // Optional: override base logging hooks to centralize logs
         // --------------------------------------------------------------------
 
         protected override void OnInteractionBlocked(
@@ -130,7 +157,7 @@ namespace Interaction
             float distance,
             float dot)
         {
-            if (!debugLogging)
+            if (!_debugLogging || target == null)
                 return;
 
             string resultStr;
@@ -143,7 +170,7 @@ namespace Interaction
             else
                 resultStr = "BlockedOther";
 
-            string targetId = target ? (target.InteractableId ?? target.name) : "<none>";
+            string targetId = target.InteractableId ?? target.name;
             string msg =
                 $"target={targetId}, dist={distance:F2}, dot={dot:F2}, " +
                 $"threshold={interactFacingDotThreshold:F2}, maxDist={interactMaxDistance:F2}";
@@ -162,7 +189,7 @@ namespace Interaction
             float distance,
             float dot)
         {
-            if (!debugLogging || target == null)
+            if (!_debugLogging || target == null)
                 return;
 
             string targetId = target.InteractableId ?? target.name;
@@ -174,30 +201,6 @@ namespace Interaction
                 action: "TryInteract",
                 result: success ? "Success" : "Failed",
                 message: msg);
-        }
-
-        // --------------------------------------------------------------------
-        // Gizmos
-        // --------------------------------------------------------------------
-
-        private void OnDrawGizmosSelected()
-        {
-#if UNITY_EDITOR
-            // Simple gizmo: draw a line from the player to the current target,
-            // colored by whether the last gating result (canInteract) was true.
-            if (!Application.isPlaying)
-                return;
-
-            if (currentTarget == null)
-                return;
-
-            Vector3 origin = transform.position;
-            Vector3 targetPos = currentTarget.transform.position;
-
-            Gizmos.color = canInteract ? Color.green : Color.red;
-            Gizmos.DrawLine(origin, targetPos);
-            Gizmos.DrawSphere(targetPos, 0.05f);
-#endif
         }
     }
 }

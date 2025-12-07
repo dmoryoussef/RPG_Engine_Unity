@@ -39,9 +39,6 @@ namespace Interaction
         {
             if (stateComponent == null)
             {
-                // Auto-find on this GameObject
-                _state = GetComponent<IState>();
-
                 if (_state == null && !isEditorPhase)
                 {
                     GameLog.LogWarning(

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 namespace Targeting
@@ -8,17 +8,13 @@ namespace Targeting
     /// 
     /// - Attach to an entity root (leave parentTarget null) to define a logical target.
     /// - Attach to child objects as additional anchors, with parentTarget set
-    ///   to the root TargetComponent so they all represent the same logical target.
+    ///   to the root TargetableComponent so they all represent the same logical target.
     /// 
-    /// All instances participate in a static anchor list used by the targeting system.
+    /// All instances participate in the WorldRegistry and can be discovered
+    /// as TargetableComponent (framework/tools) or ITargetable (gameplay).
     /// </summary>
     public class TargetableComponent : MonoBehaviour, ITargetable
     {
-        // ---------- Static anchor list ---------- //
-
-        private static readonly List<TargetableComponent> _allAnchors = new List<TargetableComponent>();
-        public static IReadOnlyList<TargetableComponent> AllAnchors => _allAnchors;
-
         // ---------- Config ---------- //
 
         [Tooltip("Optional label for this logical target. Falls back to root GameObject name if empty.")]
@@ -27,11 +23,11 @@ namespace Targeting
         [Tooltip("Offset from THIS anchor's transform for the aim point.")]
         [SerializeField] private Vector3 localOffset = Vector3.zero;
 
-        [Tooltip("If this is a child anchor, set this to the root TargetComponent.")]
+        [Tooltip("If this is a child anchor, set this to the root TargetableComponent.")]
         [SerializeField] private TargetableComponent parentTarget;
 
         /// <summary>
-        /// The logical root TargetComponent. If parentTarget is null, this instance is the root.
+        /// The logical root TargetableComponent. If parentTarget is null, this instance is the root.
         /// </summary>
         public TargetableComponent LogicalRoot
             => parentTarget != null ? parentTarget.LogicalRoot : this;
@@ -66,17 +62,49 @@ namespace Targeting
         /// </summary>
         public Vector3 AnchorWorldPosition => transform.TransformPoint(localOffset);
 
-        // ---------- Lifecycle ---------- //
+        // ---------- Targeting events ---------- //
+
+        /// <summary>
+        /// Fired when this anchor becomes the current hover target.
+        /// </summary>
+        public event Action<TargetableComponent> Hovered;
+
+        /// <summary>
+        /// Fired when this anchor stops being the current hover target.
+        /// </summary>
+        public event Action<TargetableComponent> Unhovered;
+
+        /// <summary>
+        /// Fired when this anchor becomes the current locked/targeted anchor.
+        /// </summary>
+        public event Action<TargetableComponent> Targeted;
+
+        /// <summary>
+        /// Fired when this anchor stops being the current locked/targeted anchor.
+        /// </summary>
+        public event Action<TargetableComponent> Untargeted;
+
+        // These are called by the TargeterComponent based on FocusChange events.
+        internal void RaiseHovered() => Hovered?.Invoke(this);
+        internal void RaiseUnhovered() => Unhovered?.Invoke(this);
+        internal void RaiseTargeted() => Targeted?.Invoke(this);
+        internal void RaiseUntargeted() => Untargeted?.Invoke(this);
+
+        // ---------- Lifecycle / Registry membership ---------- //
 
         private void OnEnable()
         {
-            if (!_allAnchors.Contains(this))
-                _allAnchors.Add(this);
+            // Framework / tooling view
+            World.Registry.Register<TargetableComponent>(this);
+
+            // Gameplay / systems view (targeting, AI, etc.)
+            World.Registry.Register<ITargetable>(this);
         }
 
         private void OnDisable()
         {
-            _allAnchors.Remove(this);
+            World.Registry.Unregister<TargetableComponent>(this);
+            World.Registry.Unregister<ITargetable>(this);
         }
     }
 }

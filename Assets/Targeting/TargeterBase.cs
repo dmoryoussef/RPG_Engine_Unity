@@ -1,28 +1,38 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
-using Player; // For PlayerMover2D
 
 namespace Targeting
 {
     /// <summary>
-    /// Centralized targeting adapter that:
-    /// - Maintains a TargetingContextModel for hover, locked, focus, current targets
-    /// - Provides mouse-hover picking (ray-sphere) against TargetableComponent anchors
-    /// - Supports lock-on via FOV + radius + cycling
-    /// - Exposes runtime FocusTargets + debug labels for Inspector/UI
-    ///
-    /// Designed for top-down 2D where gameplay happens in the XY plane
-    /// and PlayerMover2D.Facing is a Vector2 in that same plane.
+    /// Input-agnostic targeting core.
+    /// 
+    /// Responsibilities:
+    /// - Owns TargetingContextModel
+    /// - Performs hover picking via ray-sphere checks
+    /// - Maintains lock-on via FOV + radius and cycling
+    /// - Queries TargetableComponent anchors from WorldRegistry
+    /// - Drives TargetableComponent hooks (Hovered/Unhovered/Targeted/Untargeted)
+    /// - Exposes debug gizmos
+    /// 
+    /// DOES NOT:
+    /// - Read input
+    /// - Decide *when* to lock, cycle, or clear
+    /// 
+    /// Derived classes (player, AI, etc.) call the protected methods:
+    /// - UpdateHoverFromRay(...)
+    /// - LockFromHover()
+    /// - CycleLockFromFov()
+    /// - ClearLock()
     /// </summary>
-    public sealed class TargeterComponent : MonoBehaviour
+    public abstract class TargeterBase : MonoBehaviour
     {
         // ====================================================================
         // Core model & references
         // ====================================================================
 
         [Header("Core References")]
-        [SerializeField] private Camera playerCamera;
-        [SerializeField] private Transform playerCenter;
+        [SerializeField] protected Camera targetCamera;
+        [SerializeField] protected Transform centerTransform;
 
         /// <summary>
         /// Core targeting model consumed by other systems (interaction, combat, etc).
@@ -30,24 +40,22 @@ namespace Targeting
         /// </summary>
         public TargetingContextModel Model { get; private set; }
 
-        private PlayerMover2D _mover2D;
-
         // ====================================================================
         // Hover picking configuration
         // ====================================================================
 
         [Header("Hover Picking (Ray-Sphere)")]
         [Tooltip("Base world radius multiplier for hover picking spheres.")]
-        [SerializeField] private float hoverBaseWorldRadius = 0.1f;
+        [SerializeField] protected float hoverBaseWorldRadius = 0.1f;
 
         [Tooltip("Minimum world radius, even for very small targets.")]
-        [SerializeField] private float hoverMinWorldRadius = 0.05f;
+        [SerializeField] protected float hoverMinWorldRadius = 0.05f;
 
         [Tooltip("Extra buffer added to the scaled radius for easier selection.")]
-        [SerializeField] private float hoverWorldRadiusBuffer = 0.05f;
+        [SerializeField] protected float hoverWorldRadiusBuffer = 0.05f;
 
         [Tooltip("Optional max distance along the hover ray. <= 0 means infinite.")]
-        [SerializeField] private float hoverMaxRayDistance = 0f;
+        [SerializeField] protected float hoverMaxRayDistance = 0f;
 
         // ====================================================================
         // Lock-On configuration
@@ -55,22 +63,10 @@ namespace Targeting
 
         [Header("Lock-On (FOV + Radius)")]
         [Tooltip("Maximum world-space distance for lock-on candidates.")]
-        [SerializeField] private float lockRadius = 5f;
+        [SerializeField] protected float lockRadius = 5f;
 
         [Tooltip("Field-of-view angle (degrees) for lock-on.")]
-        [SerializeField] private float lockFovDegrees = 80f;
-
-        // ====================================================================
-        // Input
-        // ====================================================================
-
-        [Header("Input")]
-        [SerializeField] private KeyCode lockFromHoverKey = KeyCode.Q;
-        [SerializeField] private KeyCode cycleLockKey = KeyCode.E;
-        [SerializeField] private KeyCode clearLockKey = KeyCode.R;
-
-        [Header("Debug Logging")]
-        [SerializeField] private bool logCurrentTargetChanges = false;
+        [SerializeField] protected float lockFovDegrees = 80f;
 
         // ====================================================================
         // Runtime FocusTargets (Inspector-visible)
@@ -95,6 +91,9 @@ namespace Targeting
         [SerializeField] private string debugFocusLabel = "(null)";
         [SerializeField] private string debugCurrentLabel = "(null)";
 
+        [Header("Debug Logging")]
+        [SerializeField] private bool logCurrentTargetChanges = false;
+
         // ====================================================================
         // Debug Gizmos
         // ====================================================================
@@ -105,37 +104,25 @@ namespace Targeting
         [SerializeField] private bool _drawAllAnchors = false;
 
         // Lock-on candidate cache (reused every frame).
-        private readonly List<TargetableComponent> _lockCandidates = new();
+        protected readonly List<TargetableComponent> _lockCandidates = new();
 
         // Registry query buffer for all TargetableComponent anchors.
-        private readonly List<TargetableComponent> _anchorsBuffer = new();
+        protected readonly List<TargetableComponent> _anchorsBuffer = new();
 
         // ====================================================================
         // UNITY LIFECYCLE
         // ====================================================================
 
-        private void Awake()
+        protected virtual void Awake()
         {
-            if (playerCamera == null)
-                playerCamera = Camera.main;
+            if (targetCamera == null)
+                targetCamera = Camera.main;
 
-            if (playerCenter == null)
-                playerCenter = transform;
-
-            _mover2D = GetComponent<PlayerMover2D>();
-            if (_mover2D == null)
-            {
-                Debug.LogWarning("[Targeting] TargeterComponent could not find PlayerMover2D on this GameObject. " +
-                                 "FOV will fall back to transform.right.");
-            }
+            if (centerTransform == null)
+                centerTransform = transform;
 
             Model = new TargetingContextModel();
 
-            // TargetingContextModel uses FocusChange for these three:
-            //  public event Action<FocusChange> HoverChanged;
-            //  public event Action<FocusChange> LockedChanged;
-            //  public event Action<FocusChange> FocusChanged;
-            // and Action<FocusTarget> for CurrentTargetChanged. :contentReference[oaicite:1]{index=1}
             Model.HoverChanged += OnHoverChanged;
             Model.LockedChanged += OnLockedChanged;
             Model.FocusChanged += OnFocusChanged;
@@ -144,11 +131,11 @@ namespace Targeting
             if (logCurrentTargetChanges)
             {
                 Model.CurrentTargetChanged += t =>
-                    Debug.Log($"[Targeting] Current -> {t?.TargetLabel ?? "null"}");
+                    Debug.Log($"[Targeting] {name} Current -> {t?.TargetLabel ?? "null"}");
             }
         }
 
-        private void OnDestroy()
+        protected virtual void OnDestroy()
         {
             if (Model == null) return;
 
@@ -158,37 +145,41 @@ namespace Targeting
             Model.CurrentTargetChanged -= OnCurrentChanged;
         }
 
-        private void Update()
+        /// <summary>
+        /// Derived classes implement this and call:
+        /// - UpdateHoverFromRay(...)
+        /// - LockFromHover()
+        /// - CycleLockFromFov()
+        /// - ClearLock()
+        /// as appropriate for their control scheme (player input, AI, etc.).
+        /// </summary>
+        protected abstract void TickTargeter();
+
+        protected virtual void Update()
         {
             if (Model == null)
                 return;
 
-            UpdateHoverFromMouse();
-            HandleLockInput();
-
-            // No Model.UpdateFrame() here – TargetingContextModel recomputes
-            // CurrentTarget internally whenever we call Set/Clear. :contentReference[oaicite:2]{index=2}
+            TickTargeter();
         }
 
         // ====================================================================
-        // Event handlers – sync inspector fields & labels
+        // Event handlers � sync inspector fields & call Targetable hooks
         // ====================================================================
 
         private void OnHoverChanged(FocusChange change)
         {
-            // Anchor before/after the change
+            // Call anchor hooks
             var prevAnchor = change.Previous?.Anchor;
             var newAnchor = change.Current?.Anchor;
 
-            // Fire unhover on the old anchor (if it changed)
             if (prevAnchor != null && prevAnchor != newAnchor)
                 prevAnchor.RaiseUnhovered();
 
-            // Fire hover on the new anchor (if it changed)
             if (newAnchor != null && newAnchor != prevAnchor)
                 newAnchor.RaiseHovered();
 
-            // Keep your debug / inspector mirrors
+            // Mirror for debugging/inspection
             CurrentHover = change.Current;
             debugHoverLabel = change.Current?.TargetLabel ?? "(null)";
         }
@@ -198,11 +189,9 @@ namespace Targeting
             var prevAnchor = change.Previous?.Anchor;
             var newAnchor = change.Current?.Anchor;
 
-            // Old locked anchor is no longer locked
             if (prevAnchor != null && prevAnchor != newAnchor)
                 prevAnchor.RaiseUntargeted();
 
-            // New locked anchor
             if (newAnchor != null && newAnchor != prevAnchor)
                 newAnchor.RaiseTargeted();
 
@@ -212,35 +201,25 @@ namespace Targeting
 
         private void OnFocusChanged(FocusChange change)
         {
-            // No hooks here by default, so we don't double-fire anything.
-            // Focus is a *derived* notion based on hover/locked, so systems
-            // that care can just subscribe to Model.FocusChanged directly.
-
             CurrentFocus = change.Current;
             debugFocusLabel = change.Current?.TargetLabel ?? "(null)";
         }
 
         private void OnCurrentChanged(FocusTarget target)
         {
-            // Again, no hooks here by default: hover/lock hooks have already run.
-            // Current is just "the thing other systems should use right now".
-
             Current = target;
             debugCurrentLabel = target?.TargetLabel ?? "(null)";
         }
 
-
         // ====================================================================
-        // Hover: ray-based picking against all TargetableComponent anchors
+        // Core operations for derived classes
         // ====================================================================
 
-        private void UpdateHoverFromMouse()
+        /// <summary>
+        /// Let a derived class feed us a ray (player mouse, AI line-of-sight, etc.).
+        /// </summary>
+        protected void UpdateHoverFromRay(Ray ray)
         {
-            if (playerCamera == null)
-                return;
-
-            Ray ray = playerCamera.ScreenPointToRay(Input.mousePosition);
-
             if (TryPickTargetFromRay(ray, out var bestTarget))
                 Model.SetHover(bestTarget);
             else
@@ -248,16 +227,85 @@ namespace Targeting
         }
 
         /// <summary>
-        /// Centralized ray-based picking logic for hover.
-        /// Uses a ray-sphere test around each anchor position.
-        /// Sphere radius is derived from logical root scale + configurable base radius.
+        /// Lock onto the current hover target, if any.
         /// </summary>
+        protected void LockFromHover()
+        {
+            var hover = Model.Hover;
+            if (hover == null)
+                return;
+
+            var logical = hover.LogicalTarget;
+            var anchor = hover.Anchor;
+
+            if (logical == null || anchor == null)
+                return;
+
+            Vector3 worldPos = anchor.AnchorWorldPosition;
+            float dist = Vector3.Distance(centerTransform.position, worldPos);
+
+            var locked = new FocusTarget(
+                logical,
+                anchor,
+                dist,
+                worldPos
+            );
+
+            Model.SetLocked(locked);
+        }
+
+        /// <summary>
+        /// Cycle the lock-on target among all FoV candidates.
+        /// </summary>
+        protected void CycleLockFromFov()
+        {
+            _lockCandidates.Clear();
+            FindLockCandidates(_lockCandidates);
+
+            if (_lockCandidates.Count == 0)
+            {
+                Model.ClearLocked();
+                return;
+            }
+
+            var currentLocked = Model.Locked;
+            var nextAnchor = GetNextLockCandidateLinear(_lockCandidates, currentLocked);
+
+            if (nextAnchor == null)
+            {
+                Model.ClearLocked();
+                return;
+            }
+
+            var logical = (ITargetable)nextAnchor.LogicalRoot;
+
+            Vector3 pos = nextAnchor.AnchorWorldPosition;
+            float dist = Vector3.Distance(centerTransform.position, pos);
+
+            var locked = new FocusTarget(
+                logical,
+                nextAnchor,
+                dist,
+                pos
+            );
+
+            Model.SetLocked(locked);
+        }
+
+        protected void ClearLock()
+        {
+            Model.ClearLocked();
+        }
+
+        // ====================================================================
+        // Hover picking implementation
+        // ====================================================================
+
         private bool TryPickTargetFromRay(Ray ray, out FocusTarget bestTarget)
         {
             bestTarget = null;
             float bestT = float.PositiveInfinity;
 
-            // Pull all anchors from the WorldRegistry (GC-free with NonAlloc).
             _anchorsBuffer.Clear();
             World.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
             var anchors = _anchorsBuffer;
@@ -268,7 +316,6 @@ namespace Targeting
                 if (anchor == null)
                     continue;
 
-                // Use logical root's scale as a size hint
                 var logicalRoot = anchor.LogicalRoot;
                 Transform rootTransform = logicalRoot.TargetTransform;
                 Vector3 scale = rootTransform.lossyScale;
@@ -289,14 +336,14 @@ namespace Targeting
                 bestT = t;
 
                 Vector3 hitPos = ray.origin + ray.direction * t;
-                float worldDistFromPlayer = Vector3.Distance(playerCenter.position, hitPos);
+                float worldDistFromCenter = Vector3.Distance(centerTransform.position, hitPos);
 
                 var logical = (ITargetable)logicalRoot;
 
                 bestTarget = new FocusTarget(
                     logical,
                     anchor,
-                    worldDistFromPlayer,
+                    worldDistFromCenter,
                     hitPos
                 );
             }
@@ -322,7 +369,6 @@ namespace Targeting
             float t0 = (-b - sqrtD) / (2f * a);
             float t1 = (-b + sqrtD) / (2f * a);
 
-            // choose nearest positive
             if (t0 > 0f)
             {
                 t = t0;
@@ -340,86 +386,19 @@ namespace Targeting
         }
 
         // ====================================================================
-        // Lock-On: FOV + radius + cycling
+        // Lock candidate search
         // ====================================================================
-
-        private void HandleLockInput()
-        {
-            if (Input.GetKeyDown(lockFromHoverKey))
-                LockFromHover();
-
-            if (Input.GetKeyDown(cycleLockKey))
-                CycleLock();
-
-            if (Input.GetKeyDown(clearLockKey))
-                Model.ClearLocked();
-        }
-
-        private void LockFromHover()
-        {
-            var hover = Model.Hover;
-            if (hover == null)
-                return;
-
-            var logical = hover.LogicalTarget;
-            var anchor = hover.Anchor;
-
-            if (logical == null || anchor == null)
-                return;
-
-            Vector3 worldPos = anchor.AnchorWorldPosition;
-            float dist = Vector3.Distance(playerCenter.position, worldPos);
-
-            var locked = new FocusTarget(
-                logical,
-                anchor,
-                dist,
-                worldPos
-            );
-
-            Model.SetLocked(locked);
-        }
-
-        private void CycleLock()
-        {
-            _lockCandidates.Clear();
-            FindLockCandidates(_lockCandidates);
-
-            var currentLocked = Model.Locked;
-            var next = GetNextLockCandidate(_lockCandidates, currentLocked);
-
-            if (next == null)
-            {
-                Model.ClearLocked();
-                return;
-            }
-
-            var logical = (ITargetable)next.LogicalRoot;
-
-            Vector3 pos = next.AnchorWorldPosition;
-            float dist = Vector3.Distance(playerCenter.position, pos);
-
-            var locked = new FocusTarget(
-                logical,
-                next,
-                dist,
-                pos
-            );
-
-            Model.SetLocked(locked);
-        }
 
         private void FindLockCandidates(List<TargetableComponent> results)
         {
             results.Clear();
 
-            // Pull anchors from the registry instead of a static list.
             _anchorsBuffer.Clear();
             World.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
             var anchors = _anchorsBuffer;
 
-            var origin = playerCenter.position;
-            Vector3 forward = GetFacingDirection(); // XY-plane facing
+            var origin = centerTransform.position;
+            Vector3 forward = GetFacingDirection(); // implemented by derived class
 
             float halfFov = lockFovDegrees * 0.5f;
             float radiusSqr = lockRadius * lockRadius;
@@ -432,7 +411,6 @@ namespace Targeting
                 Vector3 pos = anchor.AnchorWorldPosition;
                 Vector3 to = pos - origin;
 
-                // Work in XY plane; ignore Z for FOV and distance gating
                 to.z = 0f;
                 float distSqr = to.sqrMagnitude;
                 if (distSqr > radiusSqr)
@@ -451,93 +429,48 @@ namespace Targeting
             }
         }
 
-        private TargetableComponent GetNextLockCandidate(List<TargetableComponent> candidates, FocusTarget currentLocked)
+        private TargetableComponent GetNextLockCandidateLinear(List<TargetableComponent> candidates, FocusTarget currentLocked)
         {
             if (candidates.Count == 0)
                 return null;
 
-            if (currentLocked?.Anchor == null)
-                return GetBestAligned(candidates);
+            var currentAnchor = currentLocked?.Anchor;
 
-            var currentAnchor = currentLocked.Anchor;
+            if (currentAnchor == null)
+                return candidates[0];
+
             int index = candidates.IndexOf(currentAnchor);
 
             if (index < 0)
-                return GetBestAligned(candidates);
+                return candidates[0];
 
             int nextIndex = (index + 1) % candidates.Count;
             return candidates[nextIndex];
         }
 
-        private TargetableComponent GetBestAligned(List<TargetableComponent> candidates)
-        {
-            if (candidates.Count == 0)
-                return null;
-
-            Vector3 origin = playerCenter.position;
-            Vector3 forward = GetFacingDirection();
-
-            float bestDot = float.NegativeInfinity;
-            TargetableComponent best = null;
-
-            for (int i = 0; i < candidates.Count; i++)
-            {
-                var anchor = candidates[i];
-                if (anchor == null) continue;
-
-                Vector3 dir = anchor.AnchorWorldPosition - origin;
-                dir.z = 0f;
-                if (dir.sqrMagnitude < 0.0001f)
-                    continue;
-
-                dir.Normalize();
-                float dot = Vector3.Dot(forward, dir);
-                if (dot > bestDot)
-                {
-                    bestDot = dot;
-                    best = anchor;
-                }
-            }
-
-            return best;
-        }
-
-        private Vector3 GetFacingDirection()
-        {
-            if (_mover2D != null)
-            {
-                Vector2 f2 = _mover2D.Facing;
-                if (f2.sqrMagnitude > 0.0001f)
-                    return new Vector3(f2.x, f2.y, 0f).normalized;
-            }
-
-            Vector3 forward = playerCenter != null ? playerCenter.right : Vector3.right;
-            forward.z = 0f;
-
-            if (forward.sqrMagnitude < 0.0001f)
-                forward = Vector3.right;
-
-            return forward.normalized;
-        }
+        /// <summary>
+        /// Derived classes define how this targeter is "facing" in the XY plane.
+        /// Player: mover.Facing or transform.right
+        /// AI: nav agent desired velocity, or look direction, etc.
+        /// </summary>
+        protected abstract Vector3 GetFacingDirection();
 
         // ====================================================================
-        // Debug Gizmos
+        // Gizmos
         // ====================================================================
 
-        private void OnDrawGizmosSelected()
+        protected virtual void OnDrawGizmosSelected()
         {
-            if (playerCenter == null || playerCamera == null)
+            if (centerTransform == null || targetCamera == null)
                 return;
 
-            // ---------------------------------------------------------
-            // 1) All anchors (optional)
-            // ---------------------------------------------------------
+            // 1) All anchors
             if (_drawAllAnchors)
             {
                 _anchorsBuffer.Clear();
                 World.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
 
-                Gizmos.color = new Color(1f, 1f, 1f, 0.25f); // faint white
+                Gizmos.color = new Color(1f, 1f, 1f, 0.25f);
                 foreach (var anchor in _anchorsBuffer)
                 {
                     if (anchor == null) continue;
@@ -545,88 +478,91 @@ namespace Targeting
                 }
             }
 
-            // ---------------------------------------------------------
-            // 2) Hover / Locked / Current targets
-            // ---------------------------------------------------------
+            // 2) Hover / Locked / Current (using live positions)
             if (_drawHoverGizmos && Model != null)
             {
-                // Draw ray from camera through mouse (approx hover ray)
-                Ray ray = playerCamera.ScreenPointToRay(Input.mousePosition);
-                Gizmos.color = new Color(1f, 1f, 0f, 0.5f); // yellow
+                // Ray from camera through mouse (for debugging hover)
+#if UNITY_EDITOR
+                Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
+                Gizmos.color = new Color(1f, 1f, 0f, 0.5f);
                 Gizmos.DrawRay(ray.origin, ray.direction * 100f);
+#endif
 
-                // Hover target
-                if (Model.Hover != null)
+                var hover = Model.Hover;
+                if (hover != null)
                 {
+                    Vector3 hoverPos = hover.Anchor != null
+                        ? hover.Anchor.AnchorWorldPosition
+                        : hover.LogicalTarget != null
+                            ? hover.LogicalTarget.TargetPosition
+                            : hover.WorldPosition;
+
                     Gizmos.color = Color.yellow;
-                    Gizmos.DrawSphere(Model.Hover.Anchor.AnchorWorldPosition, 0.1f);
+                    Gizmos.DrawSphere(hoverPos, 0.1f);
                 }
 
-                // Locked target
-                if (Model.Locked != null)
+                var locked = Model.Locked;
+                if (locked != null)
                 {
+                    Vector3 lockedPos = locked.Anchor != null
+                        ? locked.Anchor.AnchorWorldPosition
+                        : locked.LogicalTarget != null
+                            ? locked.LogicalTarget.TargetPosition
+                            : locked.WorldPosition;
+
                     Gizmos.color = Color.cyan;
-                    Gizmos.DrawSphere(Model.Locked.Anchor.AnchorWorldPosition, 0.12f);
+                    Gizmos.DrawSphere(lockedPos, 0.12f);
                 }
 
-                // Current (resolved) target
-                if (Model.CurrentTarget != null)
+                var current = Model.CurrentTarget;
+                if (current != null)
                 {
-                    Gizmos.color = Color.green;
-                    Vector3 position = Model.CurrentTarget.Anchor.AnchorWorldPosition;
-                    Gizmos.DrawSphere(position, 0.14f);
+                    Vector3 currentPos = current.Anchor != null
+                        ? current.Anchor.AnchorWorldPosition
+                        : current.LogicalTarget != null
+                            ? current.LogicalTarget.TargetPosition
+                            : current.WorldPosition;
 
-                    Gizmos.DrawLine(playerCenter.position, position);
+                    Gizmos.color = Color.green;
+                    Gizmos.DrawSphere(currentPos, 0.14f);
+                    Gizmos.DrawLine(centerTransform.position, currentPos);
                 }
             }
 
-            // ---------------------------------------------------------
-            // 3) Lock radius + FOV cone around the player (XY plane)
-            // ---------------------------------------------------------
+            // 3) Lock radius + FOV cone and FoV candidates
             if (_drawLockGizmos)
             {
-                // Lock radius
-                Gizmos.color = new Color(0f, 0.5f, 1f, 0.25f); // bluish transparent
-                Gizmos.DrawWireSphere(playerCenter.position, lockRadius);
+                Vector3 origin = centerTransform.position;
+                Vector3 forward = GetFacingDirection();
 
-                // FOV cone in XY plane, rotating around Z axis
+                Gizmos.color = new Color(0f, 0.5f, 1f, 0.25f);
+                Gizmos.DrawWireSphere(origin, lockRadius);
+
                 float halfFov = lockFovDegrees * 0.5f;
-                Vector3 origin = playerCenter.position;
-
-                Vector3 forward = GetFacingDirection();    // lies in XY
-                Vector3 axis = Vector3.forward;            // rotate around Z to sweep in XY
+                Vector3 axis = Vector3.forward;
 
                 Quaternion leftRot = Quaternion.AngleAxis(-halfFov, axis);
                 Quaternion rightRot = Quaternion.AngleAxis(halfFov, axis);
 
                 Vector3 leftDir = leftRot * forward;
                 Vector3 rightDir = rightRot * forward;
+                leftDir.z = rightDir.z = 0f;
 
                 Gizmos.color = new Color(0f, 0.5f, 1f, 0.5f);
-
                 Gizmos.DrawRay(origin, forward * lockRadius);
-                Gizmos.DrawRay(origin, leftDir * lockRadius);
-                Gizmos.DrawRay(origin, rightDir * lockRadius);
+                Gizmos.DrawRay(origin, leftDir.normalized * lockRadius);
+                Gizmos.DrawRay(origin, rightDir.normalized * lockRadius);
 
-                // ---------------------------------------------
-                // Circles around all FoV lock candidates
-                // ---------------------------------------------
                 _lockCandidates.Clear();
                 FindLockCandidates(_lockCandidates);
 
-                Gizmos.color = new Color(0f, 0.5f, 1f, 0.75f); // slightly stronger blue
+                Gizmos.color = new Color(0f, 0.5f, 1f, 0.75f);
                 foreach (var anchor in _lockCandidates)
                 {
-                    if (anchor == null)
-                        continue;
-
-                    // Draw a small circle around each FoV candidate
+                    if (anchor == null) continue;
                     Gizmos.DrawWireSphere(anchor.AnchorWorldPosition, 0.12f);
                 }
             }
         }
-
-
-
     }
 }
