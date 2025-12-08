@@ -150,7 +150,7 @@ namespace State
         private void ApplyAnimation()
         {
             if (!_animator) return;
-            _animator.SetBool(_animIsLockedParam, _isLocked);
+            //_animator.SetBool(_animIsLockedParam, _isLocked);
         }
     }
 }

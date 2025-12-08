@@ -5,16 +5,16 @@ using UnityEngine;
 namespace UI
 {
     /// <summary>
-    /// Root controller for the in-game HUD.
-    /// 
+    /// Root controller for the in-game user HUD.
+    ///
     /// Responsibilities:
     /// - Receive the currently controlled entity root.
     /// - Discover IHudContributors under that entity (preferring "HudContributors" child).
     /// - Build one HudRowWidget per contributor in the appropriate container.
-    /// - Periodically refresh rows by calling widget.Refresh().
-    /// 
-    /// It does NOT know about Targeter, Inspector, or any other systems.
-    /// Contributors own their click behavior via IHudContributor.OnClick().
+    /// - Ask each row to refresh every frame.
+    ///
+    /// It does NOT know about concrete systems (Targeter, Health, Inventory, etc.).
+    /// Contributors own their own click behavior and update frequency (internally).
     /// </summary>
     public class UserHudRoot : MonoBehaviour
     {
@@ -29,14 +29,8 @@ namespace UI
         [SerializeField]
         private HudRowWidget _rowPrefab;
 
-        [Header("Refresh Settings")]
-        [SerializeField]
-        private float _refreshInterval = 0.2f;
-
         private GameObject _controlledRoot;
-
         private readonly List<HudRowWidget> _rows = new List<HudRowWidget>();
-        private float _refreshTimer;
 
         /// <summary>
         /// Called by the spawner / owner to wire the currently controlled entity.
@@ -54,19 +48,9 @@ namespace UI
 
         private void Update()
         {
-            _refreshTimer += Time.deltaTime;
-
-            if (_refreshTimer >= _refreshInterval)
-            {
-                _refreshTimer = 0f;
-                RefreshRows();
-            }
+            RefreshRows();
         }
 
-        /// <summary>
-        /// Rebuild all HUD rows from the current controlled root.
-        /// Safe to call when switching control to a new entity.
-        /// </summary>
         private void Rebuild()
         {
             ClearRows();
@@ -92,16 +76,14 @@ namespace UI
             BuildRowsForGroup(outside, _outsidePanelContainer);
         }
 
-        /// <summary>
-        /// Finds all IHudContributor instances under the entity.
-        /// Prefers a "HudContributors" child if present, otherwise scans the full hierarchy.
-        /// </summary>
         private static List<IHudContributor> FindContributors(GameObject root)
         {
             var result = new List<IHudContributor>();
 
             if (root == null)
+            {
                 return result;
+            }
 
             var hudContributorsRoot = root.transform.Find("HudContributors");
             if (hudContributorsRoot != null)
@@ -119,12 +101,16 @@ namespace UI
         private void BuildRowsForGroup(IEnumerable<IHudContributor> group, Transform parent)
         {
             if (parent == null || _rowPrefab == null)
+            {
                 return;
+            }
 
             foreach (var contributor in group)
             {
                 if (contributor == null)
+                {
                     continue;
+                }
 
                 var widget = Instantiate(_rowPrefab, parent);
                 widget.InitializeSingle(contributor);

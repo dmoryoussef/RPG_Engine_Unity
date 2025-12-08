@@ -422,9 +422,9 @@ MonoBehaviour:
   _inMainPanelList: 1
   _isClickable: 1
   _clickMode: 1
-  _debugLogging: 0
   _overridePanelColor: 1
-  _panelColor: {r: 0, g: 1, b: 0.9264064, a: 1}
+  _panelColor: {r: 0, g: 0.4433962, b: 0.41035882, a: 1}
+  _debugLogging: 0
 --- !u!114 &730063998
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -434,17 +434,22 @@ MonoBehaviour:
   m_GameObject: {fileID: 730063995}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 85016e7c0dbf5344aa1db10505865fa8, type: 3}
+  m_Script: {fileID: 11500000, guid: 9bfc849c05a71d14d9459608a05c360d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UI.BasicHudContributor
+  m_EditorClassIdentifier: Assembly-CSharp::RangedColorHudContributor
   _targetComponent: {fileID: 1145219852}
-  _priority: 0
+  _priority: 1
   _inMainPanelList: 1
-  _isClickable: 1
+  _isClickable: 0
   _clickMode: 1
+  _overridePanelColor: 0
+  _panelColor: {r: 1, g: 1, b: 1, a: 1}
   _debugLogging: 0
-  _overridePanelColor: 1
-  _panelColor: {r: 0, g: 1, b: 0.072844505, a: 1}
+  _minValue: 0
+  _maxValue: 100
+  _minColor: {r: 1, g: 0, b: 0, a: 1}
+  _maxColor: {r: 0, g: 1, b: 0, a: 1}
+  _updateInterval: 0.1
 --- !u!1 &1106162213
 GameObject:
   m_ObjectHideFlags: 0
@@ -484,6 +489,7 @@ MonoBehaviour:
   _currentHealth: 100
 --- !u!212 &1106162215
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -529,6 +535,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_Sprite: {fileID: 7482667652216324306, guid: 75f5f34dc1b5347e0b8351032682f224, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -538,7 +545,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!4 &1106162216
 Transform:
@@ -739,6 +745,7 @@ GameObject:
   m_IsActive: 1
 --- !u!212 &1145219837
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -784,6 +791,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_Sprite: {fileID: -7582522387685710772, guid: 61226b63be5fe2b429cf3d847769d42e, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -793,7 +801,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!4 &1145219838
 Transform:
@@ -1173,6 +1180,7 @@ BoxCollider2D:
   m_EdgeRadius: 0
 --- !u!212 &1252769403
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -1218,6 +1226,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_Sprite: {fileID: 7482667652216324306, guid: 92315bf87077bcf4db6fbe766d84c0d5, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -1227,7 +1236,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!4 &1252769404
 Transform:
@@ -1724,6 +1732,7 @@ MonoBehaviour:
   speed: 1
 --- !u!212 &1557443495
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -1769,6 +1778,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_Sprite: {fileID: -2413806693520163455, guid: a86470a33a6bf42c4b3595704624658b, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -1778,7 +1788,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!4 &1557443496
 Transform:
@@ -1833,6 +1842,7 @@ GameObject:
   m_IsActive: 1
 --- !u!212 &1635001848
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -1878,6 +1888,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_Sprite: {fileID: -2413806693520163455, guid: a86470a33a6bf42c4b3595704624658b, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -1887,7 +1898,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!4 &1635001849
 Transform:

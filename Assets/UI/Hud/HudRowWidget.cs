@@ -11,121 +11,169 @@ namespace UI
     /// - Takes a text block from an IHudContributor
     /// - Splits it into lines and creates one TMP label per line under a VerticalLayoutGroup
     /// - Interprets tiny line-level formatting:
-    ///     "! " prefix  => warning color + bold
+    ///     "! " prefix  => warning text color + bold
     ///     "- " prefix  => bullet line ("• " + text)
-    ///     "---" line   => divider / dim line
-    /// - Optionally applies a background color override supplied by BasicHudContributor.
+    ///     "---" line   => divider / dim text
+    /// - Polls contributor.GetColor() every refresh to tint the panel background.
     /// </summary>
     [RequireComponent(typeof(LayoutElement))]
     public class HudRowWidget : MonoBehaviour
     {
         [Header("UI")]
-        [SerializeField] private Transform _linesRoot;
-        [SerializeField] private TextMeshProUGUI _linePrefab;
-        [SerializeField] private Button _button;
-        [SerializeField] private Image _background;
+        [SerializeField]
+        private Transform _linesRoot;
+
+        [SerializeField]
+        private TextMeshProUGUI _linePrefab;
+
+        [SerializeField]
+        private Button _button;
+
+        [SerializeField]
+        private Image _background;
 
         [Header("Layout")]
-        [SerializeField] private LayoutElement _layoutElement;
-        [SerializeField] private float _verticalPadding = 4f;
+        [SerializeField]
+        private LayoutElement _layoutElement;
 
-        [Header("Colors")]
-        [SerializeField] private Color _normalColor = Color.white;
-        [SerializeField] private Color _warningColor = new Color(1f, 0.8f, 0.3f);
-        [SerializeField] private Color _dividerColor = new Color(1f, 1f, 1f, 0.4f);
-        [SerializeField] private Color _bulletColor = Color.white;
+        [SerializeField]
+        private float _verticalPadding = 4f;
+
+        [Header("Text Colors")]
+        [SerializeField]
+        private Color _normalColor = Color.white;
+
+        [SerializeField]
+        private Color _warningColor = new Color(1f, 0.8f, 0.3f);
+
+        [SerializeField]
+        private Color _dividerColor = new Color(1f, 1f, 1f, 0.4f);
+
+        [SerializeField]
+        private Color _bulletColor = Color.white;
 
         private readonly List<TextMeshProUGUI> _lines = new List<TextMeshProUGUI>();
 
-        private Func<string> _getLabel;
-        private Action _onClicked;
-        private bool _isClickable;
+        private IHudContributor _contributor;
         private bool _initialized;
 
         private void Reset()
         {
             if (_layoutElement == null)
+            {
                 _layoutElement = GetComponent<LayoutElement>();
+            }
 
             if (_button == null)
+            {
                 _button = GetComponent<Button>();
+            }
 
             if (_background == null)
+            {
                 _background = GetComponent<Image>();
+            }
+
+            if (_background == null)
+            {
+                _background = GetComponentInChildren<Image>(true);
+            }
 
             if (_linesRoot == null && transform.childCount > 0)
+            {
                 _linesRoot = transform.GetChild(0);
+            }
 
             if (_linePrefab == null && _linesRoot != null)
+            {
                 _linePrefab = _linesRoot.GetComponentInChildren<TextMeshProUGUI>(true);
+            }
         }
 
         private void Awake()
         {
             if (_layoutElement == null)
+            {
                 _layoutElement = GetComponent<LayoutElement>();
+            }
+
+            if (_background == null)
+            {
+                _background = GetComponent<Image>();
+            }
+
+            if (_background == null)
+            {
+                _background = GetComponentInChildren<Image>(true);
+            }
         }
 
         private void OnEnable()
         {
             if (_initialized)
+            {
                 Refresh();
+            }
         }
 
         /// <summary>
         /// Initialize this row for a single IHudContributor.
+        /// Called once when the row is created.
         /// </summary>
         public void InitializeSingle(IHudContributor contributor)
         {
-            _getLabel = contributor.GetDisplayString;
-            _onClicked = contributor.OnClick;
-            _isClickable = contributor.IsClickable;
+            _contributor = contributor;
             _initialized = true;
-
-            // Apply contributor-driven background color if available (and override enabled).
-            if (contributor is BasicHudContributor basic && basic.OverridePanelColor)
-            {
-                ApplyPanelColor(basic.PanelColor);
-                // Debug.Log($"[HUD] Applying panel color {basic.PanelColor} from {basic.name}", this);
-            }
 
             if (_button != null)
             {
                 _button.onClick.RemoveAllListeners();
                 _button.onClick.AddListener(HandleClick);
-                _button.interactable = _isClickable;
+                _button.interactable = _contributor.IsClickable;
             }
 
+            // Initial refresh so the row is correct on first frame.
             Refresh();
         }
 
         /// <summary>
-        /// Called by the HUD root periodically (or per-frame) to update text and layout.
+        /// Called by the HUD root every frame to update text, color, and layout.
         /// </summary>
         public void Refresh()
         {
-            if (!_initialized)
+            if (!_initialized || _contributor == null)
+            {
                 return;
+            }
 
-            string block = _getLabel != null ? _getLabel() : string.Empty;
+            // 1) Text
+            string block = _contributor.GetDisplayString();
             UpdateLines(block);
 
-            if (_button != null)
-                _button.interactable = _isClickable;
+            // 2) Background color
+            ApplyPanelColor(_contributor.GetColor());
 
+            // 3) Click interactable
+            if (_button != null)
+            {
+                _button.interactable = _contributor.IsClickable;
+            }
+
+            // 4) Layout
             AutoSizeToLines();
         }
 
         private void UpdateLines(string block)
         {
             if (_linesRoot == null || _linePrefab == null)
+            {
                 return;
+            }
 
             string[] parts = string.IsNullOrEmpty(block)
                 ? Array.Empty<string>()
                 : block.Split(new[] { '\n' }, StringSplitOptions.None);
 
-            // Ensure we have enough label instances
             while (_lines.Count < parts.Length)
             {
                 var label = Instantiate(_linePrefab, _linesRoot);
@@ -133,7 +181,6 @@ namespace UI
                 _lines.Add(label);
             }
 
-            // Assign text & style
             for (int i = 0; i < _lines.Count; i++)
             {
                 bool active = i < parts.Length;
@@ -142,7 +189,9 @@ namespace UI
                 label.gameObject.SetActive(active);
 
                 if (!active)
+                {
                     continue;
+                }
 
                 string raw = parts[i] ?? string.Empty;
                 ApplyFormattingToLabel(raw, label);
@@ -150,9 +199,6 @@ namespace UI
             }
         }
 
-        /// <summary>
-        /// Interpret simple line-level formatting prefixes and apply to label.
-        /// </summary>
         private void ApplyFormattingToLabel(string raw, TextMeshProUGUI label)
         {
             string line = raw;
@@ -193,7 +239,9 @@ namespace UI
         private void AutoSizeToLines()
         {
             if (_layoutElement == null || _linesRoot == null)
+            {
                 return;
+            }
 
             Canvas.ForceUpdateCanvases();
 
@@ -209,16 +257,22 @@ namespace UI
 
         private void ApplyPanelColor(Color c)
         {
-            if (_background != null)
-                _background.color = c;
+            if (_background == null)
+            {
+                return;
+            }
+
+            _background.color = c;
         }
 
         private void HandleClick()
         {
-            if (!_isClickable)
+            if (_contributor == null || !_contributor.IsClickable)
+            {
                 return;
+            }
 
-            _onClicked?.Invoke();
+            _contributor.OnClick();
         }
     }
 }

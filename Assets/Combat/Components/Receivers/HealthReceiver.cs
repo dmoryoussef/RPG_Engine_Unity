@@ -36,5 +36,12 @@ namespace Combat
                 // TODO: death/cleanup/respawn hook.
             }
         }
+        
+        public override string ToString()
+        {
+            return $"{_currentHealth}/{_maxHealth} HP";
+        }
     }
+
+    
 }

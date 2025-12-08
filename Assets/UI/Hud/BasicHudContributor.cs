@@ -3,15 +3,17 @@
 namespace UI
 {
     /// <summary>
-    /// Minimal HUD contributor that wraps a single component and exposes
+    /// Minimal HUD contributor that wraps a single Component and exposes
     /// its ToString() output as a HUD line, plus a simple click behavior.
-    /// Also supports optional per-row panel color overrides.
+    /// Also supports an optional static panel color override.
     /// </summary>
     public class BasicHudContributor : MonoBehaviour, IHudContributor
     {
+        [Header("Target")]
         [SerializeField]
         private Component _targetComponent;
 
+        [Header("HUD")]
         [SerializeField]
         private int _priority = 0;
 
@@ -24,45 +26,90 @@ namespace UI
         [SerializeField]
         private HudClickMode _clickMode = HudClickMode.InspectOwner;
 
-        [SerializeField]
-        private bool _debugLogging = false;
-
-        [Header("Optional Panel Styling")]
+        [Header("Panel Color")]
         [SerializeField]
         private bool _overridePanelColor = false;
 
         [SerializeField]
         private Color _panelColor = Color.white;
 
-        public int Priority => _priority;
-        public bool InMainPanelList => _inMainPanelList;
-        public bool IsClickable => _isClickable;
-        public HudClickMode ClickMode => _clickMode;
+        [Header("Debug")]
+        [SerializeField]
+        protected bool _debugLogging = false;
 
-        // Exposed for HudRowWidget to read
-        public bool OverridePanelColor => _overridePanelColor;
-        public Color PanelColor => _panelColor;
+        public int Priority
+        {
+            get { return _priority; }
+        }
 
-        public string GetDisplayString()
+        public bool InMainPanelList
+        {
+            get { return _inMainPanelList; }
+        }
+
+        public bool IsClickable
+        {
+            get { return _isClickable; }
+        }
+
+        public HudClickMode ClickMode
+        {
+            get { return _clickMode; }
+        }
+
+        /// <summary>
+        /// True if this contributor is configured to override the panel color.
+        /// </summary>
+        public bool OverridePanelColor
+        {
+            get { return _overridePanelColor; }
+        }
+
+        /// <summary>
+        /// The static panel color configured in the inspector.
+        /// </summary>
+        public Color PanelColor
+        {
+            get { return _panelColor; }
+        }
+
+        public virtual string GetDisplayString()
         {
             if (_targetComponent == null)
+            {
                 return "(null)";
+            }
 
             return _targetComponent.ToString();
         }
 
-        public GameObject GetClickTarget()
+        public virtual Color GetColor()
+        {
+            if (_overridePanelColor)
+            {
+                return _panelColor;
+            }
+
+            // Default: no tint (white). You can make this transparent or theme-specific later.
+            return Color.white;
+        }
+
+        public virtual GameObject GetClickTarget()
         {
             if (_targetComponent != null)
+            {
                 return _targetComponent.gameObject;
+            }
 
             return gameObject;
         }
 
-        public void OnClick()
+        public virtual void OnClick()
         {
             if (!_isClickable)
+            {
                 return;
+            }
 
             switch (_clickMode)
             {
@@ -75,13 +122,24 @@ namespace UI
             }
         }
 
-        private void HandleInspectOwner()
+        protected void HandleInspectOwner()
         {
-            var target = GetClickTarget() ?? gameObject;
+            var target = GetClickTarget();
             if (target == null)
+            {
+                target = gameObject;
+            }
+
+            if (target == null)
+            {
                 return;
+            }
 
             // TODO: plug into existing inspection pipeline here.
+            if (_debugLogging)
+            {
+                Debug.Log($"[HUD] InspectOwner not yet wired for {name}", this);
+            }
         }
 
 #if UNITY_EDITOR
