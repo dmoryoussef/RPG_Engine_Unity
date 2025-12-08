@@ -158,18 +158,18 @@ namespace Interaction
         protected virtual void OnEnable()
         {
             // Register under both its concrete base and the interface.
-            World.Registry.Register<InteractableBase>(this);
+            Core.Registry.Register<InteractableBase>(this);
 
             if (this is IInteractable interactable)
-                World.Registry.Register<IInteractable>(interactable);
+                Core.Registry.Register<IInteractable>(interactable);
         }
 
         protected virtual void OnDisable()
         {
-            World.Registry.Unregister<InteractableBase>(this);
+            Core.Registry.Unregister<InteractableBase>(this);
 
             if (this is IInteractable interactable)
-                World.Registry.Unregister<IInteractable>(interactable);
+                Core.Registry.Unregister<IInteractable>(interactable);
         }
 
     /// <summary>

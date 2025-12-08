@@ -382,6 +382,7 @@ GameObject:
   m_Component:
   - component: {fileID: 730063996}
   - component: {fileID: 730063997}
+  - component: {fileID: 730063998}
   m_Layer: 0
   m_Name: HudContributors
   m_TagString: Untagged
@@ -422,6 +423,28 @@ MonoBehaviour:
   _isClickable: 1
   _clickMode: 1
   _debugLogging: 0
+  _overridePanelColor: 1
+  _panelColor: {r: 0, g: 1, b: 0.9264064, a: 1}
+--- !u!114 &730063998
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 730063995}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 85016e7c0dbf5344aa1db10505865fa8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI.BasicHudContributor
+  _targetComponent: {fileID: 1145219852}
+  _priority: 0
+  _inMainPanelList: 1
+  _isClickable: 1
+  _clickMode: 1
+  _debugLogging: 0
+  _overridePanelColor: 1
+  _panelColor: {r: 0, g: 1, b: 0.072844505, a: 1}
 --- !u!1 &1106162213
 GameObject:
   m_ObjectHideFlags: 0
@@ -706,6 +729,7 @@ GameObject:
   - component: {fileID: 1145219849}
   - component: {fileID: 1145219851}
   - component: {fileID: 1145219850}
+  - component: {fileID: 1145219852}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -998,7 +1022,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0fbb7858dc2eefb4581e7106e580ed2a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Interaction.PlayerInteractor
-  targeter: {fileID: 0}
+  _targeter: {fileID: 0}
   autoFindTargeter: 1
   bindToTargeterCurrent: 1
   interactMaxDistance: 1.5
@@ -1021,7 +1045,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1145219836}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c747f198e6c3b3046a3382e49ec3c193, type: 3}
   m_Name: 
@@ -1059,6 +1083,20 @@ MonoBehaviour:
   lockFromHoverKey: 324
   cycleLockKey: 9
   clearLockKey: 27
+--- !u!114 &1145219852
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1145219836}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6125759586a31684fad7d82a1da9bfb1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Combat.HealthReceiver
+  _maxHealth: 100
+  _currentHealth: 100
 --- !u!1 &1252769399
 GameObject:
   m_ObjectHideFlags: 0

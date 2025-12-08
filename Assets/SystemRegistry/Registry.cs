@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace World
+namespace Core
 {
     /// <summary>
     /// Global, type-safe registry for gameplay objects/components.

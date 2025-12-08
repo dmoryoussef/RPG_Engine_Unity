@@ -68,7 +68,7 @@ namespace Targeting
 
         public override string ToString()
         {
-            var m = Model; // shorthand
+            var m = Model;
 
             string Format(FocusTarget ft)
             {
@@ -80,10 +80,13 @@ namespace Targeting
             }
 
             return
-                $"locked target: {Format(m?.Locked)}\n" +
-                $"hover target:  {Format(m?.Hover)}\n" +
-                $"current:       {Format(m?.CurrentTarget)}";
+                $"Locked target: {{ {Format(m?.Locked)} }}\n" +
+                $"Hover target:  {{ {Format(m?.Hover)} }}\n" +
+                $"Current:       {{ {Format(m?.CurrentTarget)} }}";
         }
+
+
+
 
     }
 }

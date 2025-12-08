@@ -154,9 +154,9 @@ namespace Logging
         /// </summary>
         public static void LogWarning(
             Component owner,
-            string system,
-            string action,
-            string message,
+            string system = "",
+            string action = "",
+            string message = "",
             bool? echoOverride = null)
         {
             if (owner == null) return;

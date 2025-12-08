@@ -1,6 +1,7 @@
 ﻿using System;
 using UnityEngine;
 using Targeting; // <-- TargeterComponent, FocusTarget, etc.
+using Logging;
 
 namespace Inspection
 {
@@ -131,9 +132,9 @@ namespace Inspection
 
             if (_targeter == null)
             {
-                _targeter = GetComponent<PlayerTargeter>();
+                _targeter = GetComponent<TargeterBase>();
                 if (_targeter == null)
-                    Debug.LogWarning("No targeter found on GameObject.");
+                    GameLog.LogWarning(this, "No targeter found on GameObject.");
             }
         }
 
@@ -148,20 +149,24 @@ namespace Inspection
                 _camera = Camera.main;
             }
 
+            ITargeter targeter = GetComponent<ITargeter>();
             if (_targeter == null)
             {
-                _targeter = GetComponent<TargeterBase>();
-                if (_targeter == null)
-                    Debug.LogWarning("No targeter on GameObject.");
+                if (targeter is TargeterBase tb)
+                {
+                    _targeter = tb;
+                }
+                else
+                    Logging.GameLog.LogWarning(this, "No Targeter component found.");
             }
         }
 
         private void OnEnable()
         {
-            World.Registry.Unregister<InspectorComponent>(this);
+            Core.Registry.Unregister<InspectorComponent>(this);
 
             if (this is IInspector inspector)
-                World.Registry.Unregister<IInspector>(inspector);
+                Core.Registry.Unregister<IInspector>(inspector);
 
             if (_targeter != null && _targeter.Model != null)
             {

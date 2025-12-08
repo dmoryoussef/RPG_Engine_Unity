@@ -7,7 +7,7 @@ namespace Interaction
     {
         [Header("Targeting Source (Optional)")]
         [SerializeField, Tooltip("If set, this Interactor will automatically bind to the Targeter and use its CurrentTarget as the interaction target.")]
-        protected TargeterComponent targeter;
+        protected TargeterBase _targeter;
 
         [SerializeField, Tooltip("If true, InteractorBase will auto-resolve TargeterComponent from this GameObject in Awake when not explicitly assigned.")]
         protected bool autoFindTargeter = true;
@@ -42,35 +42,44 @@ namespace Interaction
 
         protected virtual void Awake()
         {
-            if (autoFindTargeter && targeter == null)
+            if (autoFindTargeter && _targeter == null)
             {
-                targeter = GetComponent<TargeterComponent>();
+                ITargeter targeter = GetComponent<ITargeter>();
+                if (_targeter == null)
+                {
+                    if (targeter is TargeterBase tb)
+                    {
+                        _targeter = tb;
+                    }
+                    else
+                        Logging.GameLog.LogWarning(this, "No Targeter component found.");
+                }
             }
         }
 
         protected virtual void OnEnable()
         {
-            World.Registry.Register<InteractorBase>(this);
+            Core.Registry.Register<InteractorBase>(this);
 
             if (this is IInteractor interactor)
-                World.Registry.Register<IInteractor>(interactor);
+                Core.Registry.Register<IInteractor>(interactor);
 
-            if (bindToTargeterCurrent && targeter != null && targeter.Model != null)
+            if (bindToTargeterCurrent && _targeter != null && _targeter.Model != null)
             {
-                targeter.Model.CurrentTargetChanged += OnTargeterCurrentTargetChanged;
+                _targeter.Model.CurrentTargetChanged += OnTargeterCurrentTargetChanged;
             }
         }
 
         protected virtual void OnDisable()
         {
-            World.Registry.Unregister<InteractorBase>(this);
+            Core.Registry.Unregister<InteractorBase>(this);
 
             if (this is IInteractor interactor)
-                World.Registry.Unregister<IInteractor>(interactor);
+                Core.Registry.Unregister<IInteractor>(interactor);
 
-            if (bindToTargeterCurrent && targeter != null && targeter.Model != null)
+            if (bindToTargeterCurrent && _targeter != null && _targeter.Model != null)
             {
-                targeter.Model.CurrentTargetChanged -= OnTargeterCurrentTargetChanged;
+                _targeter.Model.CurrentTargetChanged -= OnTargeterCurrentTargetChanged;
             }
         }
 

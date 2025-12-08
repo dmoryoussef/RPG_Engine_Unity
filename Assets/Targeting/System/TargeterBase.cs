@@ -38,7 +38,7 @@ namespace Targeting
         /// Core targeting model consumed by other systems (interaction, combat, etc).
         /// Single writer: this component.
         /// </summary>
-        public TargetingContextModel Model { get; private set; }
+        public TargetingContextModel Model { get; private set; } = new TargetingContextModel();
 
         // ====================================================================
         // Hover picking configuration
@@ -120,8 +120,6 @@ namespace Targeting
 
             if (centerTransform == null)
                 centerTransform = transform;
-
-            Model = new TargetingContextModel();
 
             Model.HoverChanged += OnHoverChanged;
             Model.LockedChanged += OnLockedChanged;
@@ -309,7 +307,7 @@ namespace Targeting
             float bestT = float.PositiveInfinity;
 
             _anchorsBuffer.Clear();
-            World.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
+            Core.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
             var anchors = _anchorsBuffer;
 
             for (int i = 0; i < anchors.Count; i++)
@@ -397,7 +395,7 @@ namespace Targeting
             results.Clear();
 
             _anchorsBuffer.Clear();
-            World.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
+            Core.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
             var anchors = _anchorsBuffer;
 
             var origin = centerTransform.position;
@@ -471,7 +469,7 @@ namespace Targeting
             if (_drawAllAnchors)
             {
                 _anchorsBuffer.Clear();
-                World.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
+                Core.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
 
                 Gizmos.color = new Color(1f, 1f, 1f, 0.25f);
                 foreach (var anchor in _anchorsBuffer)

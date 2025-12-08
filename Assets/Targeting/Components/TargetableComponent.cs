@@ -102,16 +102,16 @@ namespace Targeting
         private void OnEnable()
         {
             // Framework / tooling view
-            World.Registry.Register<TargetableComponent>(this);
+            Core.Registry.Register<TargetableComponent>(this);
 
             // Gameplay / systems view (targeting, AI, etc.)
-            World.Registry.Register<ITargetable>(this);
+            Core.Registry.Register<ITargetable>(this);
         }
 
         private void OnDisable()
         {
-            World.Registry.Unregister<TargetableComponent>(this);
-            World.Registry.Unregister<ITargetable>(this);
+            Core.Registry.Unregister<TargetableComponent>(this);
+            Core.Registry.Unregister<ITargetable>(this);
         }
     }
 }

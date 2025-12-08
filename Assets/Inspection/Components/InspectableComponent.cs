@@ -61,18 +61,18 @@ namespace Inspection
 
         protected virtual void OnEnable()
         {
-            World.Registry.Register<InspectableComponent>(this);
+            Core.Registry.Register<InspectableComponent>(this);
 
             if (this is IInspectable inspectable)
-                World.Registry.Register<IInspectable>(inspectable);
+                Core.Registry.Register<IInspectable>(inspectable);
         }
 
         protected virtual void OnDisable()
         {
-            World.Registry.Unregister<InspectableComponent>(this);
+            Core.Registry.Unregister<InspectableComponent>(this);
 
             if (this is IInspectable inspectable)
-                World.Registry.Unregister<IInspectable>(inspectable);
+                Core.Registry.Unregister<IInspectable>(inspectable);
         }
 
         // --------------------------------------------------------------------

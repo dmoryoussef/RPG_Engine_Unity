@@ -265,7 +265,7 @@ namespace Targeting
 
             // Pull all anchors from the WorldRegistry (GC-free with NonAlloc).
             _anchorsBuffer.Clear();
-            World.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
+            Core.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
             var anchors = _anchorsBuffer;
 
             for (int i = 0; i < anchors.Count; i++)
@@ -424,7 +424,7 @@ namespace Targeting
 
             // Pull anchors from the registry instead of a static list.
             _anchorsBuffer.Clear();
-            World.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
+            Core.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
             var anchors = _anchorsBuffer;
 
             var origin = playerCenter.position;
@@ -544,7 +544,7 @@ namespace Targeting
             if (_drawAllAnchors)
             {
                 _anchorsBuffer.Clear();
-                World.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
+                Core.Registry.GetAllNonAlloc<TargetableComponent>(_anchorsBuffer);
 
                 Gizmos.color = new Color(1f, 1f, 1f, 0.25f); // faint white
                 foreach (var anchor in _anchorsBuffer)

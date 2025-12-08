@@ -5,6 +5,7 @@ namespace UI
     /// <summary>
     /// Minimal HUD contributor that wraps a single component and exposes
     /// its ToString() output as a HUD line, plus a simple click behavior.
+    /// Also supports optional per-row panel color overrides.
     /// </summary>
     public class BasicHudContributor : MonoBehaviour, IHudContributor
     {
@@ -26,17 +27,26 @@ namespace UI
         [SerializeField]
         private bool _debugLogging = false;
 
+        [Header("Optional Panel Styling")]
+        [SerializeField]
+        private bool _overridePanelColor = false;
+
+        [SerializeField]
+        private Color _panelColor = Color.white;
+
         public int Priority => _priority;
         public bool InMainPanelList => _inMainPanelList;
         public bool IsClickable => _isClickable;
         public HudClickMode ClickMode => _clickMode;
 
+        // Exposed for HudRowWidget to read
+        public bool OverridePanelColor => _overridePanelColor;
+        public Color PanelColor => _panelColor;
+
         public string GetDisplayString()
         {
             if (_targetComponent == null)
-            {
                 return "(null)";
-            }
 
             return _targetComponent.ToString();
         }
@@ -44,9 +54,7 @@ namespace UI
         public GameObject GetClickTarget()
         {
             if (_targetComponent != null)
-            {
                 return _targetComponent.gameObject;
-            }
 
             return gameObject;
         }
@@ -54,9 +62,7 @@ namespace UI
         public void OnClick()
         {
             if (!_isClickable)
-            {
                 return;
-            }
 
             switch (_clickMode)
             {
@@ -71,34 +77,9 @@ namespace UI
 
         private void HandleInspectOwner()
         {
-            var target = GetClickTarget();
+            var target = GetClickTarget() ?? gameObject;
             if (target == null)
-            {
-                target = gameObject;
-            }
-
-            if (target == null)
-            {
                 return;
-            }
-
-            // 🔗 This is the *only* place we touch the inspection pipeline for MVP.
-            // Wire this up however your existing Inspector works.
-            //
-            // Examples (pick what matches your project):
-            //
-            // 1) Global singleton:
-            // InspectorComponent.Instance.BeginInspection(target);
-            //
-            // 2) Find on scene root:
-            // var inspector = Object.FindObjectOfType<InspectorComponent>();
-            // if (inspector != null) inspector.BeginInspection(target);
-            //
-            // 3) Find up the hierarchy:
-            // var inspector = target.GetComponentInParent<InspectorComponent>();
-            // if (inspector != null) inspector.BeginInspection(target);
-            //
-            // For now I'll just leave a TODO to plug into your real inspector.
 
             // TODO: plug into existing inspection pipeline here.
         }
