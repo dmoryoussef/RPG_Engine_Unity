@@ -163,14 +163,15 @@ namespace Inspection
 
         private void OnEnable()
         {
-            Core.Registry.Unregister<InspectorComponent>(this);
+            Core.Registry.Register<InspectorComponent>(this);
 
             if (this is IInspector inspector)
-                Core.Registry.Unregister<IInspector>(inspector);
+                Core.Registry.Register<IInspector>(inspector);
 
             if (_targeter != null && _targeter.Model != null)
             {
                 _targeter.Model.HoverChanged += OnTargeterHoverChanged;
+                _targeter.Model.CurrentTargetChanged += OnTargeterCurrentTargetChanged; // NEW
             }
             else if (_enableVerboseDebug)
             {
@@ -181,9 +182,15 @@ namespace Inspection
 
         private void OnDisable()
         {
+            Core.Registry.Unregister<InspectorComponent>(this);
+
+            if (this is IInspector inspector)
+                Core.Registry.Unregister<IInspector>(inspector);
+
             if (_targeter != null && _targeter.Model != null)
             {
                 _targeter.Model.HoverChanged -= OnTargeterHoverChanged;
+                _targeter.Model.CurrentTargetChanged -= OnTargeterCurrentTargetChanged; // NEW
             }
         }
 
@@ -257,6 +264,16 @@ namespace Inspection
             _hasHoverTarget = false;
             _canInspectHover = false;
             _hoverBlockReason = string.Empty;
+        }
+
+        private void OnTargeterCurrentTargetChanged(FocusTarget target)
+        {
+            // When the targeter fully clears its current target, drop any active inspection.
+            if (target == null)
+            {
+                ClearHoverDebug();
+                ClearDisplay();
+            }
         }
 
         // =====================================================================
