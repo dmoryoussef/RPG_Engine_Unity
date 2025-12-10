@@ -45,6 +45,8 @@ namespace Interaction
         /// </summary>
         string InteractableId { get; }
 
+        KeyCode InteractionKey { get; }
+
         /// <summary>
         /// Called when the player interacts with this object.
         /// Returns true if the interaction succeeded.

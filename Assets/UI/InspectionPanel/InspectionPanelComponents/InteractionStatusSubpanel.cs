@@ -50,7 +50,7 @@ namespace UI
 
         // Cached wiring discovered via context.InteractionInfo
         private PlayerInteractor _interactor;
-        private InteractableBase _interactable;
+        private InteractableComponent _interactable;
 
         private void Awake()
         {
@@ -95,7 +95,7 @@ namespace UI
                 _interactor = info.InteractorRoot.GetComponentInParent<PlayerInteractor>();
 
             if (info.InteractableRoot != null)
-                _interactable = info.InteractableRoot.GetComponentInParent<InteractableBase>();
+                _interactable = info.InteractableRoot.GetComponentInParent<InteractableComponent>();
 
             // If we are already open, immediately show a first update.
             if (_isOpen && _interactor != null && _interactable != null)

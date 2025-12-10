@@ -50,7 +50,7 @@ namespace State
     /// </summary>
     public interface IState
     {
-        StateResult TryStateChange();
+        StateResult TryStateChange(StateChangeContext context);
     }
 
     /// <summary>
@@ -78,7 +78,36 @@ namespace State
         /// </summary>
         public event Action<BaseState> OnStateChanged;
 
-        public abstract StateResult TryStateChange();
+        public abstract StateResult TryStateChange(StateChangeContext context);
+
+        /// <summary>
+        /// A potential state change has become possible (e.g., actor entered range).
+        /// Override to prepare or warm up any logic, prompts, or transient state.
+        /// Default: no-op.
+        /// </summary>
+        public virtual void OnPreStateChangePotentialEntered(StateChangeContext context) { }
+
+        /// <summary>
+        /// The potential state change is no longer possible (e.g., actor left range).
+        /// Override to undo/clear anything done in OnPreStateChangePotentialEntered.
+        /// Default: no-op.
+        /// </summary>
+        public virtual void OnPreStateChangePotentialExited(StateChangeContext context) { }
+
+        /// <summary>
+        /// A state change has become more likely/imminent (e.g., gained focus/aimed at).
+        /// Override to further prepare UI, highlighting, etc.
+        /// Default: no-op.
+        /// </summary>
+        public virtual void OnPreStateChangeImminentEntered(StateChangeContext context) { }
+
+        /// <summary>
+        /// No longer imminent (e.g., lost focus/aim).
+        /// Override to undo/clear anything done in OnPreStateChangeImminentEntered.
+        /// Default: no-op.
+        /// </summary>
+        public virtual void OnPreStateChangeImminentExited(StateChangeContext context) { }
+
 
         public virtual string GetDescriptionText() => ToString();
         public virtual int GetDescriptionPriority() => 0;

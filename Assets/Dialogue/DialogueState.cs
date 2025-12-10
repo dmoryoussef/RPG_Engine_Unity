@@ -19,7 +19,7 @@ namespace State
 
         private const string SystemTag = "DialogueState";
 
-        public override StateResult TryStateChange()
+        public override StateResult TryStateChange(StateChangeContext context)
         {
             if (_dialogueAsset == null)
             {

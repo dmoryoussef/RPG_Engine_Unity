@@ -88,7 +88,7 @@ namespace State
         /// Default "interact" behavior for this state (e.g., press E on the lock).
         /// Wraps the domain API in a generic StateResult for the interaction system.
         /// </summary>
-        public override StateResult TryStateChange()
+        public override StateResult TryStateChange(StateChangeContext context)
         {
             var domainResult = TryStateChange(LockAction.Toggle);
 

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using Logging;
 using Player;
 using UnityEngine;
@@ -38,8 +39,8 @@ namespace Interaction
         private const string SystemTag = "PlayerInteractor";
 
         // Scratch list to avoid allocations when gathering interactables on the root.
-        private readonly List<InteractableBase> _interactablesOnRoot =
-            new List<InteractableBase>(8);
+        private readonly List<InteractableComponent> _interactablesOnRoot =
+            new List<InteractableComponent>(8);
 
         // --------------------------------------------------------------------
         // Lifecycle
@@ -57,6 +58,7 @@ namespace Interaction
 
         private void Update()
         {
+            base.Update();
             // We rely entirely on InteractorBase's cached currentTarget,
             // which is updated from TargeterComponent.Model.CurrentTargetChanged.
             if (!currentTarget)
@@ -151,7 +153,7 @@ namespace Interaction
         // --------------------------------------------------------------------
 
         protected override void OnInteractionBlocked(
-            InteractableBase target,
+            InteractableComponent target,
             bool inRangeLocal,
             bool facingOkLocal,
             float distance,
@@ -184,7 +186,7 @@ namespace Interaction
         }
 
         protected override void OnInteractionPerformed(
-            InteractableBase target,
+            InteractableComponent target,
             bool success,
             float distance,
             float dot)

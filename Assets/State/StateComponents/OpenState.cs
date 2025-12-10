@@ -122,7 +122,7 @@ namespace State
         /// Default "interact" behavior for this state (e.g., press E on the door).
         /// Wraps the domain API in a generic StateResult.
         /// </summary>
-        public override StateResult TryStateChange()
+        public override StateResult TryStateChange(StateChangeContext context)
         {
             var domainResult = TryStateChange(OpenCloseAction.Toggle);
 

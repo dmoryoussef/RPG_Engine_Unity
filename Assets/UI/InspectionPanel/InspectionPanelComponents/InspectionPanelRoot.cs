@@ -235,7 +235,7 @@ namespace UI
                         var interactor = inspectorRoot.GetComponentInParent<PlayerInteractor>();
                         if (interactor != null)
                         {
-                            var interactable = data.TargetRoot.GetComponentInParent<InteractableBase>();
+                            var interactable = data.TargetRoot.GetComponentInParent<InteractableComponent>();
                             if (interactable != null)
                             {
                                 // Ask the interactor for a pure data snapshot...

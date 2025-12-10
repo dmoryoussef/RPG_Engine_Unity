@@ -10,14 +10,14 @@ namespace UI
     /// </summary>
     public sealed class InteractableInspectionContributor : MonoBehaviour, IInspectionPanelContributor
     {
-        [SerializeField] private InteractableBase _interactable;
+        [SerializeField] private InteractableComponent _interactable;
 
         private void Awake()
         {
             if (_interactable == null)
             {
-                _interactable = GetComponent<InteractableBase>() ??
-                                GetComponentInParent<InteractableBase>(true);
+                _interactable = GetComponent<InteractableComponent>() ??
+                                GetComponentInParent<InteractableComponent>(true);
             }
         }
 
