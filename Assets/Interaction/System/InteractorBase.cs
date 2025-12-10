@@ -406,12 +406,13 @@ namespace Interaction
             if (!target)
                 return false;
 
-            Bounds b = target.GetWorldBounds();
             Vector3 origin = GetOrigin();
-            Vector3 targetPos = b.center;
+            Vector3 targetPos = target.transform.position;
+
             distance = Vector3.Distance(origin, targetPos);
             return distance <= interactMaxDistance;
         }
+
 
         protected bool IsFacing(InteractableComponent target, out float dot)
         {
@@ -419,17 +420,19 @@ namespace Interaction
             if (!target)
                 return false;
 
+            // facing disabled?
             if (interactFacingDotThreshold <= -1f)
-                return true; // disabled
+                return true;
 
-            Bounds b = target.GetWorldBounds();
             Vector3 origin = GetOrigin();
             Vector3 forward = GetFacingDirection();
-            Vector3 toTarget = (b.center - origin).normalized;
+
+            Vector3 toTarget = (target.transform.position - origin).normalized;
             dot = Vector3.Dot(forward, toTarget);
 
             return dot >= interactFacingDotThreshold;
         }
+
 
         // --------------------------------------------------------------------
         // Virtual hooks for subclasses / debug

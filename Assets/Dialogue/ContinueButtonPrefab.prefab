@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 3390241345911836576}
   - component: {fileID: 3925546279898570177}
   m_Layer: 5
-  m_Name: ContinueButton
+  m_Name: ContinueButtonPrefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

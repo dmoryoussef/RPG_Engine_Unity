@@ -150,7 +150,7 @@ GameObject:
   - component: {fileID: 5236678338790391707}
   - component: {fileID: 4431507961021678886}
   m_Layer: 5
-  m_Name: ChoiceButtonTemplate
+  m_Name: ChoiceButtonPrefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

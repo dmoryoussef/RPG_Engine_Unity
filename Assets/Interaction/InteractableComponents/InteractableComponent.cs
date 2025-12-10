@@ -116,7 +116,6 @@ namespace Interaction
         [Header("Debug & Validation")]
         [SerializeField] private string validationStatus = "Not validated";
         [SerializeField] private bool validationPassed = true;
-        [SerializeField] private bool drawBounds = false;
 
         [Header("Logging")]
         [SerializeField, Tooltip("If true, logs interaction gates and results via GameLog.")]
@@ -124,46 +123,6 @@ namespace Interaction
 
         protected string SystemTag => "Interactable";
         protected bool DebugLogging => debugLogging;
-
-        // =====================================================================
-        //  BOUNDS
-        // =====================================================================
-
-        [Header("Bounds")]
-        [SerializeField, Tooltip("If true, use Renderer.bounds if present. Otherwise, use a local Bounds override.")]
-        private bool useRendererBounds = true;
-
-        [SerializeField, Tooltip("Optional local-space bounds override used when useRendererBounds is false or no renderer is available.")]
-        private Bounds localBoundsOverride = new Bounds(Vector3.zero, Vector3.one);
-
-        /// <summary>
-        /// Returns world-space bounds for interaction / targeting.
-        /// </summary>
-        public virtual Bounds GetWorldBounds()
-        {
-            if (useRendererBounds)
-            {
-                var rend = GetComponentInChildren<Renderer>();
-                if (rend != null)
-                    return rend.bounds;
-            }
-
-            // Fallback to local override.
-            var b = localBoundsOverride;
-            var center = transform.TransformPoint(b.center);
-            var extents = b.extents;
-            var right = transform.right * extents.x;
-            var up = transform.up * extents.y;
-            var forward = transform.forward * extents.z;
-
-            // Approximate world extents magnitude.
-            var worldExtents = new Vector3(
-                Mathf.Abs(right.x) + Mathf.Abs(up.x) + Mathf.Abs(forward.x),
-                Mathf.Abs(right.y) + Mathf.Abs(up.y) + Mathf.Abs(forward.y),
-                Mathf.Abs(right.z) + Mathf.Abs(up.z) + Mathf.Abs(forward.z)) * 0.5f;
-
-            return new Bounds(center, worldExtents * 2f);
-        }
 
         // =====================================================================
         //  LIFECYCLE & VALIDATION
@@ -196,7 +155,18 @@ namespace Interaction
 
         private void OnDisable()
         {
-            // Clear local runtime state and unregister.
+            // Tell any interactors we were tracking that we're going away.
+            if (_interactorsInRange.Count > 0)
+            {
+                // Make a copy to avoid modifying the set while iterating.
+                var copy = new List<InteractorBase>(_interactorsInRange);
+                foreach (var interactor in copy)
+                {
+                    if (!interactor) continue;
+                    interactor.OnInteractableDisabled(this);
+                }
+            }
+
             _interactorsInRange.Clear();
             _activeInteractor = null;
             isInRange = false;
@@ -204,6 +174,7 @@ namespace Interaction
             Core.Registry.Unregister<InteractableComponent>(this);
             Core.Registry.Unregister<IInteractable>(this);
         }
+
 
         private void OnDestroy()
         {
@@ -278,7 +249,8 @@ namespace Interaction
 
         public virtual void OnEnterRange(InteractorBase interactor)
         {
-            GameLog.Log(this, "OnEnterRange", "Interactor", interactor != null ? interactor.name : "null");
+            if (debugLogging)
+                GameLog.Log(this, "OnEnterRange", "Interactor", interactor != null ? interactor.name : "null");
 
             if (interactor == null)
                 return;
@@ -296,7 +268,8 @@ namespace Interaction
 
         public virtual void OnExitRange(InteractorBase interactor)
         {
-            GameLog.Log(this, "OnExitRange", "Interactor", interactor != null ? interactor.name : "null");
+            if (debugLogging)
+                GameLog.Log(this, "OnExitRange", "Interactor", interactor != null ? interactor.name : "null");
 
             if (interactor == null)
                 return;
@@ -314,7 +287,8 @@ namespace Interaction
 
         public virtual void OnFocusGained(InteractorBase interactor)
         {
-            GameLog.Log(this, "OnFocusGained", "Interactor", interactor != null ? interactor.name : "null");
+            if (debugLogging)
+                GameLog.Log(this, "OnFocusGained", "Interactor", interactor != null ? interactor.name : "null");
 
             _activeInteractor = interactor;
 
@@ -327,7 +301,8 @@ namespace Interaction
 
         public virtual void OnFocusLost(InteractorBase interactor)
         {
-            GameLog.Log(this, "OnFocusLost", "Interactor", interactor != null ? interactor.name : "null");
+            if (debugLogging)
+                GameLog.Log(this, "OnFocusLost", "Interactor", interactor != null ? interactor.name : "null");
 
             if (_activeInteractor == interactor)
                 _activeInteractor = null;
@@ -558,16 +533,5 @@ namespace Interaction
         protected virtual void OnInteractionSucceeded() { }
         protected virtual void OnInteractionFailed(InteractionFailReason reason) { }
 
-        // =====================================================================
-        //  GIZMOS
-        // =====================================================================
-
-        private void OnDrawGizmosSelected()
-        {
-            if (!drawBounds) return;
-            var b = GetWorldBounds();
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawWireCube(b.center, b.size);
-        }
     }
 }

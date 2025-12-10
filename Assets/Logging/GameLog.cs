@@ -83,10 +83,10 @@ namespace Logging
                 switch (message.Channel)
                 {
                     case GameMessageChannel.Warning:
-                        Debug.LogWarning(message.ToString(), ctx);
+                        Debug.Log(message.ToString(), ctx);
                         break;
                     case GameMessageChannel.Error:
-                        Debug.LogError(message.ToString(), ctx);
+                        Debug.Log(message.ToString(), ctx);
                         break;
                     default:
                         Debug.Log(message.ToString(), ctx);
