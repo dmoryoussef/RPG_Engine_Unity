@@ -67,6 +67,7 @@ namespace Interaction
         private KeyCode interactionKey = KeyCode.E;
 
         public KeyCode InteractionKey => interactionKey;
+
         // =====================================================================
         //  STATE TARGET
         // =====================================================================
@@ -314,6 +315,22 @@ namespace Interaction
             }
         }
 
+        /// <summary>
+        /// Called by an Interactor (e.g. Player) to explicitly cancel the current interaction,
+        /// such as pressing Escape while this interactable is targeted.
+        /// </summary>
+        public virtual void OnCancel(InteractorBase interactor)
+        {
+            if (debugLogging)
+                GameLog.Log(this, "OnCancel", "Interactor", interactor != null ? interactor.name : "null");
+
+            if (state == null)
+                return;
+
+            var ctx = BuildContext(interactor, channel: "Cancel");
+            state.TryStateChange(ctx);
+        }
+
         // =====================================================================
         //  CORE INTERACTION ENTRY POINTS
         // =====================================================================
@@ -337,6 +354,9 @@ namespace Interaction
             _activeInteractor = interactor;
             return RunInteractionPipeline(channel: "Interact");
         }
+
+        public bool AllowStateChangeWhenNotTargeted =>
+            state != null && state.AllowStateChangeWhenNotTargeted;
 
         /// <summary>
         /// Shared interaction pipeline used by both OnInteract() and TryInteract().

@@ -1,0 +1,30 @@
+﻿===============================================
+ Dialogue Export: NPC_Greeting
+===============================================
+
+NODE [start]
+ Speaker: Sheriff
+ Text: Evening, you the hunter they sent?
+
+ Next → reply
+
+-----------------------------------------------
+
+NODE [reply]
+ Speaker: Player
+ Text: Depends whos asking.
+
+ Choices:
+   1. Yeah. What do you need?  →  end
+   2. Not your concern.  →  end
+
+-----------------------------------------------
+
+NODE [end]
+ Speaker: Sheriff
+ Text: Fair enough...
+
+ [End Node]
+
+-----------------------------------------------
+

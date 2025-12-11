@@ -1,6 +1,7 @@
 using Logging;
 using System;
 using UnityEngine;
+using static UnityEditor.Timeline.TimelinePlaybackControls;
 
 namespace State
 {
@@ -67,6 +68,13 @@ namespace State
         [Tooltip("States that can block this state from changing.")]
         [SerializeField] protected BaseState[] _blockingStates;
 
+        [Header("Interaction Behavior")]
+        [SerializeField]
+        [Tooltip("If true, this state may be triggered by input even when its interactable is not the current focus/target.")]
+        private bool _allowStateChangeWhenNotTargeted = false;
+
+        public bool AllowStateChangeWhenNotTargeted => _allowStateChangeWhenNotTargeted;
+
         /// <summary>
         /// Fired whenever this state runs its interaction-facing TryStateChange().
         /// </summary>
@@ -79,6 +87,7 @@ namespace State
         public event Action<BaseState> OnStateChanged;
 
         public abstract StateResult TryStateChange(StateChangeContext context);
+
 
         /// <summary>
         /// A potential state change has become possible (e.g., actor entered range).

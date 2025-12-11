@@ -14,4 +14,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Dialogue.DialogueGraphAsset
   _graphId: 
   _startNodeId: start
-  _nodes: []
+  _nodes:
+  - Id: start
+    SpeakerId: Sheriff
+    Text: Evening, you the hunter they sent?
+    NextNodeId: reply
+    Choices: []
+  - Id: reply
+    SpeakerId: Player
+    Text: Depends whos asking.
+    NextNodeId: 
+    Choices:
+    - Id: c1
+      Text: Yeah. What do you need?
+      NextNodeId: end
+    - Id: c2
+      Text: Not your concern.
+      NextNodeId: end
+  - Id: end
+    SpeakerId: Sheriff
+    Text: Fair enough...
+    NextNodeId: 
+    Choices: []

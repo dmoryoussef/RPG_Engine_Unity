@@ -365,17 +365,17 @@ namespace Interaction
             return TryInteract(currentTarget);
         }
 
-        public virtual bool TryInteract(InteractableComponent target)
+        public virtual bool TryInteract(InteractableComponent interactableTarget)
         {
             // Default to the cached target if none provided.
-            if (!target)
-                target = currentTarget;
+            if (!interactableTarget)
+                interactableTarget = currentTarget;
 
-            if (!target)
+            if (!interactableTarget)
                 return false;
 
-            bool inRangeLocal = IsInRange(target, out float dist);
-            bool facingLocal = IsFacing(target, out float dot);
+            bool inRangeLocal = IsInRange(interactableTarget, out float dist);
+            bool facingLocal = IsFacing(interactableTarget, out float dot);
             bool canInteractLocal = inRangeLocal && facingLocal;
 
             distanceToTarget = dist;
@@ -385,14 +385,14 @@ namespace Interaction
 
             if (!canInteractLocal)
             {
-                OnInteractionBlocked(target, inRangeLocal, facingLocal, dist, dot);
+                OnInteractionBlocked(interactableTarget, inRangeLocal, facingLocal, dist, dot);
                 return false;
             }
 
-            // NEW: interactor-aware engine call.
-            bool ok = target.TryInteract(this);
+            // interactor-aware engine call.
+            bool ok = interactableTarget.TryInteract(this);
 
-            OnInteractionPerformed(target, ok, dist, dot);
+            OnInteractionPerformed(interactableTarget, ok, dist, dot);
             return ok;
         }
 

@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Logging;
 using Player;
 using UnityEngine;
@@ -59,10 +58,19 @@ namespace Interaction
         private void Update()
         {
             base.Update();
+
             // We rely entirely on InteractorBase's cached currentTarget,
             // which is updated from TargeterComponent.Model.CurrentTargetChanged.
             if (!currentTarget)
                 return;
+
+            // Global cancel key: Escape.
+            // This sends a "Cancel" channel into the current target's state.
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                currentTarget.OnCancel(this);
+                return;
+            }
 
             HandleKeyInteractionsForCurrentRoot();
         }
@@ -124,6 +132,11 @@ namespace Interaction
                     continue;
 
                 if (!Input.GetKeyDown(key))
+                    continue;
+
+                // if this isn't the currentTarget, only allow it if the state opted in.
+                bool isCurrentTarget = interactable == currentTarget;
+                if (!isCurrentTarget && !interactable.AllowStateChangeWhenNotTargeted)
                     continue;
 
                 // Use the base class gating + interaction logic:

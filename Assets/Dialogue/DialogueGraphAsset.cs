@@ -75,5 +75,28 @@ namespace Dialogue
 
             return new DialogueGraph(GraphId, _startNodeId, runtimeNodes);
         }
+
+        /// <summary>
+        /// Editor/runtime-accessible view of the node list for tools.
+        /// </summary>
+        public IReadOnlyList<NodeData> Nodes => _nodes;
+
+        /// <summary>
+        /// Replace all nodes on this graph. Intended for editor tooling (importers).
+        /// </summary>
+        public void SetNodes(List<NodeData> nodes)
+        {
+            _nodes = nodes ?? new List<NodeData>();
+        }
+
+        /// <summary>
+        /// Change the start node id. Intended for editor tooling.
+        /// </summary>
+        public void SetStartNodeId(string id)
+        {
+            if (!string.IsNullOrEmpty(id))
+                _startNodeId = id;
+        }
+
     }
 }
