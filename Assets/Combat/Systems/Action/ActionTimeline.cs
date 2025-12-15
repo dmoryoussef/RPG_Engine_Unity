@@ -12,6 +12,10 @@ namespace Combat
         public uint ActionInstanceId { get; private set; }
         public ActionPhase CurrentPhaseId => (IsRunning && Move != null && Move.phases.Count > 0) ? Move.phases[PhaseIndex].phaseId : default;
 
+        public bool CanStart => !IsRunning;
+        public bool IsInPhase(ActionPhase phase) => IsRunning && CurrentPhaseId == phase;
+        public bool HasValidMove => Move != null && Move.phases != null && Move.phases.Count > 0;
+
 
         public event System.Action<ActionPhase> OnPhaseEnter; public event System.Action<ActionPhase> OnPhaseExit; public event System.Action OnFinished;
         private static uint _instanceCounter = 1;
@@ -41,6 +45,20 @@ namespace Combat
             PhaseIndex++; ElapsedInPhaseMs = 0;
             if (PhaseIndex >= Move.phases.Count) { IsRunning = false; OnFinished?.Invoke(); return; }
             OnPhaseEnter?.Invoke(Move.phases[PhaseIndex].phaseId);
+        }
+
+        public void Cancel()
+        {
+            if (!IsRunning) return;
+
+            // Exit current phase cleanly
+            OnPhaseExit?.Invoke(CurrentPhaseId);
+
+            // Stop running
+            IsRunning = false;
+
+            // Consider: a separate OnCanceled event (optional)
+            OnFinished?.Invoke();
         }
     }
 }

@@ -20,18 +20,15 @@ namespace Targeting
         public FocusTarget Hover => _hover;
         public FocusTarget Locked => _locked;
         public FocusTarget Focus => _focus;
-        public FocusTarget CurrentTarget => _currentTarget;
 
         private FocusTarget _hover;
         private FocusTarget _locked;
         private FocusTarget _focus;
-        private FocusTarget _currentTarget;
 
         public event Action<FocusChange> HoverChanged;
         public event Action<FocusChange> LockedChanged;
         public event Action<FocusChange> FocusChanged;
 
-        public event Action<FocusTarget> CurrentTargetChanged;
 
         public void SetHover(FocusTarget target)
         {
@@ -41,7 +38,6 @@ namespace Targeting
             var change = new FocusChange(_hover, target);
             _hover = target;
             HoverChanged?.Invoke(change);
-            RecomputeCurrent();
         }
 
         public void ClearHover()
@@ -52,7 +48,6 @@ namespace Targeting
             var change = new FocusChange(_hover, null);
             _hover = null;
             HoverChanged?.Invoke(change);
-            RecomputeCurrent();
         }
 
         public void SetLocked(FocusTarget target)
@@ -63,7 +58,6 @@ namespace Targeting
             var change = new FocusChange(_locked, target);
             _locked = target;
             LockedChanged?.Invoke(change);
-            RecomputeCurrent();
         }
 
         public void ClearLocked()
@@ -74,7 +68,6 @@ namespace Targeting
             var change = new FocusChange(_locked, null);
             _locked = null;
             LockedChanged?.Invoke(change);
-            RecomputeCurrent();
         }
 
         public void SetFocus(FocusTarget target)
@@ -85,7 +78,6 @@ namespace Targeting
             var change = new FocusChange(_focus, target);
             _focus = target;
             FocusChanged?.Invoke(change);
-            RecomputeCurrent();
         }
 
         public void ClearFocus()
@@ -96,17 +88,6 @@ namespace Targeting
             var change = new FocusChange(_focus, null);
             _focus = null;
             FocusChanged?.Invoke(change);
-            RecomputeCurrent();
-        }
-
-        private void RecomputeCurrent()
-        {
-            var newCurrent = _focus ?? _locked ?? _hover;
-            if (ReferenceEquals(newCurrent, _currentTarget))
-                return;
-
-            _currentTarget = newCurrent;
-            CurrentTargetChanged?.Invoke(_currentTarget);
         }
     }
 }

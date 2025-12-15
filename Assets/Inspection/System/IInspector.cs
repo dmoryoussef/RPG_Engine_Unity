@@ -3,32 +3,26 @@ using UnityEngine;
 namespace Inspection
 {
     /// <summary>
-    /// TUTORIAL:
-    /// An IInspector is any GameObject that can "look at" or inspect other objects.
-    /// In our prototype, the player will have an InspectorComponent that implements this.
+    /// An IInspector is any GameObject that can inspect IInspectable targets.
     ///
-    /// This interface:
-    /// - Exposes the root GameObject for this inspector (Root)
-    /// - Decides IF we are allowed to inspect a target (CanInspect)
-    /// - Builds the context for a particular inspection (BuildContext)
-    /// - Performs the actual inspection workflow (Inspect)
+    /// The inspector's responsibilities:
+    /// - Provide a Root (the inspecting entity in the scene)
+    /// - Build an InspectionContext for an interaction
+    /// - Run inspection workflows (Basic vs Detailed)
+    ///
+    /// Notes:
+    /// - "Basic" is intended for hover/preview.
+    /// - "Detailed" is intended for locked/selected inspection.
+    /// - What "basic" vs "detailed" contains is owned by the inspectable
+    ///   via BuildBasicInspectionData vs BuildInspectionData.
     /// </summary>
     public interface IInspector
     {
         /// <summary>
-        /// The GameObject that represents this inspector in the scene.
-        /// Usually this is the player root or a camera rig.
+        /// The GameObject that represents this inspector in the scene
+        /// (player root, camera rig, etc.).
         /// </summary>
         GameObject Root { get; }
-
-        /// <summary>
-        /// Decide whether this inspector is allowed to inspect the given target right now.
-        /// Example checks:
-        /// - Too far away
-        /// - No line of sight
-        /// - Player is stunned or in a cutscene
-        /// </summary>
-        bool CanInspect(IInspectable target, out string reason);
 
         /// <summary>
         /// Build an InspectionContext that describes the relationship between
@@ -37,13 +31,23 @@ namespace Inspection
         InspectionContext BuildContext(IInspectable target, Vector3 hitPoint);
 
         /// <summary>
-        /// High-level operation that:
-        /// - Calls CanInspect
-        /// - Builds a context
-        /// - Asks the target to build its data
-        /// - Calls the OnInspected hook
-        /// - Sends the result to some display (debug window, UI, etc.)
+        /// Perform a basic inspection (hover/preview).
+        /// Expected flow:
+        /// - Build context
+        /// - target.BuildBasicInspectionData(context, data)
+        /// - target.OnBasicInspected(context)
+        /// - notify UI
         /// </summary>
-        void Inspect(IInspectable target, Vector3 hitPoint);
+        void InspectBasic(IInspectable target, Vector3 hitPoint);
+
+        /// <summary>
+        /// Perform a detailed inspection (locked/selected).
+        /// Expected flow:
+        /// - Build context
+        /// - target.BuildInspectionData(context, data)
+        /// - target.OnInspected(context)
+        /// - notify UI
+        /// </summary>
+        void InspectDetailed(IInspectable target, Vector3 hitPoint);
     }
 }

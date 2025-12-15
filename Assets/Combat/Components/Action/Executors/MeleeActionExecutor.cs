@@ -1,8 +1,8 @@
 ﻿// MeleeActionExecutor.cs
 // Purpose: Concrete melee executor built on ActionExecutorBase.
-//  - Performs per-frame swept-sphere queries using AttackResolver
-//  - Logs how many hits it found and which targets they map to
-//  - Uses MoveDef for authored damage where available
+//  - Performs per-frame swept-sphere queries using ActionResolver
+//  - Maps HurtBox hits to IActionTarget roots
+//  - Uses MoveDef authored on the base class (ActionExecutorBase.moveDef)
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -26,54 +26,56 @@ namespace Combat
         [Tooltip("How many samples along the sweep path.")]
         [SerializeField] private int samples = 5;
 
-        [Header("Authoring")]
-        [Tooltip("Move definition used for this melee action.")]
-        [SerializeField] private MoveDef moveDef;
-
         [Header("Standalone (no controller)")]
-        [SerializeField] private bool standaloneUsesInput = true;
-        [SerializeField] private KeyCode standaloneAttackKey = KeyCode.Mouse0;
+        [Tooltip("If true, this executor can run standalone when usePipeline == false, gated by holding the base inputKey.")]
+        [SerializeField] private bool standaloneUsesHoldGate = true;
 
-        private bool _isAttackingStandalone;
+        private bool _standaloneHoldGateOpen;
 
         // ─────────────────────────────────────────────────────────────────────
-        // Required rig checks
+        // Rig validity
         // ─────────────────────────────────────────────────────────────────────
 
         protected override bool HasValidRig()
         {
-            if (!tipStart || !tipEnd)
-                return false;
-            return true;
+            return tipStart != null && tipEnd != null;
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // Standalone control (when not driven by ActionTimelineController)
+        // Optional standalone gate (only relevant when usePipeline == false)
         // ─────────────────────────────────────────────────────────────────────
 
         protected override void Update()
         {
             base.Update();
 
-            if (!usePipeline && standaloneUsesInput)
+            // Only used by ActionExecutorBase.LateUpdate() standalone mode.
+            // If you're controller-driven (usePipeline == true), this has no effect.
+            if (!usePipeline && standaloneUsesHoldGate)
             {
-                // Simple standalone gate: hold attack key while swinging.
-                _isAttackingStandalone = Input.GetKey(standaloneAttackKey);
+                if (InputKey != KeyCode.None)
+                    _standaloneHoldGateOpen = Input.GetKey(InputKey); // hold-to-swing
+                else
+                    _standaloneHoldGateOpen = false;
+            }
+            else
+            {
+                _standaloneHoldGateOpen = true; // ungated if not using hold gate
             }
         }
 
-        protected override bool IsLocallyGated() => _isAttackingStandalone;
+        protected override bool IsLocallyGated()
+        {
+            return _standaloneHoldGateOpen;
+        }
 
-        protected override MoveDef GetAuthoringMoveDef() => moveDef;
+        // If you want melee to start on PRESS of InputKey (typical), the base WantsToStart() already does that.
+        // Override WantsToStart() only if you want HOLD-to-start or RELEASE-to-start.
 
         // ─────────────────────────────────────────────────────────────────────
         // Hit collection
         // ─────────────────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// Collect hits by sweeping from tipStart to tipEnd using AttackResolver.
-        /// Logs how many hits were returned so we can see if this step is failing.
-        /// </summary>
         protected override IEnumerable<(GameObject target,
                                         IActionTarget targetComponent,
                                         Vector3 point,
@@ -91,8 +93,6 @@ namespace Combat
             Vector3 start = tipStart.position;
             Vector3 end = tipEnd.position;
 
-            // Uses the new AttackResolver.SweptSphereQuery signature:
-            // List<AttackResolver.SweepHit> with fields: target, point, normal, region, param
             List<ActionResolver.SweepHit> hits = ActionResolver.SweptSphereQuery(start, end, radius, samples);
 
             if (debugLevel != DebugLevel.Off)
@@ -109,7 +109,6 @@ namespace Combat
                 IActionTarget targetComponent = null;
                 if (h.target != null)
                 {
-                    // IMPORTANT: We now resolve IActionTarget here (no more h.damageable).
                     targetComponent = h.target.GetComponentInParent<IActionTarget>();
                     if (targetComponent == null && debugLevel != DebugLevel.Off)
                     {
@@ -119,8 +118,6 @@ namespace Combat
                     }
                 }
 
-                // This tuple shape matches what ActionExecutorBase.ExecuteFrame expects:
-                // (GameObject target, IActionTarget targetComponent, Vector3 point, Vector3 normal, string region, float param)
                 yield return (h.target, targetComponent, h.point, h.normal, h.region, h.param);
             }
         }

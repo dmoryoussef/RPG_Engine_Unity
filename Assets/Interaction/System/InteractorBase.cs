@@ -1,20 +1,18 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-using Targeting; // For TargeterComponent, FocusTarget, FocusChange
+using Targeting;
 
 namespace Interaction
 {
     /// <summary>
     /// Base class for anything that can perform interactions (player, AI, etc.).
     ///
-    /// Responsibilities:
-    /// - Owns the current interaction target.
-    /// - Computes gating (range + facing).
-    /// - Drives engine hooks on InteractableBase:
-    ///     - OnFocusGained / OnFocusLost
-    ///     - OnEnterRange / OnExitRange
-    ///     - TryInteract(interactor)
-    /// - Registers itself in Core.Registry for global access.
+    /// Targeting integration (optional):
+    /// - LockedChanged -> drives the interaction target (recommended default)
+    /// - HoverChanged  -> optionally drives the interaction target only when unlocked
+    ///
+    /// NOTE: This class assumes CurrentTarget/CurrentTargetChanged is being removed from the targeting model.
+    /// All targeting events are expected to use FocusChange (Previous + Current).
     /// </summary>
     public abstract class InteractorBase : MonoBehaviour, IInteractor
     {
@@ -23,21 +21,24 @@ namespace Interaction
         // --------------------------------------------------------------------
 
         [Header("Targeting Source (Optional)")]
-        [SerializeField, Tooltip("If set, this Interactor will attach to this Targeter and use its CurrentTarget as the interaction target.")]
+        [SerializeField, Tooltip("If set, this Interactor can attach to this Targeter and use its channels as the interaction target.")]
         protected TargeterBase _targeter;
 
-        [SerializeField, Tooltip("If true, InteractorBase will attempt to find a Targeter from this GameObject in Awake when not explicitly assigned.")]
+        [SerializeField, Tooltip("If true, attempt to auto-find a Targeter from this GameObject in Awake when not explicitly assigned.")]
         protected bool autoFindTargeter = true;
 
-        [SerializeField, Tooltip("If true, InteractorBase subscribes to Targeter.Model.CurrentTargetChanged and caches that as its current target.")]
-        protected bool bindToTargeterCurrent = true;
+        [SerializeField, Tooltip("If true, subscribe to Targeter.Model.LockedChanged and use it as the interaction target.")]
+        protected bool bindToTargeterLocked = true;
+
+        [SerializeField, Tooltip("If true, subscribe to Targeter.Model.HoverChanged and use it as the interaction target ONLY when there is no locked target.")]
+        protected bool bindToTargeterHoverWhenUnlocked = false;
 
         // --------------------------------------------------------------------
         // Gating configuration
         // --------------------------------------------------------------------
 
         [Header("Gating")]
-        [SerializeField, Tooltip("Maximum distance allowed between interactor origin and target bounds center.")]
+        [SerializeField, Tooltip("Maximum distance allowed between interactor origin and target position.")]
         protected float interactMaxDistance = 1.5f;
 
         [SerializeField, Range(-1f, 1f), Tooltip("Dot threshold for facing; 1 = must look directly at, -1 = no facing restriction.")]
@@ -51,7 +52,7 @@ namespace Interaction
         [SerializeField] protected InteractableComponent currentTarget;
         [SerializeField] protected InteractableComponent previousTarget;
 
-        [SerializeField, Tooltip("Optional debug label for where currentTarget came from (Targeter, AI, script, etc.).")]
+        [SerializeField, Tooltip("Optional debug label for where currentTarget came from (Targeter.Locked, Targeter.Hover, AI, script...).")]
         protected string currentTargetSource;
 
         [SerializeField, Tooltip("Last FocusTarget received from Targeter, if any.")]
@@ -73,14 +74,12 @@ namespace Interaction
         /// <summary>
         /// Interactables currently considered in range of this interactor.
         /// </summary>
-        protected readonly HashSet<InteractableComponent> _inRangeInteractables =
-            new HashSet<InteractableComponent>();
+        protected readonly HashSet<InteractableComponent> _inRangeInteractables = new HashSet<InteractableComponent>();
 
         /// <summary>
         /// Shared buffer used for non-alloc registry queries.
         /// </summary>
-        private static readonly List<InteractableComponent> _allInteractablesBuffer =
-            new List<InteractableComponent>(128);
+        private static readonly List<InteractableComponent> _allInteractablesBuffer = new List<InteractableComponent>(128);
 
         private int _rangeCheckFrameOffset;
 
@@ -92,18 +91,9 @@ namespace Interaction
         {
             if (autoFindTargeter && _targeter == null)
             {
-                ITargeter targeter = GetComponent<ITargeter>();
-                if (_targeter == null)
-                {
-                    if (targeter is TargeterBase tb)
-                    {
-                        _targeter = tb;
-                    }
-                    else
-                    {
-                        Logging.GameLog.LogWarning(this, "No Targeter component found.");
-                    }
-                }
+                var t = GetComponent<ITargeter>();
+                if (t is TargeterBase tb) _targeter = tb;
+                else Logging.GameLog.LogWarning(this, "No Targeter component found.");
             }
 
             // Stagger range checks so multiple interactors don't all hit the registry on the same frame.
@@ -113,14 +103,17 @@ namespace Interaction
         protected virtual void OnEnable()
         {
             Core.Registry.Register<InteractorBase>(this);
-
             if (this is IInteractor interactor)
                 Core.Registry.Register<IInteractor>(interactor);
 
-            if (bindToTargeterCurrent && _targeter != null && _targeter.Model != null)
-            {
-                _targeter.Model.CurrentTargetChanged += OnTargeterCurrentTargetChanged;
-            }
+            var model = _targeter?.Model;
+            if (model == null) return;
+
+            if (bindToTargeterLocked)
+                model.LockedChanged += OnTargeterLockedChanged;
+
+            if (bindToTargeterHoverWhenUnlocked)
+                model.HoverChanged += OnTargeterHoverChanged;
         }
 
         protected virtual void OnDisable()
@@ -128,14 +121,17 @@ namespace Interaction
             NotifyInteractablesOfDisable();
 
             Core.Registry.Unregister<InteractorBase>(this);
-
             if (this is IInteractor interactor)
                 Core.Registry.Unregister<IInteractor>(interactor);
 
-            if (bindToTargeterCurrent && _targeter != null && _targeter.Model != null)
-            {
-                _targeter.Model.CurrentTargetChanged -= OnTargeterCurrentTargetChanged;
-            }
+            var model = _targeter?.Model;
+            if (model == null) return;
+
+            if (bindToTargeterLocked)
+                model.LockedChanged -= OnTargeterLockedChanged;
+
+            if (bindToTargeterHoverWhenUnlocked)
+                model.HoverChanged -= OnTargeterHoverChanged;
         }
 
         protected virtual void OnDestroy()
@@ -145,7 +141,7 @@ namespace Interaction
 
         protected virtual void Update()
         {
-            InteractorTick();   // drives UpdateRangeContacts, focus, etc.
+            InteractorTick();
         }
 
         // --------------------------------------------------------------------
@@ -153,15 +149,13 @@ namespace Interaction
         // --------------------------------------------------------------------
 
         /// <summary>
-        /// Call this from derived Update() implementations (e.g. PlayerInteractor.Update)
-        /// to drive base interactor behavior (range checks, etc.).
+        /// Drives base interactor behavior (range checks, etc.).
+        /// Call from derived Update() implementations if they override Update().
         /// </summary>
         protected void InteractorTick()
         {
             if (ShouldUpdateRangeThisFrame())
-            {
                 UpdateRangeContacts();
-            }
         }
 
         private bool ShouldUpdateRangeThisFrame()
@@ -174,15 +168,13 @@ namespace Interaction
         }
 
         /// <summary>
-        /// Performs a proximity sweep over all InteractableBase instances registered in Core.Registry
+        /// Performs a proximity sweep over all InteractableComponent instances registered in Core.Registry
         /// and fires OnEnterRange/OnExitRange hooks as needed.
         /// </summary>
         protected virtual void UpdateRangeContacts()
         {
             Core.Registry.GetAllNonAlloc<InteractableComponent>(_allInteractablesBuffer);
-
-            if (_allInteractablesBuffer.Count == 0)
-                return;
+            if (_allInteractablesBuffer.Count == 0) return;
 
             for (int i = 0; i < _allInteractablesBuffer.Count; i++)
             {
@@ -233,46 +225,54 @@ namespace Interaction
         /// </summary>
         internal void OnInteractableDisabled(InteractableComponent interactable)
         {
-            if (!interactable)
-                return;
+            if (!interactable) return;
 
             _inRangeInteractables.Remove(interactable);
 
             if (currentTarget == interactable)
-            {
                 SetCurrentTarget(null, "InteractableDisabled");
-            }
         }
 
         // --------------------------------------------------------------------
-        // Targeter wiring
+        // Targeter wiring (Locked / Hover) - FocusChange standardized
         // --------------------------------------------------------------------
 
-        private void OnTargeterCurrentTargetChanged(FocusTarget focus)
+        private void OnTargeterLockedChanged(FocusChange change)
         {
+            var focus = change.Current;
+
             currentFocusTarget = focus;
+
             var interactable = ResolveInteractableFromFocus(focus);
-            SetCurrentTarget(interactable, sourceLabel: "Targeter.CurrentTarget");
+            SetCurrentTarget(interactable, "Targeter.Locked");
+        }
+
+        private void OnTargeterHoverChanged(FocusChange change)
+        {
+            // Only use hover as an interaction target when unlocked.
+            // Assumes the model exposes Locked as a property; if not, you can remove this guard.
+            if (_targeter?.Model?.Locked != null)
+                return;
+
+            var focus = change.Current;
+
+            currentFocusTarget = focus;
+
+            var interactable = ResolveInteractableFromFocus(focus);
+            SetCurrentTarget(interactable, "Targeter.Hover");
         }
 
         /// <summary>
-        /// Default resolution from FocusTarget to InteractableBase.
+        /// Default resolution from FocusTarget to InteractableComponent.
         /// Override if a given game uses a different mapping.
         /// </summary>
         protected virtual InteractableComponent ResolveInteractableFromFocus(FocusTarget focus)
         {
-            if (focus == null)
-                return null;
+            if (focus == null) return null;
 
-            var logical = focus.LogicalTarget;
-            if (logical == null)
-                return null;
+            var root = focus.LogicalTarget?.TargetTransform;
+            if (!root) return null;
 
-            var root = logical.TargetTransform;
-            if (!root)
-                return null;
-
-            // Default rule: InteractableBase on logical root.
             return root.GetComponent<InteractableComponent>();
         }
 
@@ -282,12 +282,8 @@ namespace Interaction
 
         public virtual InteractionGateInfo BuildGateInfo(InteractableComponent target = null)
         {
-            // Default to the cached target if none provided.
-            if (!target)
-                target = currentTarget;
-
-            if (!target)
-                return InteractionGateInfo.Empty;
+            if (!target) target = currentTarget;
+            if (!target) return InteractionGateInfo.Empty;
 
             bool inRangeLocal = IsInRange(target, out float dist);
             bool facingOkLocal = IsFacing(target, out float dot);
@@ -321,20 +317,14 @@ namespace Interaction
                 return;
 
             if (currentTarget != null)
-            {
-                // Focus-only: old target loses focus.
                 currentTarget.OnFocusLost(this);
-            }
 
             previousTarget = currentTarget;
             currentTarget = target;
             currentTargetSource = sourceLabel;
 
             if (currentTarget != null)
-            {
-                // Focus-only: new target gains focus.
                 currentTarget.OnFocusGained(this);
-            }
 
             OnCurrentTargetChanged(previousTarget, currentTarget);
         }
@@ -367,7 +357,6 @@ namespace Interaction
 
         public virtual bool TryInteract(InteractableComponent interactableTarget)
         {
-            // Default to the cached target if none provided.
             if (!interactableTarget)
                 interactableTarget = currentTarget;
 
@@ -389,7 +378,6 @@ namespace Interaction
                 return false;
             }
 
-            // interactor-aware engine call.
             bool ok = interactableTarget.TryInteract(this);
 
             OnInteractionPerformed(interactableTarget, ok, dist, dot);
@@ -403,8 +391,7 @@ namespace Interaction
         protected bool IsInRange(InteractableComponent target, out float distance)
         {
             distance = 0f;
-            if (!target)
-                return false;
+            if (!target) return false;
 
             Vector3 origin = GetOrigin();
             Vector3 targetPos = target.transform.position;
@@ -413,14 +400,12 @@ namespace Interaction
             return distance <= interactMaxDistance;
         }
 
-
         protected bool IsFacing(InteractableComponent target, out float dot)
         {
             dot = 1f;
-            if (!target)
-                return false;
+            if (!target) return false;
 
-            // facing disabled?
+            // Facing disabled?
             if (interactFacingDotThreshold <= -1f)
                 return true;
 
@@ -432,7 +417,6 @@ namespace Interaction
 
             return dot >= interactFacingDotThreshold;
         }
-
 
         // --------------------------------------------------------------------
         // Virtual hooks for subclasses / debug

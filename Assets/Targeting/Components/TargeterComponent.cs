@@ -139,13 +139,6 @@ namespace Targeting
             Model.HoverChanged += OnHoverChanged;
             Model.LockedChanged += OnLockedChanged;
             Model.FocusChanged += OnFocusChanged;
-            Model.CurrentTargetChanged += OnCurrentChanged;
-
-            if (logCurrentTargetChanges)
-            {
-                Model.CurrentTargetChanged += t =>
-                    Debug.Log($"[Targeting] Current -> {t?.TargetLabel ?? "null"}");
-            }
         }
 
         private void OnDestroy()
@@ -155,7 +148,6 @@ namespace Targeting
             Model.HoverChanged -= OnHoverChanged;
             Model.LockedChanged -= OnLockedChanged;
             Model.FocusChanged -= OnFocusChanged;
-            Model.CurrentTargetChanged -= OnCurrentChanged;
         }
 
         private void Update()
@@ -576,16 +568,6 @@ namespace Targeting
                 {
                     Gizmos.color = Color.cyan;
                     Gizmos.DrawSphere(Model.Locked.Anchor.AnchorWorldPosition, 0.12f);
-                }
-
-                // Current (resolved) target
-                if (Model.CurrentTarget != null)
-                {
-                    Gizmos.color = Color.green;
-                    Vector3 position = Model.CurrentTarget.Anchor.AnchorWorldPosition;
-                    Gizmos.DrawSphere(position, 0.14f);
-
-                    Gizmos.DrawLine(playerCenter.position, position);
                 }
             }
 

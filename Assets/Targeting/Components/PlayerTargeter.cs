@@ -81,8 +81,7 @@ namespace Targeting
 
             return
                 $"Locked target: {{ {Format(m?.Locked)} }}\n" +
-                $"Hover target:  {{ {Format(m?.Hover)} }}\n" +
-                $"Current:       {{ {Format(m?.CurrentTarget)} }}";
+                $"Hover target:  {{ {Format(m?.Hover)} }}\n";
         }
 
 

@@ -82,14 +82,10 @@ namespace Targeting
         [Tooltip("Current focus target (priority resolved).")]
         public FocusTarget CurrentFocus;
 
-        [Tooltip("Current target that systems should act on.")]
-        public FocusTarget Current;
-
         [Header("Runtime Debug Labels")]
         [SerializeField] private string debugHoverLabel = "(null)";
         [SerializeField] private string debugLockedLabel = "(null)";
         [SerializeField] private string debugFocusLabel = "(null)";
-        [SerializeField] private string debugCurrentLabel = "(null)";
 
         [Header("Debug Logging")]
         [SerializeField] private bool logCurrentTargetChanges = false;
@@ -124,13 +120,6 @@ namespace Targeting
             Model.HoverChanged += OnHoverChanged;
             Model.LockedChanged += OnLockedChanged;
             Model.FocusChanged += OnFocusChanged;
-            Model.CurrentTargetChanged += OnCurrentChanged;
-
-            if (logCurrentTargetChanges)
-            {
-                Model.CurrentTargetChanged += t =>
-                    Debug.Log($"[Targeting] {name} Current -> {t?.TargetLabel ?? "null"}");
-            }
         }
 
         protected virtual void OnDestroy()
@@ -140,7 +129,6 @@ namespace Targeting
             Model.HoverChanged -= OnHoverChanged;
             Model.LockedChanged -= OnLockedChanged;
             Model.FocusChanged -= OnFocusChanged;
-            Model.CurrentTargetChanged -= OnCurrentChanged;
         }
 
         /// <summary>
@@ -201,12 +189,6 @@ namespace Targeting
         {
             CurrentFocus = change.Current;
             debugFocusLabel = change.Current?.TargetLabel ?? "(null)";
-        }
-
-        private void OnCurrentChanged(FocusTarget target)
-        {
-            Current = target;
-            debugCurrentLabel = target?.TargetLabel ?? "(null)";
         }
 
         // ====================================================================
@@ -513,20 +495,6 @@ namespace Targeting
 
                     Gizmos.color = Color.cyan;
                     Gizmos.DrawSphere(lockedPos, 0.12f);
-                }
-
-                var current = Model.CurrentTarget;
-                if (current != null)
-                {
-                    Vector3 currentPos = current.Anchor != null
-                        ? current.Anchor.AnchorWorldPosition
-                        : current.LogicalTarget != null
-                            ? current.LogicalTarget.TargetPosition
-                            : current.WorldPosition;
-
-                    Gizmos.color = Color.green;
-                    Gizmos.DrawSphere(currentPos, 0.14f);
-                    Gizmos.DrawLine(centerTransform.position, currentPos);
                 }
             }
 

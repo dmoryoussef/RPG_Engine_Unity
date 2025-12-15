@@ -1,14 +1,16 @@
 ﻿// ActionExecutorBase.cs
 // Purpose: Shared execution logic for combat action executors (melee, AoE, projectiles).
 //
-// This version includes detailed debug output so we can see each step:
-//   - When ExecuteFrame runs and what phase we're in
-//   - How many hits CollectHits returns
-//   - Which hits pass de-dupe/rate limiting
-//   - When payloads are built and sent to the DamagePipeline
+// Adds (clean up):
+//  - Executor-owned MoveDef + input binding + actionId grouping
+//  - Auto-register / unregister with ActionTimelineController
 //
-// NOTE:
-//   - IActionTarget is a marker. Effects are handled by receivers on the target GO.
+// Keeps existing behavior:
+//  - Timeline-driven execution while controller is in Active
+//  - Standalone execution when usePipeline == false
+//  - Hit de-dupe + rate limiting per phase/action
+//  - Payload -> DamageResolver -> DamagePipeline apply
+//  - Debug instrumentation + phase hooks
 
 using System.Collections.Generic;
 using System.Linq;
@@ -27,6 +29,17 @@ namespace Combat
         [Tooltip("Controller driving this executor (auto wired if on same GO).")]
         [SerializeField] protected ActionTimelineController controller;
 
+        [Header("Authoring")]
+        [Tooltip("The MoveDef this executor starts when its input/gates allow.")]
+        [SerializeField] protected MoveDef moveDef;
+
+        [Header("Input")]
+        [Tooltip("Legacy KeyCode input for this executor (Press). Leave None if started externally.")]
+        [SerializeField] protected KeyCode inputKey = KeyCode.None;
+
+        [Tooltip("Executors with the same ActionId can be driven together for one action (gameplay + VFX + audio).")]
+        [SerializeField] protected string actionId = "Attack";
+
         [Header("Debug")]
         [SerializeField] protected DebugLevel debugLevel = DebugLevel.Minimal;
 
@@ -40,11 +53,8 @@ namespace Combat
         protected readonly HashSet<GameObject> _hitThisFrame = new();
 
         // Per-action-phase de-dupe + rate limiting
-        protected readonly Dictionary<(uint actionId, ActionPhase phase), HashSet<GameObject>> _hitsByActionPhase
-            = new();
-
-        protected readonly Dictionary<((uint actionId, ActionPhase phase) key, GameObject target), int> _lastHitMs
-            = new();
+        protected readonly Dictionary<(uint actionId, ActionPhase phase), HashSet<GameObject>> _hitsByActionPhase = new();
+        protected readonly Dictionary<((uint actionId, ActionPhase phase) key, GameObject target), int> _lastHitMs = new();
 
         // Cached attacker IActionTarget (found in parents)
         private IActionTarget _cachedAttackerTarget;
@@ -54,6 +64,12 @@ namespace Combat
         public event System.Action<ActionPhase, MoveDef.Phase> PhaseExited;
         public event System.Action<ActionPhase, MoveDef.Phase, float> PhaseTicked;
         public event System.Action<uint> ActionFinished;
+
+        // Exposed for controller selection / inspection
+        public ActionTimelineController Controller => controller;
+        public MoveDef AuthoredMoveDef => moveDef;
+        public KeyCode InputKey => inputKey;
+        public string ActionId => actionId;
 
         protected virtual void OnPhaseEnterHook(ActionPhase phase, MoveDef.Phase phaseDef) { }
         protected virtual void OnPhaseExitHook(ActionPhase phase, MoveDef.Phase phaseDef) { }
@@ -78,8 +94,13 @@ namespace Combat
 
         protected virtual void OnEnable()
         {
+            AutoWireController();
+
             if (controller)
             {
+                // Optional: controller keeps registry of executors
+                controller.RegisterExecutor(this);
+
                 controller.OnFinished += HandleFinished;
                 controller.OnPhaseEnter += HandlePhaseEnter;
                 controller.OnPhaseExit += HandlePhaseExit;
@@ -90,6 +111,8 @@ namespace Combat
         {
             if (controller)
             {
+                controller.UnregisterExecutor(this);
+
                 controller.OnFinished -= HandleFinished;
                 controller.OnPhaseEnter -= HandlePhaseEnter;
                 controller.OnPhaseExit -= HandlePhaseExit;
@@ -116,21 +139,32 @@ namespace Combat
         /// <summary>Used by ActionTimelineController to drive only its own executors.</summary>
         public bool IsMyController(ActionTimelineController c) => controller == c;
 
+        /// <summary>
+        /// Controller calls this to see if this executor wants to start an action now.
+        /// Override for holds/releases or for real input system integration.
+        /// </summary>
+        public virtual bool WantsToStart()
+        {
+            if (!enabled || !gameObject.activeInHierarchy) return false;
+            if (inputKey == KeyCode.None) return false;
+            return Input.GetKeyDown(inputKey);
+        }
+
+        /// <summary>
+        /// Optional local gate for standalone execution when usePipeline == false.
+        /// </summary>
+        protected virtual bool IsLocallyGated() => true;
+
         protected virtual void Update()
         {
-            // Standalone executors can sample input here when usePipeline == false.
-            if (debugLevel == DebugLevel.Verbose)
-            {
-                ActionResolver.DebugLogging = true;
-            }
-            else
-                ActionResolver.DebugLogging = false;
+            // Keep your existing “verbose enables resolver logs” behavior.
+            ActionResolver.DebugLogging = (debugLevel == DebugLevel.Verbose);
         }
 
         protected virtual void LateUpdate()
         {
+            // Standalone executors can run without controller.
             if (usePipeline) return;
-
             ExecuteFrame(new CombatFrame(Time.time, Time.deltaTime));
         }
 
@@ -149,6 +183,7 @@ namespace Combat
 
             ActionPhase phaseId = controller != null ? controller.CurrentPhase : ActionPhase.Active;
 
+            // Controller-driven path: only execute during Active
             if (controller != null && phaseId != ActionPhase.Active)
             {
                 if (debugLevel == DebugLevel.Verbose)
@@ -156,6 +191,7 @@ namespace Combat
                 return;
             }
 
+            // Standalone local gating (if you keep standalone mode)
             if (controller == null && !usePipeline && !IsLocallyGated())
             {
                 if (debugLevel == DebugLevel.Verbose)
@@ -170,96 +206,96 @@ namespace Combat
 
             _hitThisFrame.Clear();
 
-                var phaseDef = ResolvePhaseDefFor(phaseId);
+            var phaseDef = ResolvePhaseDefFor(phaseId);
 
-                // Phase tick hooks
-                OnPhaseTickHook(phaseId, phaseDef, frame.DeltaTime);
-                PhaseTicked?.Invoke(phaseId, phaseDef, frame.DeltaTime);
+            // Phase tick hooks
+            OnPhaseTickHook(phaseId, phaseDef, frame.DeltaTime);
+            PhaseTicked?.Invoke(phaseId, phaseDef, frame.DeltaTime);
 
-                // Step 1: collect hits
-                var hitsEnum = CollectHits(frame) ??
-                               Enumerable.Empty<(GameObject target,
-                                                 IActionTarget targetComponent,
-                                                 Vector3 point,
-                                                 Vector3 normal,
-                                                 string region,
-                                                 float param)>();
+            // Step 1: collect hits
+            var hitsEnum = CollectHits(frame)
+                           ?? Enumerable.Empty<(GameObject target,
+                                                IActionTarget targetComponent,
+                                                Vector3 point,
+                                                Vector3 normal,
+                                                string region,
+                                                float param)>();
 
-                var hits = hitsEnum as IList<(GameObject target,
-                                              IActionTarget targetComponent,
-                                              Vector3 point,
-                                              Vector3 normal,
-                                              string region,
-                                              float param)>
-                           ?? hitsEnum.ToList();
+            var hits = hitsEnum as IList<(GameObject target,
+                                          IActionTarget targetComponent,
+                                          Vector3 point,
+                                          Vector3 normal,
+                                          string region,
+                                          float param)>
+                       ?? hitsEnum.ToList();
 
-                if (debugLevel != DebugLevel.Off)
-                {
-                    Debug.Log($"[Exec:{PrettyName()}] CollectHits returned {hits.Count} candidates.", this);
-                }
-
-                var activePhase = GetActivePhaseOrNull();
-                var phaseKey = CurrentKey();
-
-                if (!_hitsByActionPhase.TryGetValue(phaseKey, out var setForPhase))
-                    _hitsByActionPhase[phaseKey] = setForPhase = new HashSet<GameObject>();
-
-                int applied = 0;
-
-                foreach (var hit in hits)
-                {
-                    if (hit.target == null)
-                    {
-                        if (debugLevel == DebugLevel.Verbose)
-                            Debug.LogWarning($"[Exec:{PrettyName()}] Skipping hit with null target GameObject.", this);
-                        continue;
-                    }
-
-                    if (hit.targetComponent == null)
-                    {
-                        if (debugLevel != DebugLevel.Off)
-                            Debug.LogWarning($"[Exec:{PrettyName()}] Skipping {hit.target.name} – no IActionTarget found in parent chain.", this);
-                        continue;
-                    }
-
-                    // Per-frame target de-dupe
-                    if (!_hitThisFrame.Add(hit.target))
-                    {
-                        if (debugLevel == DebugLevel.Verbose)
-                            Debug.Log($"[Exec:{PrettyName()}] Skipping {hit.target.name} – already hit this frame.", this);
-                        continue;
-                    }
-
-                    int nowMs = Mathf.RoundToInt(frame.Time * 1000f);
-                    if (!PassesDeDupeAndRateLimit(hit.target, nowMs, activePhase, phaseKey, setForPhase))
-                    {
-                        if (debugLevel == DebugLevel.Verbose)
-                            Debug.Log($"[Exec:{PrettyName()}] Skipping {hit.target.name} – blocked by phase de-dupe / rate limiting.", this);
-                        continue;
-                    }
-
-                    // Build payload
-                    var payload = BuildPayload(hit.target, hit.point, hit.normal, hit.region, in frame, activePhase);
-
-                    if (debugLevel == DebugLevel.Verbose)
-                    {
-                        Debug.Log(
-                            $"[Exec:{PrettyName()}] Applying hit to {hit.target.name} at {hit.point} region={hit.region} (damage={payload.intent.baseDamage}).",
-                            this);
-                    }
-
-                    // Apply via pipeline
-                    ApplyHit(hit.targetComponent, in payload);
-                    applied++;
-
-                    OnHitLogged?.Invoke(hit.target, hit.point, phaseKey.actionId, phaseKey.phase);
-                }
-
-                if (debugLevel != DebugLevel.Off)
-                {
-                    Debug.Log($"[Exec:{PrettyName()}] Frame complete: candidates={hits.Count}, applied={applied}.", this);
-                }
+            if (debugLevel != DebugLevel.Off)
+            {
+                Debug.Log($"[Exec:{PrettyName()}] CollectHits returned {hits.Count} candidates.", this);
             }
+
+            var activePhase = GetActivePhaseOrNull(); // used for hit policy + payload defaults (existing behavior)
+            var phaseKey = CurrentKey();
+
+            if (!_hitsByActionPhase.TryGetValue(phaseKey, out var setForPhase))
+                _hitsByActionPhase[phaseKey] = setForPhase = new HashSet<GameObject>();
+
+            int applied = 0;
+
+            foreach (var hit in hits)
+            {
+                if (hit.target == null)
+                {
+                    if (debugLevel == DebugLevel.Verbose)
+                        Debug.LogWarning($"[Exec:{PrettyName()}] Skipping hit with null target GameObject.", this);
+                    continue;
+                }
+
+                if (hit.targetComponent == null)
+                {
+                    if (debugLevel != DebugLevel.Off)
+                        Debug.LogWarning($"[Exec:{PrettyName()}] Skipping {hit.target.name} – no IActionTarget found in parent chain.", this);
+                    continue;
+                }
+
+                // Per-frame target de-dupe
+                if (!_hitThisFrame.Add(hit.target))
+                {
+                    if (debugLevel == DebugLevel.Verbose)
+                        Debug.Log($"[Exec:{PrettyName()}] Skipping {hit.target.name} – already hit this frame.", this);
+                    continue;
+                }
+
+                int nowMs = Mathf.RoundToInt(frame.Time * 1000f);
+                if (!PassesDeDupeAndRateLimit(hit.target, nowMs, activePhase, phaseKey, setForPhase))
+                {
+                    if (debugLevel == DebugLevel.Verbose)
+                        Debug.Log($"[Exec:{PrettyName()}] Skipping {hit.target.name} – blocked by phase de-dupe / rate limiting.", this);
+                    continue;
+                }
+
+                // Build payload
+                var payload = BuildPayload(hit.target, hit.point, hit.normal, hit.region, in frame, activePhase);
+
+                if (debugLevel == DebugLevel.Verbose)
+                {
+                    Debug.Log(
+                        $"[Exec:{PrettyName()}] Applying hit to {hit.target.name} at {hit.point} region={hit.region} (damage={payload.intent.baseDamage}).",
+                        this);
+                }
+
+                // Apply via pipeline
+                ApplyHit(hit.targetComponent, in payload);
+                applied++;
+
+                OnHitLogged?.Invoke(hit.target, hit.point, phaseKey.actionId, phaseKey.phase);
+            }
+
+            if (debugLevel != DebugLevel.Off)
+            {
+                Debug.Log($"[Exec:{PrettyName()}] Frame complete: candidates={hits.Count}, applied={applied}.", this);
+            }
+        }
 
         // ─────────────────────────────────────────────────────────────────────
         // Abstract / virtual surface
@@ -274,9 +310,8 @@ namespace Combat
                                         string region,
                                         float param)> CollectHits(CombatFrame frame);
 
-        protected virtual bool IsLocallyGated() => true;
-
-        protected virtual MoveDef GetAuthoringMoveDef() => null;
+        /// <summary>Override to customize which MoveDef the executor wants to start (default: moveDef field).</summary>
+        public virtual MoveDef GetMoveDefToStart() => moveDef;
 
         /// <summary>Builds an ActionPayload for a hit; can be overridden per executor.</summary>
         protected virtual ActionPayload BuildPayload(GameObject target,
@@ -306,126 +341,110 @@ namespace Combat
                 stunMs = activePhase != null ? activePhase.damage.stunMs : 0,
                 hitstopFrames = activePhase != null ? activePhase.damage.hitstopFrames : 0,
                 knockbackPower = activePhase != null ? activePhase.damage.knockbackPower : 0f,
-                impulseDirectionMode = ActionPayload.Intent.ImpulseDirMode.HitNormal,
-                authorDirection = transform.forward,
+                impulseDirectionMode = activePhase != null ? activePhase.damage.impulseDirectionMode : ActionPayload.Intent.ImpulseDirMode.HitNormal,
+                authorDirection = activePhase != null ? activePhase.damage.authorDirection : Vector3.forward,
                 tags = activePhase != null ? activePhase.damage.tags : null
             };
 
             return new ActionPayload { facts = facts, intent = intent };
         }
 
-        /// <summary>
-        /// Resolve DamageResult and send it + payload + attacker/target into the pipeline.
-        /// </summary>
-        protected virtual void ApplyHit(IActionTarget target, in ActionPayload payload)
+        protected virtual void ApplyHit(IActionTarget targetComponent, in ActionPayload payload)
         {
-            if (target == null)
-                return;
+            if (targetComponent == null) return;
 
-            var attacker = ResolveAttackerTarget();
-            if (attacker == null && debugLevel != DebugLevel.Off)
-            {
-                Debug.LogWarning($"[Exec:{PrettyName()}] ApplyHit: no IActionTarget found for attacker in parent chain.", this);
-            }
+            // Cache attacker marker
+            if (_cachedAttackerTarget == null)
+                _cachedAttackerTarget = GetComponentInParent<IActionTarget>();
+
+            var attacker = _cachedAttackerTarget;
 
             var result = DamageResolver.Resolve(in payload);
-
-            if (debugLevel != DebugLevel.Off)
-            {
-                var attackerGO = (attacker as MonoBehaviour)?.gameObject;
-                var targetGO = (target as MonoBehaviour)?.gameObject;
-                Debug.Log(
-                    $"[Exec:{PrettyName()}] Dispatching to pipeline: attacker={(attackerGO ? attackerGO.name : "<null>")}, target={(targetGO ? targetGO.name : "<null>")}, damage={result.finalDamage}.",
-                    this);
-            }
-
-            DamagePipeline.Apply(in payload, in result, attacker, target);
-            }
-
-        // ─────────────────────────────────────────────────────────────────────
-        // Helpers
-        // ─────────────────────────────────────────────────────────────────────
-
-        protected IActionTarget ResolveAttackerTarget()
-        {
-            if (_cachedAttackerTarget != null)
-                return _cachedAttackerTarget;
-
-            _cachedAttackerTarget = GetComponentInParent<IActionTarget>();
-            return _cachedAttackerTarget;
+            DamagePipeline.Apply(in payload, in result, attacker, targetComponent);
         }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Phase resolution + hit policy
+        // ─────────────────────────────────────────────────────────────────────
 
         protected MoveDef.Phase GetActivePhaseOrNull()
         {
-            if (controller != null)
-            {
-                return controller.GetCurrentPhaseOrNull();
-            }
-
-            var authored = GetAuthoringMoveDef();
-            if (authored != null && authored.phases != null)
-                return authored.phases.Find(p => p.phaseId == ActionPhase.Active);
-
-            return null;
-        }
-
-        protected MoveDef.Phase ResolvePhaseDefFor(ActionPhase phaseId)
-        {
-            if (controller != null && controller.CurrentActionDef != null &&
-                controller.CurrentActionDef.phases != null)
-            {
-                var list = controller.CurrentActionDef.phases;
-                for (int i = 0; i < list.Count; i++)
-                {
-                    if (list[i].phaseId == phaseId)
-                        return list[i];
-                }
-            }
-
-            var authored = GetAuthoringMoveDef();
-            if (authored != null && authored.phases != null)
-            {
-                var list = authored.phases;
-                for (int i = 0; i < list.Count; i++)
-                {
-                    if (list[i].phaseId == phaseId)
-                        return list[i];
-                }
-            }
-
-            return null;
+            if (controller == null) return null;
+            if (controller.CurrentActionDef == null) return null;
+            return controller.CurrentActionDef.phases.FirstOrDefault(p => p != null && p.phaseId == ActionPhase.Active);
         }
 
         protected (uint actionId, ActionPhase phase) CurrentKey()
         {
             uint id = controller != null ? controller.ActionInstanceId : 0u;
-            var ph = controller != null ? controller.CurrentPhase : ActionPhase.Active;
-            return (id, ph);
+            ActionPhase p = controller != null ? controller.CurrentPhase : ActionPhase.Active;
+            return (id, p);
         }
 
-        protected bool PassesDeDupeAndRateLimit(GameObject target,
-                                                int nowMs,
-                                                MoveDef.Phase activePhase,
-                                                in (uint actionId, ActionPhase phase) key,
-                                                HashSet<GameObject> setForPhase)
+        protected MoveDef.Phase ResolvePhaseDefFor(ActionPhase p)
         {
-            bool oneHitPerPhase = activePhase != null && activePhase.oneHitPerPhase;
-            if (oneHitPerPhase && setForPhase.Contains(target))
-                return false;
+            if (controller == null) return null;
+            return controller.GetCurrentPhaseOrNull();
+        }
 
-            int rateLimitMs = activePhase != null ? activePhase.rateLimitMs : 0;
-            if (rateLimitMs > 0)
+        protected bool PassesDeDupeAndRateLimit(
+            GameObject target,
+            int nowMs,
+            MoveDef.Phase activePhase,
+            (uint actionId, ActionPhase phase) key,
+            HashSet<GameObject> setForPhase)
+        {
+            if (activePhase == null)
+                return true;
+
+            // ─────────────────────────────────────────────────────
+            // Hit policy
+            // ─────────────────────────────────────────────────────
+
+            switch (activePhase.hitPolicy)
+            {
+                case MoveDef.HitPolicy.OncePerPhase:
+                    if (setForPhase.Contains(target))
+                        return false;
+                    break;
+
+                case MoveDef.HitPolicy.OncePerAction:
+                    foreach (var kvp in _hitsByActionPhase)
+                    {
+                        if (kvp.Key.actionId != key.actionId)
+                            continue;
+
+                        if (kvp.Value.Contains(target))
+                            return false;
+                    }
+                    break;
+
+                case MoveDef.HitPolicy.Unlimited:
+                    // no de-dupe here
+                    break;
+            }
+
+            // ─────────────────────────────────────────────────────
+            // Rate limiting (optional, stacks with hitPolicy)
+            // ─────────────────────────────────────────────────────
+
+            if (activePhase.rateLimitMs > 0)
             {
                 var rateKey = (key, target);
-                if (_lastHitMs.TryGetValue(rateKey, out var lastMs) && nowMs - lastMs < rateLimitMs)
-                    return false;
+                if (_lastHitMs.TryGetValue(rateKey, out var lastMs))
+                {
+                    if (nowMs - lastMs < activePhase.rateLimitMs)
+                        return false;
+                }
 
                 _lastHitMs[rateKey] = nowMs;
             }
 
+            // Track hit for policy enforcement
             setForPhase.Add(target);
             return true;
         }
+
 
         protected string PrettyName()
         {

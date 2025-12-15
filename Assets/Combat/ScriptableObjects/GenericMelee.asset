@@ -16,8 +16,8 @@ MonoBehaviour:
   phases:
   - phaseId: 0
     durationMs: 50
-    oneHitPerPhase: 0
-    rateLimitMs: 0
+    hitPolicy: 0
+    rateLimitMs: 100
     sweeps: []
     damage:
       baseDamage: 0
@@ -28,10 +28,12 @@ MonoBehaviour:
       impulseDirectionMode: 0
       authorDirection: {x: 0, y: 0, z: 0}
       tags: []
+    interruptPolicy: 0
+    interruptWhitelistActionIds: []
   - phaseId: 1
-    durationMs: 50
-    oneHitPerPhase: 1
-    rateLimitMs: 0
+    durationMs: 200
+    hitPolicy: 0
+    rateLimitMs: 100
     sweeps: []
     damage:
       baseDamage: 10
@@ -42,10 +44,12 @@ MonoBehaviour:
       impulseDirectionMode: 0
       authorDirection: {x: 0, y: 0, z: 0}
       tags: []
+    interruptPolicy: 0
+    interruptWhitelistActionIds: []
   - phaseId: 2
     durationMs: 50
-    oneHitPerPhase: 0
-    rateLimitMs: 0
+    hitPolicy: 0
+    rateLimitMs: 50
     sweeps: []
     damage:
       baseDamage: 0
@@ -56,3 +60,6 @@ MonoBehaviour:
       impulseDirectionMode: 0
       authorDirection: {x: 0, y: 0, z: 0}
       tags: []
+    interruptPolicy: 0
+    interruptWhitelistActionIds: []
+  animationDef: {fileID: 11400000, guid: cc91e6557425ef348bfd2629a156327b, type: 2}

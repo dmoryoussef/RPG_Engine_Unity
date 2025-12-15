@@ -1,9 +1,12 @@
-// [Stage 2] ActionTimelineController.cs
-// Purpose: Starts & ticks the ActionTimeline. Can start with its own MoveDef OR
-// auto-pick a co-located MeleeActionExecutor's MoveDef if none provided.
-// Now exposes which executor is currently running.
+﻿// ActionTimelineController.cs
+// Purpose:
+//  - Owns and ticks a single ActionTimeline instance.
+//  - Maintains a registry of ActionExecutorBase components.
+//  - Chooses which action to start by querying executors (WantsToStart).
+//  - During Active, drives executors that share the current ActionId.
+//  - No autofind, no default MoveDef, no controller-owned input bindings.
 
-using System.Linq;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Combat
@@ -11,115 +14,211 @@ namespace Combat
     [AddComponentMenu("Combat/Action/Action Timeline Controller")]
     public sealed class ActionTimelineController : MonoBehaviour
     {
-        [Header("Authoring (optional default)")]
-        [Tooltip("Optional default action to start if none is passed in.")]
-        public MoveDef moveDef;
-
-        [Header("Fallback Discovery")]
-        [Tooltip("If no MoveDef is provided, try to use a co-located MeleeActionExecutor's MoveDef.")]
-        public bool autoPickLocalExecutor = true;
-
-        [Header("Input (debug)")]
-        public KeyCode attackKey = KeyCode.Mouse0;
-
         public ActionTimeline Timeline { get; private set; } = new ActionTimeline();
 
         [Header("Runtime (read-only)")]
         [SerializeField] private MoveDef _currentActionDef;
-        [SerializeField] private MeleeActionExecutor _currentExecutor;
+        [SerializeField] private string _currentActionId;
 
         public MoveDef CurrentActionDef => _currentActionDef;
-        public MeleeActionExecutor CurrentExecutor => _currentExecutor;
+        public string CurrentActionId => _currentActionId;
 
-        // Convenience props
-        public uint ActionInstanceId => Timeline.ActionInstanceId;        // if you renamed to ActionInstanceId, adjust
+        // Convenience passthroughs
+        public uint ActionInstanceId => Timeline.ActionInstanceId;
         public ActionPhase CurrentPhase => Timeline.CurrentPhaseId;
         public int ElapsedInPhaseMs => Timeline.ElapsedInPhaseMs;
 
-        // Pass-through events
-        public event System.Action<ActionPhase> OnPhaseEnter { add { Timeline.OnPhaseEnter += value; } remove { Timeline.OnPhaseEnter -= value; } }
-        public event System.Action<ActionPhase> OnPhaseExit { add { Timeline.OnPhaseExit += value; } remove { Timeline.OnPhaseExit -= value; } }
-        public event System.Action OnFinished { add { Timeline.OnFinished += value; } remove { Timeline.OnFinished -= value; } }
-
-        /// <summary>Primary start API. If <paramref name="def"/> is null, the controller will resolve one.</summary>
-        public void StartAction(MoveDef def = null)
+        // Timeline events
+        public event System.Action<ActionPhase> OnPhaseEnter
         {
-            Resolve(def, out var resolvedDef, out var resolvedExec);
-
-            if (resolvedDef == null || resolvedDef.phases == null || resolvedDef.phases.Count == 0)
-            {
-                Debug.LogWarning("[ActionTimelineController] No MoveDef with phases found on controller or local executors.", this);
-                return;
-            }
-
-            _currentActionDef = resolvedDef;
-            _currentExecutor = resolvedExec; // may be null if started from controller�s own def
-            Timeline.Start(resolvedDef);
+            add => Timeline.OnPhaseEnter += value;
+            remove => Timeline.OnPhaseEnter -= value;
         }
 
-        // Legacy alias if called elsewhere
-        public void StartAttack() => StartAction(moveDef);
-
-        private void Update()
+        public event System.Action<ActionPhase> OnPhaseExit
         {
-            // Debug input path
-            if (Input.GetKeyDown(attackKey))
-                StartAction(moveDef); // will auto-fallback if null
+            add => Timeline.OnPhaseExit += value;
+            remove => Timeline.OnPhaseExit -= value;
+        }
 
-            // Tick timeline in ms (pipeline later can pass CombatFrame.DeltaMs)
+        public event System.Action OnFinished
+        {
+            add => Timeline.OnFinished += value;
+            remove => Timeline.OnFinished -= value;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Executor registry
+        // ─────────────────────────────────────────────────────────────
+
+        readonly List<ActionExecutorBase> _executors = new();
+
+        public void RegisterExecutor(ActionExecutorBase exec)
+        {
+            if (exec == null) return;
+            if (_executors.Contains(exec)) return;
+
+            _executors.Add(exec);
+        }
+
+        public void UnregisterExecutor(ActionExecutorBase exec)
+        {
+            if (exec == null) return;
+            _executors.Remove(exec);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Update loop
+        // ─────────────────────────────────────────────────────────────
+
+        void Update()
+        {
+            // 1) If no action is running, ask executors if they want to start
+            if (!Timeline.IsRunning)
+            {
+                TryStartFromExecutors();
+            }
+
+            // 2) Tick timeline
             int deltaMs = Mathf.RoundToInt(Time.deltaTime * 1000f);
             Timeline.Tick(deltaMs);
 
-            if (CurrentPhase == ActionPhase.Active)  // use AttackPhase if that�s your enum in MoveDef
+            // 3) Drive executors during Active
+            if (CurrentPhase == ActionPhase.Active)
             {
-                var execs = GetComponents<MeleeActionExecutor>();
-                var frame = new CombatFrame(Time.time, Time.deltaTime);
-                foreach (var e in execs)
-                {
-                    if (!e.enabled || !e.gameObject.activeInHierarchy) continue;
-                    // only drive ones that point to THIS controller
-                    if (e.IsMyController(this))
-                        e.ExecuteFrame(frame);
-                }
+                DriveActiveExecutors();
             }
         }
 
-        public MoveDef.Phase GetCurrentPhaseOrNull() => Timeline.GetCurrentPhaseOrNull();
+        // ─────────────────────────────────────────────────────────────
+        // Action start logic
+        // ─────────────────────────────────────────────────────────────
 
-        private void Resolve(MoveDef preferred, out MoveDef def, out MeleeActionExecutor exec)
+        void TryStartFromExecutors()
         {
-            // Priority 1: explicitly provided def
-            if (preferred != null) { def = preferred; exec = null; return; }
-
-            // Priority 2: controller�s own default
-            if (moveDef != null) { def = moveDef; exec = null; return; }
-
-            // Priority 3: first local executor with a valid def (if enabled)
-            if (autoPickLocalExecutor)
+            for (int i = 0; i < _executors.Count; i++)
             {
-                var executors = GetComponents<MeleeActionExecutor>();
-                foreach (var e in executors)
+                var exec = _executors[i];
+                if (exec == null || !exec.enabled || !exec.gameObject.activeInHierarchy)
+                    continue;
+
+                if (!exec.IsMyController(this))
+                    continue;
+
+                if (!exec.WantsToStart())
+                    continue;
+
+                var def = exec.GetMoveDefToStart();
+                if (def == null || def.phases == null || def.phases.Count == 0)
                 {
-                    var md = GetExecutorMoveDef(e);
-                    if (md != null && md.phases != null && md.phases.Count > 0)
-                    { 
-                        def = md; 
-                        exec = e; 
-                        return; 
+                    Debug.LogWarning(
+                        $"[ActionTimelineController] Executor '{exec.name}' wants to start but has no valid MoveDef.",
+                        this);
+                    continue;
+                }
+
+                // If something is already running, only start if this phase allows interrupts.
+                if (Timeline.IsRunning)
+                {
+                    if (!CanInterruptWith(exec.ActionId))
+                        return; // running + cannot interrupt right now → ignore this start attempt
+
+                    Timeline.Cancel(); // your ActionTimeline already has Cancel() :contentReference[oaicite:4]{index=4}
+                }
+
+                _currentActionDef = def;
+                _currentActionId = exec.ActionId;
+
+                Timeline.Start(def);
+                return;
+            }
+        }
+
+        bool CanInterruptWith(string nextActionId)
+        {
+            var phaseDef = GetCurrentPhaseOrNull();
+            if (phaseDef == null) return false;
+
+            switch (phaseDef.interruptPolicy)
+            {
+                case MoveDef.Phase.InterruptPolicy.None:
+                    return false;
+
+                case MoveDef.Phase.InterruptPolicy.Any:
+                    return true;
+
+                case MoveDef.Phase.InterruptPolicy.Whitelist:
+                    if (phaseDef.interruptWhitelistActionIds == null) return false;
+                    for (int i = 0; i < phaseDef.interruptWhitelistActionIds.Length; i++)
+                    {
+                        if (phaseDef.interruptWhitelistActionIds[i] == nextActionId)
+                            return true;
                     }
-                }
-            }
+                    return false;
 
-            // None found
-            def = null; exec = null;
+                default:
+                    return false;
+            }
         }
 
-        // Safe accessor into the executor's serialized field (or replace with a public getter on the executor)
-        private static MoveDef GetExecutorMoveDef(MeleeActionExecutor exec)
+
+        // ─────────────────────────────────────────────────────────────
+        // Execution during Active
+        // ─────────────────────────────────────────────────────────────
+
+        void DriveActiveExecutors()
         {
-            var fi = typeof(MeleeActionExecutor)
-                .GetField("moveDef", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            return fi != null ? (MoveDef)fi.GetValue(exec) : null;
+            var frame = new CombatFrame(Time.time, Time.deltaTime);
+            int driven = 0;
+
+            for (int i = 0; i < _executors.Count; i++)
+            {
+                var exec = _executors[i];
+                if (exec == null || !exec.enabled || !exec.gameObject.activeInHierarchy)
+                    continue;
+
+                if (!exec.IsMyController(this))
+                    continue;
+
+                if (exec.ActionId != _currentActionId)
+                    continue;
+
+                exec.ExecuteFrame(frame);
+                driven++;
+            }
+
+            if (driven == 0)
+            {
+                Debug.LogWarning(
+                    $"[ActionTimelineController] Action '{_currentActionId}' is Active but no executors were driven. " +
+                    "Check executor ActionId values and controller wiring.",
+                    this);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Timeline helpers
+        // ─────────────────────────────────────────────────────────────
+
+        public MoveDef.Phase GetCurrentPhaseOrNull()
+        {
+            return Timeline.GetCurrentPhaseOrNull();
+        }
+
+        void OnEnable()
+        {
+            Timeline.OnFinished += HandleFinished;
+        }
+
+        void OnDisable()
+        {
+            Timeline.OnFinished -= HandleFinished;
+        }
+
+        void HandleFinished()
+        {
+            _currentActionDef = null;
+            _currentActionId = null;
         }
     }
 }

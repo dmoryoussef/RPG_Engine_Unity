@@ -55,22 +55,12 @@ namespace Interaction
             }
         }
 
-        private void Update()
+        protected override void Update()
         {
             base.Update();
 
-            // We rely entirely on InteractorBase's cached currentTarget,
-            // which is updated from TargeterComponent.Model.CurrentTargetChanged.
             if (!currentTarget)
                 return;
-
-            // Global cancel key: Escape.
-            // This sends a "Cancel" channel into the current target's state.
-            if (Input.GetKeyDown(KeyCode.Escape))
-            {
-                currentTarget.OnCancel(this);
-                return;
-            }
 
             HandleKeyInteractionsForCurrentRoot();
         }

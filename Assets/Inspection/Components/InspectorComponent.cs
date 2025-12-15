@@ -1,6 +1,6 @@
 ﻿using System;
 using UnityEngine;
-using Targeting; // <-- TargeterComponent, FocusTarget, etc.
+using Targeting;
 using Logging;
 
 namespace Inspection
@@ -8,351 +8,164 @@ namespace Inspection
     /// <summary>
     /// InspectorComponent
     ///
-    /// Physics-free object inspection system.
+    /// Targeter-driven inspection system:
+    /// - HoverChanged  -> Basic inspection (preview) => BasicInspectionCompleted
+    /// - CurrentTargetChanged -> Detailed inspection (locked/selected) => InspectionCompleted
     ///
-    /// NOW:
-    /// - Selection/hover comes from TargeterComponent (no internal picking).
-    /// - Subscribes to TargeterComponent.Model.HoverChanged.
-    /// - Maps FocusTarget -> InspectableComponent (via logical target root).
-    /// - Runs a simple inspection pipeline with no distance gating.
-    ///
-    /// UI is handled separately by InspectionPanelSpawner listening to:
-    ///  - InspectionCompleted
-    ///  - InspectionCleared
+    /// UI is handled separately by listeners:
+    ///  - Basic hover UI listens to BasicInspectionCompleted
+    ///  - Main/locked UI listens to InspectionCompleted + InspectionCleared
     /// </summary>
     public class InspectorComponent : MonoBehaviour, IInspector
     {
-        // =====================================================================
-        // CONFIGURATION
-        // =====================================================================
-
-        [Header("Input")]
-        [SerializeField]
-        private KeyCode _inspectKey = KeyCode.Mouse1;
-
         [Header("Targeting")]
-        [SerializeField, Tooltip("TargeterComponent that provides the current hover/selection.")]
+        [SerializeField, Tooltip("Targeter that provides hover/current target events.")]
         private TargeterBase _targeter;
 
-        [Header("Camera (optional, for debug distance only)")]
-        [SerializeField, Tooltip("Camera used for debug distance visualization. If null, Reset() assigns Camera.main.")]
-        private Camera _camera;
-
         [Header("Debug")]
-        [Tooltip("Print detailed logs for inspection events.")]
-        [SerializeField]
+        [SerializeField, Tooltip("Print detailed logs for inspection events.")]
         private bool _enableVerboseDebug = false;
 
         /// <summary>
-        /// Fired whenever an inspection succeeds and InspectionData has been filled.
-        /// Used by UI (e.g. InspectionPanelSpawner).
+        /// Fired whenever a detailed/locked inspection succeeds and InspectionData has been filled.
+        /// Used by main UI panel spawners.
         /// </summary>
         public event Action<InspectionData> InspectionCompleted;
 
         /// <summary>
-        /// Fired whenever the active inspection display should be cleared
-        /// (no valid target, blocked, etc.).
+        /// Fired whenever a basic/hover inspection succeeds and InspectionData has been filled.
+        /// Used by hover UI (tooltip/preview) spawners.
+        /// </summary>
+        public event Action<InspectionData> BasicInspectionCompleted;
+
+        /// <summary>
+        /// Fired when the main (detailed) inspection display should be cleared.
         /// </summary>
         public event Action InspectionCleared;
-
-        // =====================================================================
-        // HOVER DEBUG (Read-Only)
-        // =====================================================================
-
-        [Header("Hover Debug (Read-Only)")]
-        [SerializeField, Tooltip("Current inspectable resolved from the Targeter hover, if any.")]
-        private InspectableComponent _hoverTarget;
-
-        [SerializeField, Tooltip("Name of the current hover target.")]
-        private string _hoverTargetName = "<none>";
-
-        [SerializeField, Tooltip("Distance from camera to the hover target (for debug only).")]
-        private float _hoverDistance = 0f;
-
-        [SerializeField, Tooltip("Is there a valid hover target right now?")]
-        private bool _hasHoverTarget = false;
-
-        [SerializeField, Tooltip("Would an inspection on the hover target succeed now?")]
-        private bool _canInspectHover = false;
-
-        [SerializeField, Tooltip("If inspection on hover is blocked, this explains why.")]
-        private string _hoverBlockReason = string.Empty;
-
-        // Ray t is no longer meaningful here, but we keep it as a debug approximation.
-        [SerializeField, Tooltip("Approximate distance to the hover target (for legacy debug).")]
-        private float _hoverRayT = 0f;
-
-        // =====================================================================
-        // INSPECTION DEBUG STATE
-        // =====================================================================
 
         [Serializable]
         public class DebugState
         {
-            [Tooltip("GameObject of the last successfully inspected target.")]
             public GameObject LastInspectedTarget;
-
-            [Tooltip("Display name from the last InspectionData package.")]
             public string LastDisplayName;
 
-            [Tooltip("Short description from the last InspectionData package.")]
             [TextArea(1, 3)]
             public string LastShortDescription;
 
-            [Tooltip("Long description from the last InspectionData package.")]
             [TextArea(3, 6)]
             public string LastLongDescription;
 
-            [Tooltip("Icon from the last InspectionData package.")]
             public Sprite LastIcon;
         }
 
-        [Header("Inspection Debug State (updated at runtime)")]
+        [Header("Inspection Debug State (runtime)")]
         [SerializeField]
         private DebugState _debugState = new DebugState();
 
-        // =====================================================================
-        // INTERNALS
-        // =====================================================================
-
         public GameObject Root => gameObject;
 
+        // Reuse one buffer to avoid allocations.
         private readonly InspectionData _buffer = new InspectionData();
-
-        // =====================================================================
-        // UNITY
-        // =====================================================================
 
         private void Reset()
         {
-            if (_camera == null)
-            {
-                _camera = Camera.main;
-            }
-
             if (_targeter == null)
             {
                 _targeter = GetComponent<TargeterBase>();
                 if (_targeter == null)
-                    GameLog.LogWarning(this, "No targeter found on GameObject.");
+                    GameLog.LogWarning(this, "No TargeterBase found on GameObject.");
             }
         }
 
-        // =====================================================================
-        // LIFECYCLE
-        // =====================================================================
-
         private void Awake()
         {
-            if (_camera == null)
-            {
-                _camera = Camera.main;
-            }
-
-            ITargeter targeter = GetComponent<ITargeter>();
             if (_targeter == null)
             {
-                if (targeter is TargeterBase tb)
-                {
-                    _targeter = tb;
-                }
-                else
-                    Logging.GameLog.LogWarning(this, "No Targeter component found.");
+                var t = GetComponent<ITargeter>();
+                if (t is TargeterBase tb) _targeter = tb;
+                else GameLog.LogWarning(this, "No Targeter component found.");
             }
         }
 
         private void OnEnable()
         {
             Core.Registry.Register<InspectorComponent>(this);
-
             if (this is IInspector inspector)
                 Core.Registry.Register<IInspector>(inspector);
 
-            if (_targeter != null && _targeter.Model != null)
+            if (_targeter?.Model == null)
             {
-                _targeter.Model.HoverChanged += OnTargeterHoverChanged;
-                _targeter.Model.CurrentTargetChanged += OnTargeterCurrentTargetChanged; // NEW
+                if (_enableVerboseDebug)
+                    Debug.LogWarning("[Inspector] No Targeter/Model found; inspection will not resolve.");
+                return;
             }
-            else if (_enableVerboseDebug)
-            {
-                Debug.LogWarning("[Inspector] No TargeterComponent/Model found; " +
-                                 "inspection hover will never resolve.");
-            }
+
+            _targeter.Model.HoverChanged += OnHoverChanged;
+            _targeter.Model.LockedChanged += OnLockedTargetChanged;
         }
 
         private void OnDisable()
         {
             Core.Registry.Unregister<InspectorComponent>(this);
-
             if (this is IInspector inspector)
                 Core.Registry.Unregister<IInspector>(inspector);
 
-            if (_targeter != null && _targeter.Model != null)
-            {
-                _targeter.Model.HoverChanged -= OnTargeterHoverChanged;
-                _targeter.Model.CurrentTargetChanged -= OnTargeterCurrentTargetChanged; // NEW
-            }
+            if (_targeter?.Model == null) return;
+
+            _targeter.Model.HoverChanged -= OnHoverChanged;
+            _targeter.Model.LockedChanged -= OnLockedTargetChanged;
         }
 
+        // ---------------------------------------------------------------------
+        // Targeter event handlers
+        // ---------------------------------------------------------------------
 
-        private void Update()
+        private void OnHoverChanged(FocusChange change)
         {
-            if (_targeter == null)
-                return;
+            var focus = change.Current;
 
-            // Just handle input – hover is kept up to date via Targeter events.
-            if (Input.GetKeyDown(_inspectKey))
+            if (!TryResolveInspectable(focus, out var inspectable, out var hitPoint))
             {
-                TryInspectWithHover();
-            }
-        }
-
-        // =====================================================================
-        // HOVER UPDATE (via TargeterComponent events)
-        // =====================================================================
-
-        private void OnTargeterHoverChanged(FocusChange change)
-        {
-            var hoverFocus = change.Current;
-
-            if (hoverFocus == null || hoverFocus.LogicalTarget == null)
-            {
-                ClearHoverDebug();
+                // NOTE: We intentionally do NOT clear the main panel here.
+                // Hover UI can decide how to hide itself (or you can add BasicInspectionCleared later if desired).
                 return;
             }
 
-            // Map FocusTarget -> InspectableComponent
-            Transform logicalRoot = hoverFocus.LogicalTarget.TargetTransform;
-            var inspectable = logicalRoot.GetComponentInParent<InspectableComponent>();
-
-            if (inspectable == null || !inspectable.isActiveAndEnabled)
-            {
-                ClearHoverDebug();
-                return;
-            }
-
-            _hoverTarget = inspectable;
-            _hoverTargetName = inspectable.name;
-
-            if (_camera != null)
-            {
-                Vector3 camPos = _camera.transform.position;
-                Vector3 targetPos = inspectable.transform.position;
-                _hoverDistance = Vector3.Distance(camPos, targetPos);
-                _hoverRayT = _hoverDistance; // kept as an approximate legacy value
-            }
-            else
-            {
-                _hoverDistance = 0f;
-                _hoverRayT = 0f;
-            }
-
-            _hasHoverTarget = true;
-
-            // Simple gating for now (no distance requirement)
-            bool ok = EvaluateCanInspect(inspectable, out string reason, verboseLog: false);
-            _canInspectHover = ok;
-            _hoverBlockReason = ok ? string.Empty : reason;
+            InspectBasic(inspectable, hitPoint);
         }
 
-        private void ClearHoverDebug()
+        private void OnLockedTargetChanged(FocusChange target)
         {
-            _hoverTarget = null;
-            _hoverTargetName = "<none>";
-            _hoverDistance = 0f;
-            _hoverRayT = 0f;
-            _hasHoverTarget = false;
-            _canInspectHover = false;
-            _hoverBlockReason = string.Empty;
-        }
-
-        private void OnTargeterCurrentTargetChanged(FocusTarget target)
-        {
-            // When the targeter fully clears its current target, drop any active inspection.
-            if (target == null)
+            var locked = target.Current;
+            if (!TryResolveInspectable(locked, out var inspectable, out var hitPoint))
             {
-                ClearHoverDebug();
-                ClearDisplay();
-            }
-        }
-
-        // =====================================================================
-        // INSPECTION ACTION
-        // =====================================================================
-
-        private void TryInspectWithHover()
-        {
-            if (!_hasHoverTarget || _hoverTarget == null)
-            {
-                if (_enableVerboseDebug)
-                {
-                    Debug.Log("[Inspector] Inspect pressed but no hover target.");
-                }
-
+                // Losing current/locked target should close the main panel.
                 ClearDisplay();
                 return;
             }
 
-            var inspectable = _hoverTarget;
-
-            if (!CanInspect(inspectable, out string reason))
-            {
-                if (_enableVerboseDebug)
-                {
-                    Debug.Log($"[Inspector] Inspection blocked: {reason}");
-                }
-
-                ClearDisplay();
-                return;
-            }
-
-            // Prefer Targeter’s hover world position if available,
-            // otherwise fall back to the inspectable transform position.
-            Vector3 hitPoint = inspectable.transform.position;
-            var hoverFocus = _targeter.Model.Hover;
-            if (hoverFocus != null)
-            {
-                hitPoint = hoverFocus.WorldPosition;
-            }
-
-            Inspect(inspectable, hitPoint);
-
-            if (_enableVerboseDebug)
-            {
-                Debug.Log($"[Inspector] Inspected '{(_hoverTargetName ?? "<null>")}' at {hitPoint}");
-            }
+            InspectDetailed(inspectable, hitPoint);
         }
 
-        // =====================================================================
-        // GATING + PIPELINE (IInspector)
-        // =====================================================================
-
-        private bool EvaluateCanInspect(IInspectable target, out string reason, bool verboseLog)
+        private bool TryResolveInspectable(FocusTarget focus, out IInspectable inspectable, out Vector3 hitPoint)
         {
-            reason = string.Empty;
+            inspectable = null;
+            hitPoint = default;
 
-            if (!(target is Component))
-            {
-                reason = "Target is not a Component.";
-                if (verboseLog && _enableVerboseDebug)
-                {
-                    Debug.LogWarning("[Inspector] CanInspect: target is not a Component.");
-                }
-                return false;
-            }
+            var logicalRoot = focus?.LogicalTarget?.TargetTransform;
+            if (logicalRoot == null) return false;
 
-            if (verboseLog && _enableVerboseDebug)
-            {
-                Debug.Log("[Inspector] CanInspect: OK.");
-            }
+            var inspectableComp = logicalRoot.GetComponentInParent<InspectableComponent>();
+            if (inspectableComp == null || !inspectableComp.isActiveAndEnabled) return false;
 
+            inspectable = inspectableComp;
+            hitPoint = focus.WorldPosition;
             return true;
         }
 
-        public bool CanInspect(IInspectable target, out string reason)
-        {
-            return EvaluateCanInspect(target, out reason, verboseLog: true);
-        }
+        // ---------------------------------------------------------------------
+        // Context + inspection pipelines
+        // ---------------------------------------------------------------------
 
         public InspectionContext BuildContext(IInspectable target, Vector3 hitPoint)
         {
@@ -366,15 +179,29 @@ namespace Inspection
             };
         }
 
-        public void Inspect(IInspectable target, Vector3 hitPoint)
+        public void InspectBasic(IInspectable target, Vector3 hitPoint)
         {
-            if (!CanInspect(target, out string reason))
-            {
-                if (_enableVerboseDebug)
-                {
-                    Debug.Log($"[Inspector] Inspect aborted: {reason}");
-                }
+            if (!(target is Component)) return;
 
+            var context = BuildContext(target, hitPoint);
+
+            _buffer.Clear();
+            target.BuildBasicInspectionData(context, _buffer);
+            target.OnBasicInspected(context);
+
+            // Debug snapshot (optional: keeps inspector inspector window useful)
+            DebugDisplay(_buffer);
+
+            BasicInspectionCompleted?.Invoke(_buffer);
+
+            if (_enableVerboseDebug)
+                Debug.Log($"[Inspector] BASIC: '{_buffer.DisplayName}'");
+        }
+
+        public void InspectDetailed(IInspectable target, Vector3 hitPoint)
+        {
+            if (!(target is Component))
+            {
                 ClearDisplay();
                 return;
             }
@@ -383,21 +210,24 @@ namespace Inspection
 
             _buffer.Clear();
             target.BuildInspectionData(context, _buffer);
-            target.OnInspected(context, _buffer);
+            target.OnInspected(context);
 
-            _debugState.LastInspectedTarget = _buffer.TargetRoot;
-            _debugState.LastDisplayName = _buffer.DisplayName;
-            _debugState.LastShortDescription = _buffer.ShortDescription;
-            _debugState.LastLongDescription = _buffer.LongDescription;
-            _debugState.LastIcon = _buffer.Icon;
+            DebugDisplay(_buffer);
 
-            // Notify UI / listeners
             InspectionCompleted?.Invoke(_buffer);
+
+            if (_enableVerboseDebug)
+                Debug.Log($"[Inspector] DETAILED: '{_buffer.DisplayName}'");
         }
 
-        // =====================================================================
-        // CLEAR DISPLAY
-        // =====================================================================
+        private void DebugDisplay(InspectionData data)
+        {
+            _debugState.LastInspectedTarget = data.TargetRoot;
+            _debugState.LastDisplayName = data.DisplayName;
+            _debugState.LastShortDescription = data.ShortDescription;
+            _debugState.LastLongDescription = data.LongDescription;
+            _debugState.LastIcon = data.Icon;
+        }
 
         private void ClearDisplay()
         {
@@ -407,8 +237,10 @@ namespace Inspection
             _debugState.LastLongDescription = string.Empty;
             _debugState.LastIcon = null;
 
-            // Notify UI / listeners that inspection is cleared
             InspectionCleared?.Invoke();
+
+            if (_enableVerboseDebug)
+                Debug.Log("[Inspector] Cleared detailed display.");
         }
     }
 }
