@@ -724,14 +724,12 @@ GameObject:
   - component: {fileID: 1145219842}
   - component: {fileID: 1145219843}
   - component: {fileID: 1145219844}
-  - component: {fileID: 1145219846}
-  - component: {fileID: 1145219845}
   - component: {fileID: 1145219847}
-  - component: {fileID: 1145219848}
   - component: {fileID: 1145219849}
   - component: {fileID: 1145219851}
   - component: {fileID: 1145219850}
   - component: {fileID: 1145219852}
+  - component: {fileID: 1145219855}
   - component: {fileID: 1145219853}
   m_Layer: 0
   m_Name: Player
@@ -930,45 +928,6 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 4
---- !u!114 &1145219845
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1145219836}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a1383cc5a6201e049b7cc459b733f38f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Combat.MeleeActionExecutor
-  usePipeline: 1
-  controller: {fileID: 1145219846}
-  moveDef: {fileID: 11400000, guid: fafbe66abb27ff34eb57ebb27aa43464, type: 2}
-  inputKey: 323
-  actionId: Attack
-  debugLevel: 0
-  debugActionEvents: 0
-  logContextName: 
-  tipStart: {fileID: 1811249733}
-  tipEnd: {fileID: 301100143}
-  radius: 0.1
-  samples: 5
-  standaloneUsesHoldGate: 1
---- !u!114 &1145219846
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1145219836}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0e56c5036db9f46499d4321bd77a4deb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Combat.ActionTimelineController
-  _currentActionDef: {fileID: 0}
-  _currentActionId: 
 --- !u!114 &1145219847
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -989,20 +948,6 @@ MonoBehaviour:
     LastShortDescription: 
     LastLongDescription: 
     LastIcon: {fileID: 0}
---- !u!114 &1145219848
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1145219836}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ff858b1aadcfce94b8855eceb4cd5be2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerAttack2D
-  mover: {fileID: 1145219839}
-  attackRoot: {fileID: 1952485571}
 --- !u!114 &1145219849
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1100,16 +1045,58 @@ MonoBehaviour:
   m_GameObject: {fileID: 1145219836}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2189e2638bc784049970727a456983f9, type: 3}
+  m_Script: {fileID: 11500000, guid: 3c7e20a53b48b2946b1eeae764a56ca7, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Combat.CombatPhaseAnimationDriver
-  controller: {fileID: 1145219846}
+  m_EditorClassIdentifier: Assembly-CSharp::Animation.SpriteAnimationPlayer
   spriteRenderer: {fileID: 1145219837}
-  animationDef: {fileID: 11400000, guid: cc91e6557425ef348bfd2629a156327b, type: 2}
-  log: 1
-  previewMode: 0
-  previewPhase: 1
-  previewFrame: 1
+--- !u!114 &1145219855
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1145219836}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd12d89da43ee0c4f8c223e82dc9f783, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Animation.ActorVisualController
+  actionTimeline: {fileID: 1952485573}
+  player: {fileID: 1145219853}
+  facingProvider: {fileID: 0}
+  defaultFacingRight: 1
+  idleVisual:
+    mode: 1
+    allowMirrorFallback: 1
+    one: {fileID: 11400000, guid: 8f7f0fa227b5364438f7b5b52e9a39cb, type: 2}
+    left: {fileID: 0}
+    right: {fileID: 0}
+    up: {fileID: 0}
+    down: {fileID: 0}
+  walkVisual:
+    mode: 1
+    allowMirrorFallback: 1
+    one: {fileID: 11400000, guid: 9965844a8c8e81e4eb12ee4273518887, type: 2}
+    left: {fileID: 0}
+    right: {fileID: 0}
+    up: {fileID: 0}
+    down: {fileID: 0}
+  runVisual:
+    mode: 1
+    allowMirrorFallback: 1
+    one: {fileID: 0}
+    left: {fileID: 0}
+    right: {fileID: 0}
+    up: {fileID: 0}
+    down: {fileID: 0}
+  walkSpeedThreshold: 0.1
+  runSpeedThreshold: 3
+  debugActionActive: 0
+  debugLayer: 
+  debugResolvedClipName: 
+  debugResolvedMirror: 0
+  debugLocomotionTier: 
+  debugSpeed: 0
 --- !u!1 &1252769399
 GameObject:
   m_ObjectHideFlags: 0
@@ -1404,7 +1391,7 @@ MonoBehaviour:
   maxUses: 0
   autoValidate: 1
   interactionKey: 108
-  state: {fileID: 1252769412}
+  state: {fileID: 1252769415}
   usesSoFar: 0
   lastUseTime: -999
   lastSuccess: 0
@@ -1449,7 +1436,7 @@ MonoBehaviour:
   cooldownSeconds: 0
   maxUses: 0
   autoValidate: 1
-  interactionKey: 101
+  interactionKey: 108
   state: {fileID: 1252769412}
   usesSoFar: 0
   lastUseTime: -999
@@ -2014,8 +2001,10 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1952485571}
+  - component: {fileID: 1952485573}
+  - component: {fileID: 1952485572}
   m_Layer: 0
-  m_Name: Attack
+  m_Name: Combat
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2038,6 +2027,45 @@ Transform:
   - {fileID: 1811249733}
   m_Father: {fileID: 1145219838}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1952485572
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1952485570}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1383cc5a6201e049b7cc459b733f38f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Combat.MeleeActionExecutor
+  usePipeline: 1
+  controller: {fileID: 1952485573}
+  moveDef: {fileID: 11400000, guid: fafbe66abb27ff34eb57ebb27aa43464, type: 2}
+  inputKey: 323
+  actionId: Attack
+  debugLevel: 0
+  debugActionEvents: 0
+  logContextName: 
+  tipStart: {fileID: 1811249733}
+  tipEnd: {fileID: 301100143}
+  radius: 0.1
+  samples: 5
+  standaloneUsesHoldGate: 1
+--- !u!114 &1952485573
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1952485570}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e56c5036db9f46499d4321bd77a4deb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Combat.ActionTimelineController
+  _currentActionDef: {fileID: 0}
+  _currentActionId: 
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

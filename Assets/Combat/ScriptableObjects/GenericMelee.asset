@@ -30,6 +30,14 @@ MonoBehaviour:
       tags: []
     interruptPolicy: 0
     interruptWhitelistActionIds: []
+    visuals:
+      mode: 1
+      allowMirrorFallback: 1
+      one: {fileID: 11400000, guid: 341b30a04fd63c545bce6f94298ee4f2, type: 2}
+      left: {fileID: 0}
+      right: {fileID: 0}
+      up: {fileID: 0}
+      down: {fileID: 0}
   - phaseId: 1
     durationMs: 200
     hitPolicy: 0
@@ -46,6 +54,14 @@ MonoBehaviour:
       tags: []
     interruptPolicy: 0
     interruptWhitelistActionIds: []
+    visuals:
+      mode: 1
+      allowMirrorFallback: 1
+      one: {fileID: 11400000, guid: 1a6167c8e61a4f5479b405b396b90ad6, type: 2}
+      left: {fileID: 0}
+      right: {fileID: 0}
+      up: {fileID: 0}
+      down: {fileID: 0}
   - phaseId: 2
     durationMs: 50
     hitPolicy: 0
@@ -62,4 +78,11 @@ MonoBehaviour:
       tags: []
     interruptPolicy: 0
     interruptWhitelistActionIds: []
-  animationDef: {fileID: 11400000, guid: cc91e6557425ef348bfd2629a156327b, type: 2}
+    visuals:
+      mode: 1
+      allowMirrorFallback: 1
+      one: {fileID: 11400000, guid: 047ae7e3afca06447a6ff3348d9cdbed, type: 2}
+      left: {fileID: 0}
+      right: {fileID: 0}
+      up: {fileID: 0}
+      down: {fileID: 0}

@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 894f7b7edc5eb3245a9af5845bb99765, type: 3}
+  m_Name: WalkAnim
+  m_EditorClassIdentifier: Assembly-CSharp::Animation.AnimationClipDef
+  frames:
+  - {fileID: -2646930393529890578, guid: e9282c5fd067cd74581a95425b38b87c, type: 3}
+  - {fileID: -1399841339835054098, guid: 9955366c17f64f541b27d2730ac54543, type: 3}
+  - {fileID: -5164856249432775721, guid: 98ad7c90b5d700e49b6c511d0a842ed3, type: 3}
+  - {fileID: -1160889879473778189, guid: 499b447c58ab9c949b664821f8c70bbe, type: 3}
+  fps: 15
+  loop: 1
+  restartOnEnter: 1

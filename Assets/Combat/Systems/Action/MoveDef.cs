@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using Animation;
 
 namespace Combat
 {
@@ -8,9 +9,8 @@ namespace Combat
     {
         public string moveName = "New Move";
         public List<Phase> phases = new List<Phase>(); // Startup → Active → Recovery order
-        public ActionSpriteAnimationDef animationDef;
 
-        public enum HitPolicy
+                public enum HitPolicy
         {
             /// <summary>Target can be hit once per phase (classic "one-hit active window").</summary>
             OncePerPhase = 0,
@@ -45,6 +45,9 @@ namespace Combat
 
             [Tooltip("If interruptPolicy is Whitelist, only these ActionIds may interrupt.")]
             public string[] interruptWhitelistActionIds;
+
+            [Header("Visuals")]
+            public DirectionalClipMap visuals = new DirectionalClipMap();
 
             public enum InterruptPolicy
             {
