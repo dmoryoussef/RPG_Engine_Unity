@@ -32,17 +32,22 @@ namespace UI
         [SerializeField] private TMP_Text _shortLabel;
         [SerializeField] private TMP_Text _longLabel;
 
+        private InspectionData _lastDataRef;
+
         public void OnPopulate(InspectionData data, InspectionPanelContext context)
         {
             if (data == null)
             {
+                _lastDataRef = null;
                 if (_titleLabel != null) _titleLabel.text = string.Empty;
                 if (_shortLabel != null) _shortLabel.text = string.Empty;
                 if (_longLabel != null) _longLabel.text = string.Empty;
                 return;
             }
 
-            // These are pure inspection-side fields (populated by Inspectable/IInspector).
+            bool isNewTarget = !ReferenceEquals(_lastDataRef, data);
+            _lastDataRef = data;
+
             if (_titleLabel != null)
                 _titleLabel.text = data.DisplayName ?? string.Empty;
 
@@ -50,19 +55,18 @@ namespace UI
                 _shortLabel.text = data.ShortDescription ?? string.Empty;
 
             if (_longLabel != null)
-                _longLabel.text = data.LongDescription ?? string.Empty;
+            {
+                // Only clear on new target; otherwise keep whatever was already shown
+                if (isNewTarget)
+                    _longLabel.text = string.Empty;
+
+                if (!string.IsNullOrEmpty(data.LongDescription))
+                    _longLabel.text = data.LongDescription;
+            }
         }
 
-        public void OnOpen()
-        {
-            if (!gameObject.activeSelf)
-                gameObject.SetActive(true);
-        }
-
-        public void OnClose()
-        {
-            if (gameObject.activeSelf)
-                gameObject.SetActive(false);
-        }
+        public void OnOpen() { if (!gameObject.activeSelf) gameObject.SetActive(true); }
+        public void OnClose() { if (gameObject.activeSelf) gameObject.SetActive(false); }
     }
+
 }

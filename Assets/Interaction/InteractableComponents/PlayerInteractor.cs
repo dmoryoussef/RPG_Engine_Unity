@@ -114,22 +114,16 @@ namespace Interaction
 
             foreach (var interactable in _interactablesOnRoot)
             {
-                if (!interactable)
-                    continue;
+                if (!interactable) continue;
 
                 var key = interactable.InteractionKey;
-                if (key == KeyCode.None)
-                    continue;
+                if (key == KeyCode.None) continue;
 
-                if (!Input.GetKeyDown(key))
-                    continue;
+                if (!Input.GetKeyDown(key)) continue;
 
-                // if this isn't the currentTarget, only allow it if the state opted in.
-                bool isCurrentTarget = interactable == currentTarget;
-                if (!isCurrentTarget && !interactable.AllowStateChangeWhenNotTargeted)
-                    continue;
+                // No "opt-in when not targeted" filtering anymore.
+                // If the object is targeted, every interactable on it is eligible.
 
-                // Use the base class gating + interaction logic:
                 bool ok = TryInteract(interactable);
 
                 _lastInteractSucceeded = ok;
@@ -146,8 +140,6 @@ namespace Interaction
                         message: $"key={key}, target={id}");
                 }
 
-                // Only fire one interact per frame/key press.
-                return;
             }
         }
 

@@ -1436,7 +1436,7 @@ MonoBehaviour:
   cooldownSeconds: 0
   maxUses: 0
   autoValidate: 1
-  interactionKey: 108
+  interactionKey: 101
   state: {fileID: 1252769412}
   usesSoFar: 0
   lastUseTime: -999
