@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Animation
 {
     [System.Serializable]
-    public class DirectionalClipMap
+    public class DirectionalVisualSet
     {
         public DirectionMode mode = DirectionMode.One;
 
@@ -12,6 +12,9 @@ namespace Animation
 
         [Header("Mode: One")]
         public AnimationClipDef one;
+
+        [Tooltip("If true, the 'one' clip is authored facing RIGHT. If false, it's authored facing LEFT.")]
+        public bool oneFacesRight = true;
 
         [Header("Mode: Two")]
         public AnimationClipDef left;
@@ -30,8 +33,13 @@ namespace Animation
             {
                 case DirectionMode.One:
                     clip = one;
-                    mirror = facingRight ? MirrorInstruction.Horizontal : MirrorInstruction.None;
-                    return clip != null;
+                    if (clip == null) return false;
+
+                    // If the source faces RIGHT, mirror for LEFT.
+                    // If the source faces LEFT, mirror for RIGHT.
+                    bool shouldMirror = oneFacesRight ? !facingRight : facingRight;
+                    mirror = shouldMirror ? MirrorInstruction.Horizontal : MirrorInstruction.None;
+                    return true;
 
                 case DirectionMode.Two:
                     if (!facingRight)

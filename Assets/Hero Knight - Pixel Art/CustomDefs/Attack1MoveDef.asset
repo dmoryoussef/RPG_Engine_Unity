@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ddcedca0147ec8f449c6089efcbceedd, type: 3}
-  m_Name: GenericMelee
+  m_Name: Attack1MoveDef
   m_EditorClassIdentifier: Assembly-CSharp::Combat.MoveDef
-  moveName: GenericMelee
+  moveName: Attack1
   moveVisuals:
     mode: 1
     allowMirrorFallback: 1
-    one: {fileID: 11400000, guid: 5b76d342841a59e42b7758f9d1ec7d86, type: 2}
+    one: {fileID: 11400000, guid: 4d7137a6297b31946a6f463e95836468, type: 2}
     oneFacesRight: 1
     left: {fileID: 0}
     right: {fileID: 0}
@@ -24,17 +24,17 @@ MonoBehaviour:
     down: {fileID: 0}
   phases:
   - phaseId: 0
-    durationMs: 50
+    durationMs: 40
     visualSlice:
       mode: 2
       startMs: 0
       endMs: 0
       startFrame: 0
-      endFrame: 0
+      endFrame: 1
       loopWithinSlice: 0
       restartOnEnter: 0
     hitPolicy: 0
-    rateLimitMs: 100
+    rateLimitMs: 0
     sweeps: []
     damage:
       baseDamage: 0
@@ -48,20 +48,20 @@ MonoBehaviour:
     interruptPolicy: 0
     interruptWhitelistActionIds: []
   - phaseId: 1
-    durationMs: 200
+    durationMs: 100
     visualSlice:
       mode: 2
       startMs: 0
       endMs: 0
-      startFrame: 1
-      endFrame: 1
+      startFrame: 2
+      endFrame: 3
       loopWithinSlice: 0
       restartOnEnter: 0
     hitPolicy: 0
-    rateLimitMs: 100
+    rateLimitMs: 0
     sweeps: []
     damage:
-      baseDamage: 10
+      baseDamage: 0
       damageType: 
       stunMs: 0
       hitstopFrames: 0
@@ -72,17 +72,17 @@ MonoBehaviour:
     interruptPolicy: 0
     interruptWhitelistActionIds: []
   - phaseId: 2
-    durationMs: 50
+    durationMs: 40
     visualSlice:
       mode: 2
       startMs: 0
       endMs: 0
-      startFrame: 2
-      endFrame: 2
+      startFrame: 4
+      endFrame: 4
       loopWithinSlice: 0
       restartOnEnter: 0
     hitPolicy: 0
-    rateLimitMs: 50
+    rateLimitMs: 0
     sweeps: []
     damage:
       baseDamage: 0

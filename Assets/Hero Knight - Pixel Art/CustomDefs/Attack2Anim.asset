@@ -10,10 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 894f7b7edc5eb3245a9af5845bb99765, type: 3}
-  m_Name: MeleeAnticipationClip
+  m_Name: Attack2Anim
   m_EditorClassIdentifier: Assembly-CSharp::Animation.AnimationClipDef
-  frames:
-  - {fileID: 4009355068965086491, guid: 4579cb55dd8b45a49a231b01200d79d4, type: 3}
+  source: 0
+  frames: []
+  unityClip: {fileID: 0}
+  preferBakedFrames: 1
+  bakedFrames: []
   fps: 12
-  loop: 0
+  loop: 1
   restartOnEnter: 1

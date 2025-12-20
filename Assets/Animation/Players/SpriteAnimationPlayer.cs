@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Animation
 {
@@ -32,7 +32,7 @@ namespace Animation
             if (!spriteRenderer) return;
 
             // MVP: map mirror intent onto SpriteRenderer flips.
-            // (Z flip isn�t meaningful for SpriteRenderer; future backends can reinterpret this.)
+            // (Z flip isn’t meaningful for SpriteRenderer; future backends can reinterpret this.)
             switch (mirror)
             {
                 case MirrorInstruction.None:
@@ -77,23 +77,35 @@ namespace Animation
             if (clipDef == null)
                 return;
 
-            // MVP: manual frames only. If frames missing, do nothing (hold-last behavior happens naturally).
-            if (clipDef.frames == null || clipDef.frames.Length == 0 || clipDef.fps <= 0f)
+            var frames = clipDef.GetResolvedFrames();
+
+            if (frames == null || frames.Length == 0)
+            {
+                Debug.LogWarning(
+                    $"[{name}] No resolved frames for clip '{clipDef.name}'. " +
+                    $"Source={clipDef.source}, UnityClip={(clipDef.unityClip ? clipDef.unityClip.name : "null")}"
+                );
+                return;
+            }
+
+            float fps = clipDef.GetResolvedFps();
+            if (fps <= 0f)
                 return;
 
-            // Stable identity: instance id is enough for MVP (unique per asset instance).
-            int id = clipDef.GetInstanceID();
+            int id = clipDef.GetStableId();
 
             var clip = new ClipData(
                 id: id,
-                frames: clipDef.frames,
-                fps: clipDef.fps,
+                frames: frames,
+                fps: fps,
                 loop: clipDef.loop,
                 restartOnEnter: clipDef.restartOnEnter
             );
 
             Play(in clip);
         }
+
+
 
 
         public void Stop(bool clearSprite = false)
@@ -136,9 +148,27 @@ namespace Animation
             if (!spriteRenderer || _current.frames == null || _current.frames.Length == 0)
                 return;
 
-            var s = _current.frames[Mathf.Clamp(_frameIndex, 0, _current.frames.Length - 1)];
-            if (s) spriteRenderer.sprite = s;
+            int count = _current.frames.Length;
+
+            // Try the current frame first, then scan forward to find the next non-null sprite.
+            for (int i = 0; i < count; i++)
+            {
+                int idx = (_frameIndex + i) % count;
+                var s = _current.frames[idx];
+                if (s != null)
+                {
+                    spriteRenderer.sprite = s;
+
+                    // Optional: snap the frame index to the sprite we actually displayed.
+                    _frameIndex = idx;
+                    return;
+                }
+            }
+
+            // If we get here: all frames are null → warn once so it’s not silent.
+            Debug.LogWarning($"[{name}] Clip '{_current.id}' has {count} frames but all are NULL sprites.");
         }
+
 
         // Shared payload type: this is how ALL systems feed the player.
         public readonly struct ClipData

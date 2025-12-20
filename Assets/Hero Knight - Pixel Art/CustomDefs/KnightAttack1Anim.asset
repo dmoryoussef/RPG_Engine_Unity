@@ -10,10 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 894f7b7edc5eb3245a9af5845bb99765, type: 3}
-  m_Name: MeleeActionClip
+  m_Name: KnightAttack1Anim
   m_EditorClassIdentifier: Assembly-CSharp::Animation.AnimationClipDef
-  frames:
-  - {fileID: -5776421600631150107, guid: b141faa393ce9964b9c56f1932c0ce33, type: 3}
+  source: 1
+  frames: []
+  unityClip: {fileID: 7400000, guid: 0bafac48b1090284da2048c29bc986ff, type: 2}
+  preferBakedFrames: 1
+  bakedFrames: []
   fps: 12
-  loop: 0
+  loop: 1
   restartOnEnter: 1
