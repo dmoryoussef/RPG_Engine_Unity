@@ -4,21 +4,6 @@ using Player;
 
 namespace Animation
 {
-    /// <summary>
-    /// ActorVisualController
-    ///
-    /// Responsibility:
-    /// - Decide WHICH visual clip should be playing (action vs locomotion).
-    /// - Resolve directional clip + mirror instructions based on facing.
-    /// - For combat actions: resolve ONE move-level visual (MoveDef.moveVisuals) and play only the phase slice.
-    /// - Feed the resolved clip (or sliced sub-clip) into SpriteAnimationPlayer (which handles timing/frame stepping).
-    ///
-    /// Design choice:
-    /// - This class does NOT compute movement deltas from transform.position.
-    /// - It relies on PlayerMover2D as single source of truth for:
-    ///     - facing direction (left/right)
-    ///     - movement speed
-    /// </summary>
     [DisallowMultipleComponent]
     public sealed class ActorVisualController : MonoBehaviour
     {
@@ -75,6 +60,7 @@ namespace Animation
         // Playback caching (prevents constant restarts)
         private int _lastClipId;
         private MirrorInstruction _lastMirror;
+        private bool _lastReverse;
 
         private void Reset()
         {
@@ -93,6 +79,7 @@ namespace Animation
 
             _lastClipId = 0;
             _lastMirror = MirrorInstruction.None;
+            _lastReverse = false;
 
             debugLayer = "";
             debugResolvedClipName = "";
@@ -153,6 +140,7 @@ namespace Animation
             // Reset cache so locomotion can immediately apply its current clip.
             _lastClipId = 0;
             _lastMirror = MirrorInstruction.None;
+            _lastReverse = false;
 
             debugLayer = "Locomotion";
         }
@@ -211,7 +199,8 @@ namespace Animation
             debugSliceFps = fps;
             debugResolvedFrameCount = resolvedFrameCount;
 
-            ApplyIfChanged(in clipData, mirror);
+            // Actor visuals are always forward for now.
+            ApplyIfChanged(in clipData, mirror, playInReverse: false);
         }
 
         private void TryPlayLocomotionVisual()
@@ -223,7 +212,6 @@ namespace Animation
 
             var locomotion = mover2D ? mover2D.CurrentLocomotion : PlayerMover2D.LocomotionState.Idle;
 
-            // fancy c# switch expression
             DirectionalVisualSet map = locomotion switch
             {
                 PlayerMover2D.LocomotionState.Idle => idleVisual,
@@ -231,7 +219,6 @@ namespace Animation
                 PlayerMover2D.LocomotionState.Run => runVisual,
                 _ => idleVisual
             };
-
 
             bool facingRight = _lastFacingRight;
 
@@ -250,7 +237,8 @@ namespace Animation
                     frames: frames,
                     fps: fps,
                     loop: clipDef.loop,
-                    restartOnEnter: clipDef.restartOnEnter
+                    restartOnEnter: clipDef.restartOnEnter,
+                    playInReverse: false
                 );
 
                 debugResolvedClipName = clipDef.name;
@@ -261,7 +249,7 @@ namespace Animation
                 debugSliceFps = fps;
                 debugResolvedFrameCount = frames.Length;
 
-                ApplyIfChanged(in clip, mirror);
+                ApplyIfChanged(in clip, mirror, playInReverse: false);
             }
         }
 
@@ -286,15 +274,18 @@ namespace Animation
             return facingRight;
         }
 
-        private void ApplyIfChanged(in SpriteAnimationPlayer.ClipData clip, MirrorInstruction mirror)
+        private void ApplyIfChanged(in SpriteAnimationPlayer.ClipData clip, MirrorInstruction mirror, bool playInReverse)
         {
-            if (_lastClipId == clip.id && _lastMirror == mirror)
+            if (_lastClipId == clip.id && _lastMirror == mirror && _lastReverse == playInReverse)
                 return;
 
             _lastClipId = clip.id;
             _lastMirror = mirror;
+            _lastReverse = playInReverse;
 
             player.SetMirror(mirror);
+
+            // ClipData already contains playInReverse, but we still cache it explicitly.
             player.Play(in clip);
         }
 
@@ -387,7 +378,8 @@ namespace Animation
                 frames: sliced,
                 fps: fps,
                 loop: loop,
-                restartOnEnter: restart
+                restartOnEnter: restart,
+                playInReverse: false
             );
 
             outDebugName = $"{baseClipDef.name}[{start}..{end})";

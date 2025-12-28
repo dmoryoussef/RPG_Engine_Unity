@@ -13,6 +13,8 @@ namespace Animation
         private int _frameIndex;
         private float _frameTimer;
 
+        private bool _playInReverse;
+
         public ClipData Current => _current;
         public bool IsPlaying => _hasClip && _current.frames != null && _current.frames.Length > 0;
 
@@ -32,7 +34,6 @@ namespace Animation
             if (!spriteRenderer) return;
 
             // MVP: map mirror intent onto SpriteRenderer flips.
-            // (Z flip isn’t meaningful for SpriteRenderer; future backends can reinterpret this.)
             switch (mirror)
             {
                 case MirrorInstruction.None:
@@ -54,25 +55,36 @@ namespace Animation
             }
         }
 
+        /// <summary>
+        /// Lowest-level playback entry. All systems can feed the player via ClipData.
+        /// </summary>
         public void Play(in ClipData clip)
         {
             if (clip.frames == null || clip.frames.Length == 0 || clip.fps <= 0f)
                 return;
 
-            // If same "identity" and restart not requested, don't restart.
-            if (_hasClip && _current.id == clip.id && !clip.restartOnEnter)
+            bool sameIdentity = _hasClip && _current.id == clip.id && _playInReverse == clip.playInReverse;
+
+            // If same identity and restart not requested, don't restart.
+            if (sameIdentity && !clip.restartOnEnter)
                 return;
 
             _current = clip;
             _hasClip = true;
 
-            _frameIndex = 0;
+            _playInReverse = clip.playInReverse;
+
+            // Start frame depends on direction
+            _frameIndex = _playInReverse ? (_current.frames.Length - 1) : 0;
             _frameTimer = 0f;
 
             ApplyFrame();
         }
 
-        public void Play(AnimationClipDef clipDef)
+        /// <summary>
+        /// Convenience: play an AnimationClipDef with optional reverse playback and optional forced restart.
+        /// </summary>
+        public void Play(AnimationClipDef clipDef, bool playInReverse, bool forceRestart)
         {
             if (clipDef == null)
                 return;
@@ -99,14 +111,20 @@ namespace Animation
                 frames: frames,
                 fps: fps,
                 loop: clipDef.loop,
-                restartOnEnter: clipDef.restartOnEnter
+                restartOnEnter: forceRestart ? true : clipDef.restartOnEnter,
+                playInReverse: playInReverse
             );
 
             Play(in clip);
         }
 
-
-
+        /// <summary>
+        /// Backwards-compatible overload: same behavior as before (forward playback, respects clipDef.restartOnEnter).
+        /// </summary>
+        public void Play(AnimationClipDef clipDef)
+        {
+            Play(clipDef, playInReverse: false, forceRestart: false);
+        }
 
         public void Stop(bool clearSprite = false)
         {
@@ -134,10 +152,20 @@ namespace Animation
 
         private void Step()
         {
-            int next = _frameIndex + 1;
+            int next = _frameIndex + (_playInReverse ? -1 : 1);
 
-            if (next >= _current.frames.Length)
-                next = _current.loop ? 0 : _current.frames.Length - 1;
+            if (!_playInReverse)
+            {
+                // Forward
+                if (next >= _current.frames.Length)
+                    next = _current.loop ? 0 : _current.frames.Length - 1;
+            }
+            else
+            {
+                // Reverse
+                if (next < 0)
+                    next = _current.loop ? (_current.frames.Length - 1) : 0;
+            }
 
             _frameIndex = next;
             ApplyFrame();
@@ -150,23 +178,70 @@ namespace Animation
 
             int count = _current.frames.Length;
 
-            // Try the current frame first, then scan forward to find the next non-null sprite.
+            // Try the current frame first, then scan in playback direction to find the next non-null sprite.
             for (int i = 0; i < count; i++)
             {
-                int idx = (_frameIndex + i) % count;
+                int idx = _playInReverse
+                    ? ((_frameIndex - i) % count + count) % count
+                    : (_frameIndex + i) % count;
+
                 var s = _current.frames[idx];
                 if (s != null)
                 {
                     spriteRenderer.sprite = s;
 
-                    // Optional: snap the frame index to the sprite we actually displayed.
+                    // Snap to the sprite we actually displayed.
                     _frameIndex = idx;
                     return;
                 }
             }
 
-            // If we get here: all frames are null → warn once so it’s not silent.
             Debug.LogWarning($"[{name}] Clip '{_current.id}' has {count} frames but all are NULL sprites.");
+        }
+
+        public bool TrySetPose(AnimationClipDef clipDef, bool playInReverse)
+        {
+            if (!spriteRenderer || clipDef == null)
+                return false;
+
+            var frames = clipDef.GetResolvedFrames();
+            if (frames == null || frames.Length == 0)
+                return false;
+
+            int count = frames.Length;
+
+            if (!playInReverse)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    var s = frames[i];
+                    if (s != null)
+                    {
+                        spriteRenderer.sprite = s;
+#if UNITY_EDITOR
+                        UnityEditor.EditorUtility.SetDirty(spriteRenderer);
+#endif
+                        return true;
+                    }
+                }
+            }
+            else
+            {
+                for (int i = count - 1; i >= 0; i--)
+                {
+                    var s = frames[i];
+                    if (s != null)
+                    {
+                        spriteRenderer.sprite = s;
+#if UNITY_EDITOR
+                        UnityEditor.EditorUtility.SetDirty(spriteRenderer);
+#endif
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
 
@@ -178,14 +253,16 @@ namespace Animation
             public readonly float fps;
             public readonly bool loop;
             public readonly bool restartOnEnter;
+            public readonly bool playInReverse;
 
-            public ClipData(int id, Sprite[] frames, float fps, bool loop, bool restartOnEnter)
+            public ClipData(int id, Sprite[] frames, float fps, bool loop, bool restartOnEnter, bool playInReverse)
             {
                 this.id = id;
                 this.frames = frames;
                 this.fps = fps;
                 this.loop = loop;
                 this.restartOnEnter = restartOnEnter;
+                this.playInReverse = playInReverse;
             }
         }
     }

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 894f7b7edc5eb3245a9af5845bb99765, type: 3}
+  m_Name: Door_anim
+  m_EditorClassIdentifier: Assembly-CSharp::Animation.AnimationClipDef
+  source: 0
+  frames:
+  - {fileID: -789191703850704420, guid: 49cfb2634cd721743be1bf111ff0e0ac, type: 3}
+  - {fileID: 4009355068965086491, guid: 8a6e25d0d888b0e4aa118e4799c8cc72, type: 3}
+  - {fileID: -5776421600631150107, guid: f90827b82b469bf4e8b77bde427d1341, type: 3}
+  - {fileID: 3410439384014351281, guid: a5ccdbeb7ccb7814b95c703640f653b5, type: 3}
+  - {fileID: -15056097725527025, guid: 9cdc0a6ef9bb36949b12ac6ef6ff0d56, type: 3}
+  unityClip: {fileID: 0}
+  preferBakedFrames: 1
+  bakedFrames: []
+  fps: 12
+  loop: 1
+  restartOnEnter: 1

@@ -36,11 +36,6 @@ namespace State
 
         public Collider2D BlockingCollider => _blockingCollider;
 
-        [Header("Animation (optional)")]
-        [Tooltip("Animator with a bool parameter named 'IsOpen'. Auto-found if missing.")]
-        [SerializeField] private Animator _animator;
-        [SerializeField] private string _animIsOpenParam = "IsOpen";
-
         [Header("Description")]
         [SerializeField] private string _descriptionCategory = "Door";
         [SerializeField] private int _descriptionPriority = 10;
@@ -54,18 +49,14 @@ namespace State
         private void Awake()
         {
             EnsureBlockingCollider();
-            EnsureAnimator();
             ApplyBlocking();
-            ApplyAnimation();
         }
 
 #if UNITY_EDITOR
         private void OnValidate()
         {
             EnsureBlockingCollider();
-            EnsureAnimator();
             ApplyBlocking();
-            ApplyAnimation();
         }
 #endif
 
@@ -105,7 +96,6 @@ namespace State
             _isOpen = desiredOpen;
 
             ApplyBlocking();
-            ApplyAnimation();
 
             // Domain-specific detailed event
             OnIsOpenChanged?.Invoke(old, _isOpen);
@@ -191,18 +181,6 @@ namespace State
             box.isTrigger = false;
             FitBoxToSprite(box);
             _blockingCollider = box;
-        }
-
-        private void EnsureAnimator()
-        {
-            if (_animator) return;
-            _animator = GetComponent<Animator>();
-        }
-
-        private void ApplyAnimation()
-        {
-            if (!_animator) return;
-            _animator.SetBool(_animIsOpenParam, _isOpen);
         }
 
         private void FitBoxToSprite(BoxCollider2D box)
