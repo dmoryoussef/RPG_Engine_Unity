@@ -7,59 +7,39 @@ namespace Animation
     [DisallowMultipleComponent]
     public sealed class ActorVisualController : MonoBehaviour
     {
-        // -------------------------
-        // Wiring
-        // -------------------------
         [Header("Wiring")]
         [SerializeField] private ActionTimelineController actionTimeline;
         [SerializeField] private SpriteAnimationPlayer player;
 
         [Header("Mover2D (Visual Driver)")]
-        [Tooltip("Source-of-truth for facing + movement speed. Required for locomotion visuals.")]
         [SerializeField] private PlayerMover2D mover2D;
 
-        [Tooltip("Fallback facing when mover has no horizontal facing yet (e.g. idle at spawn).")]
+        [Tooltip("Fallback facing when mover has no facing yet (e.g. idle at spawn).")]
         [SerializeField] private bool defaultFacingRight = true;
 
-        // -------------------------
-        // Locomotion
-        // -------------------------
         [Header("Locomotion Visuals (MVP)")]
         [SerializeField] private DirectionalVisualSet idleVisual;
         [SerializeField] private DirectionalVisualSet walkVisual;
         [SerializeField] private DirectionalVisualSet runVisual;
 
+        [Header("Locomotion Thresholds")]
         [SerializeField] private float walkSpeedThreshold = 0.1f;
         [SerializeField] private float runSpeedThreshold = 3.0f;
 
-        // -------------------------
-        // Debug (Read Only)
-        // -------------------------
         [Header("Debug (Read Only)")]
         [SerializeField] private bool debugActionActive;
-        [SerializeField] private string debugLayer;               // "Action" or "Locomotion"
+        [SerializeField] private string debugLayer;
         [SerializeField] private string debugResolvedClipName;
-        [SerializeField] private MirrorInstruction debugResolvedMirror;
-        [SerializeField] private string debugLocomotionTier;      // "Idle/Walk/Run"
-        [SerializeField] private float debugSpeed;
+        [SerializeField] private bool debugMirrorX;
+        [SerializeField] private bool debugMirrorY;
 
-        [Header("Debug (Action Slice)")]
-        [SerializeField] private int debugSliceStartFrame;
-        [SerializeField] private int debugSliceEndFrame;
-        [SerializeField] private float debugSliceFps;
-        [SerializeField] private int debugResolvedFrameCount;
-
-        // -------------------------
-        // Internal state
-        // -------------------------
         private ActionPhase _currentPhase;
         private bool _actionActive;
 
-        private bool _lastFacingRight;
-
-        // Playback caching (prevents constant restarts)
+        // Cache to avoid restart spam
         private int _lastClipId;
-        private MirrorInstruction _lastMirror;
+        private bool _lastMirrorX;
+        private bool _lastMirrorY;
         private bool _lastReverse;
 
         private void Reset()
@@ -75,28 +55,20 @@ namespace Animation
             if (!player) player = GetComponentInChildren<SpriteAnimationPlayer>();
             if (!mover2D) mover2D = GetComponent<PlayerMover2D>();
 
-            _lastFacingRight = ResolveFacingRightOrFallback();
-
             _lastClipId = 0;
-            _lastMirror = MirrorInstruction.None;
+            _lastMirrorX = false;
+            _lastMirrorY = false;
             _lastReverse = false;
 
             debugLayer = "";
             debugResolvedClipName = "";
-            debugResolvedMirror = MirrorInstruction.None;
-            debugLocomotionTier = "";
-            debugSpeed = 0f;
-
-            debugSliceStartFrame = 0;
-            debugSliceEndFrame = 0;
-            debugSliceFps = 0f;
-            debugResolvedFrameCount = 0;
+            debugMirrorX = false;
+            debugMirrorY = false;
         }
 
         private void OnEnable()
         {
             if (!actionTimeline) return;
-
             actionTimeline.OnPhaseEnter += HandlePhaseEnter;
             actionTimeline.OnFinished += HandleFinished;
         }
@@ -104,7 +76,6 @@ namespace Animation
         private void OnDisable()
         {
             if (!actionTimeline) return;
-
             actionTimeline.OnPhaseEnter -= HandlePhaseEnter;
             actionTimeline.OnFinished -= HandleFinished;
         }
@@ -112,8 +83,6 @@ namespace Animation
         private void Update()
         {
             debugActionActive = _actionActive;
-
-            _lastFacingRight = ResolveFacingRightOrFallback();
 
             if (_actionActive)
                 return;
@@ -125,10 +94,7 @@ namespace Animation
         {
             _currentPhase = phase;
             _actionActive = true;
-
             debugLayer = "Action";
-            debugLocomotionTier = "";
-            debugSpeed = 0f;
 
             TryPlayCurrentActionVisual();
         }
@@ -137,12 +103,23 @@ namespace Animation
         {
             _actionActive = false;
 
-            // Reset cache so locomotion can immediately apply its current clip.
+            // Reset cache so locomotion can apply immediately
             _lastClipId = 0;
-            _lastMirror = MirrorInstruction.None;
+            _lastMirrorX = false;
+            _lastMirrorY = false;
             _lastReverse = false;
 
             debugLayer = "Locomotion";
+        }
+
+        private Vector2 ResolveFacing()
+        {
+            Vector2 f = mover2D ? mover2D.Facing : Vector2.zero;
+
+            if (f.sqrMagnitude < 0.0001f)
+                return defaultFacingRight ? Vector2.right : Vector2.left;
+
+            return f;
         }
 
         private void TryPlayCurrentActionVisual()
@@ -151,10 +128,10 @@ namespace Animation
                 return;
 
             MoveDef move = actionTimeline.CurrentActionDef;
-            if (!move || move.phases == null || move.phases.Count == 0)
+            if (!move || move.phases == null || move.phases.Count == 0 || move.moveVisuals == null)
                 return;
 
-            // Find the phase entry
+            // Find phase entry
             MoveDef.Phase phaseEntry = null;
             for (int i = 0; i < move.phases.Count; i++)
             {
@@ -167,40 +144,23 @@ namespace Animation
             if (phaseEntry == null)
                 return;
 
-            // Resolve move-level visuals (single visual set for entire move)
-            bool facingRight = _lastFacingRight;
+            Vector2 facing = ResolveFacing();
 
-            if (move.moveVisuals == null)
+            if (!move.moveVisuals.TryGetVisualForDirection(facing, out var vis))
                 return;
 
-            if (!move.moveVisuals.TryResolve(facingRight, out var baseClipDef, out var mirror) || baseClipDef == null)
+            if (vis.clip == null)
                 return;
 
-            // Build a sliced ClipData (subset of frames) for this phase
-            if (!TryBuildSlicedClipData(
-                    baseClipDef,
-                    phaseEntry.visualSlice,
-                    phaseEntry.durationMs,
-                    out var clipData,
-                    out string clipNameForDebug,
-                    out int sliceStart,
-                    out int sliceEnd,
-                    out float fps,
-                    out int resolvedFrameCount))
-            {
-                return;
-            }
+            debugResolvedClipName = vis.clip.name;
+            debugMirrorX = vis.mirrorX;
+            debugMirrorY = vis.mirrorY;
 
-            debugResolvedClipName = clipNameForDebug;
-            debugResolvedMirror = mirror;
+            player.SetMirror(vis.mirrorX, vis.mirrorY);
 
-            debugSliceStartFrame = sliceStart;
-            debugSliceEndFrame = sliceEnd;
-            debugSliceFps = fps;
-            debugResolvedFrameCount = resolvedFrameCount;
-
-            // Actor visuals are always forward for now.
-            ApplyIfChanged(in clipData, mirror, playInReverse: false);
+            // Action playback (phase slicing) logic would go here if you’re slicing.
+            // For now, play the resolved clip normally (forward).
+            player.Play(vis.clip);
         }
 
         private void TryPlayLocomotionVisual()
@@ -212,7 +172,7 @@ namespace Animation
 
             var locomotion = mover2D ? mover2D.CurrentLocomotion : PlayerMover2D.LocomotionState.Idle;
 
-            DirectionalVisualSet map = locomotion switch
+            DirectionalVisualSet set = locomotion switch
             {
                 PlayerMover2D.LocomotionState.Idle => idleVisual,
                 PlayerMover2D.LocomotionState.Walk => walkVisual,
@@ -220,173 +180,48 @@ namespace Animation
                 _ => idleVisual
             };
 
-            bool facingRight = _lastFacingRight;
-
-            if (map != null && map.TryResolve(facingRight, out var clipDef, out var mirror) && clipDef != null)
-            {
-                // Locomotion plays full clip
-                var frames = clipDef.GetResolvedFrames();
-                float fps = clipDef.GetResolvedFps();
-                if (frames == null || frames.Length == 0 || fps <= 0f)
-                    return;
-
-                int id = clipDef.GetStableId();
-
-                var clip = new SpriteAnimationPlayer.ClipData(
-                    id: id,
-                    frames: frames,
-                    fps: fps,
-                    loop: clipDef.loop,
-                    restartOnEnter: clipDef.restartOnEnter,
-                    playInReverse: false
-                );
-
-                debugResolvedClipName = clipDef.name;
-                debugResolvedMirror = mirror;
-
-                debugSliceStartFrame = 0;
-                debugSliceEndFrame = frames.Length;
-                debugSliceFps = fps;
-                debugResolvedFrameCount = frames.Length;
-
-                ApplyIfChanged(in clip, mirror, playInReverse: false);
-            }
-        }
-
-        private bool ResolveFacingRightOrFallback()
-        {
-            bool facingRight = _lastFacingRight;
-
-            if (mover2D)
-            {
-                Vector2 f = mover2D.Facing;
-
-                if (Mathf.Abs(f.x) > 0.001f)
-                    facingRight = f.x > 0f;
-                else if (_lastClipId == 0)
-                    facingRight = defaultFacingRight;
-            }
-            else if (_lastClipId == 0)
-            {
-                facingRight = defaultFacingRight;
-            }
-
-            return facingRight;
-        }
-
-        private void ApplyIfChanged(in SpriteAnimationPlayer.ClipData clip, MirrorInstruction mirror, bool playInReverse)
-        {
-            if (_lastClipId == clip.id && _lastMirror == mirror && _lastReverse == playInReverse)
+            if (set == null)
                 return;
 
-            _lastClipId = clip.id;
-            _lastMirror = mirror;
-            _lastReverse = playInReverse;
+            Vector2 facing = ResolveFacing();
 
-            player.SetMirror(mirror);
+            if (!set.TryGetVisualForDirection(facing, out var vis) || vis.clip == null)
+                return;
 
-            // ClipData already contains playInReverse, but we still cache it explicitly.
-            player.Play(in clip);
-        }
+            debugResolvedClipName = vis.clip.name;
+            debugMirrorX = vis.mirrorX;
+            debugMirrorY = vis.mirrorY;
 
-        private static bool TryBuildSlicedClipData(
-            AnimationClipDef baseClipDef,
-            MoveDef.VisualSlice slice,
-            int phaseDurationMs,
-            out SpriteAnimationPlayer.ClipData outClip,
-            out string outDebugName,
-            out int outSliceStart,
-            out int outSliceEnd,
-            out float outFps,
-            out int outResolvedFrameCount)
-        {
-            outClip = default;
-            outDebugName = "";
-            outSliceStart = 0;
-            outSliceEnd = 0;
-            outFps = 0f;
-            outResolvedFrameCount = 0;
-
-            if (!baseClipDef)
-                return false;
-
-            var frames = baseClipDef.GetResolvedFrames();
-            float fps = baseClipDef.GetResolvedFps();
+            // Build clip data for caching (forward, looping uses clipDef.loop)
+            var frames = vis.clip.GetResolvedFrames();
+            float fps = vis.clip.GetResolvedFps();
             if (frames == null || frames.Length == 0 || fps <= 0f)
-                return false;
+                return;
 
-            outResolvedFrameCount = frames.Length;
-            outFps = fps;
-
-            int start = 0;
-            int end = frames.Length;
-
-            // Resolve slice range
-            switch (slice.mode)
-            {
-                case MoveDef.VisualSlice.SliceMode.None:
-                    start = 0;
-                    end = frames.Length;
-                    break;
-
-                case MoveDef.VisualSlice.SliceMode.TimeMs:
-                    {
-                        int startMs = Mathf.Max(0, slice.startMs);
-                        int endMs = slice.endMs > 0 ? slice.endMs : (startMs + Mathf.Max(0, phaseDurationMs));
-
-                        // Convert ms -> frame indices using fps
-                        start = Mathf.FloorToInt((startMs / 1000f) * fps);
-                        end = Mathf.FloorToInt((endMs / 1000f) * fps);
-                        break;
-                    }
-
-                case MoveDef.VisualSlice.SliceMode.FrameIndex:
-                    {
-                        start = Mathf.Max(0, slice.startFrame);
-
-                        if (slice.endFrame > 0)
-                        {
-                            end = slice.endFrame;
-                        }
-                        else
-                        {
-                            // Derive from duration
-                            int framesForDuration = Mathf.Max(1, Mathf.RoundToInt((Mathf.Max(0, phaseDurationMs) / 1000f) * fps));
-                            end = start + framesForDuration;
-                        }
-                        break;
-                    }
-            }
-
-            start = Mathf.Clamp(start, 0, frames.Length - 1);
-            end = Mathf.Clamp(end, start + 1, frames.Length);
-
-            int len = end - start;
-            var sliced = new Sprite[len];
-            System.Array.Copy(frames, start, sliced, 0, len);
-
-            // Make the clip identity stable but unique per slice
-            int baseId = baseClipDef.GetStableId();
-            int sliceHash = (start * 397) ^ (end * 7919);
-            int id = baseId ^ sliceHash;
-
-            bool loop = slice.loopWithinSlice;
-            bool restart = slice.restartOnEnter;
-
-            outClip = new SpriteAnimationPlayer.ClipData(
-                id: id,
-                frames: sliced,
+            var clipData = new SpriteAnimationPlayer.ClipData(
+                id: vis.clip.GetStableId(),
+                frames: frames,
                 fps: fps,
-                loop: loop,
-                restartOnEnter: restart,
+                loop: vis.clip.loop,
+                restartOnEnter: vis.clip.restartOnEnter,
                 playInReverse: false
             );
 
-            outDebugName = $"{baseClipDef.name}[{start}..{end})";
-            outSliceStart = start;
-            outSliceEnd = end;
+            ApplyIfChanged(in clipData, vis.mirrorX, vis.mirrorY, playInReverse: false);
+        }
 
-            return true;
+        private void ApplyIfChanged(in SpriteAnimationPlayer.ClipData clip, bool mirrorX, bool mirrorY, bool playInReverse)
+        {
+            if (_lastClipId == clip.id && _lastMirrorX == mirrorX && _lastMirrorY == mirrorY && _lastReverse == playInReverse)
+                return;
+
+            _lastClipId = clip.id;
+            _lastMirrorX = mirrorX;
+            _lastMirrorY = mirrorY;
+            _lastReverse = playInReverse;
+
+            player.SetMirror(mirrorX, mirrorY);
+            player.Play(in clip);
         }
     }
 }

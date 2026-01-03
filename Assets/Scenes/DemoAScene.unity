@@ -751,7 +751,7 @@ Transform:
   m_GameObject: {fileID: 1106162213}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -11.05, y: -1.82, z: 0}
+  m_LocalPosition: {x: -7.69, y: -3.73, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -918,7 +918,6 @@ GameObject:
   - component: {fileID: 1145219839}
   - component: {fileID: 1145219840}
   - component: {fileID: 1145219842}
-  - component: {fileID: 1145219843}
   - component: {fileID: 1145219844}
   - component: {fileID: 1145219847}
   - component: {fileID: 1145219849}
@@ -1033,7 +1032,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1145219836}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 39df0583a92c4114ba18686472ffc7f1, type: 3}
   m_Name: 
@@ -1085,21 +1084,6 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 1, y: 1}
   m_EdgeRadius: 0
---- !u!114 &1145219843
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1145219836}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3027755e2437fa74d9a282850af46de7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SpriteAppearance
-  appearanceData: {fileID: 11400000, guid: 402786afc3854e7499bb4b46b950536c, type: 2}
-  preferredTierKey: 
-  _activeTierKey: Sketch
 --- !u!50 &1145219844
 Rigidbody2D:
   serializedVersion: 5
@@ -1273,6 +1257,10 @@ MonoBehaviour:
     right: {fileID: 0}
     up: {fileID: 0}
     down: {fileID: 0}
+    upLeft: {fileID: 0}
+    upRight: {fileID: 0}
+    downLeft: {fileID: 0}
+    downRight: {fileID: 0}
   walkVisual:
     mode: 1
     allowMirrorFallback: 1
@@ -1282,6 +1270,10 @@ MonoBehaviour:
     right: {fileID: 0}
     up: {fileID: 0}
     down: {fileID: 0}
+    upLeft: {fileID: 0}
+    upRight: {fileID: 0}
+    downLeft: {fileID: 0}
+    downRight: {fileID: 0}
   runVisual:
     mode: 1
     allowMirrorFallback: 1
@@ -1291,18 +1283,17 @@ MonoBehaviour:
     right: {fileID: 0}
     up: {fileID: 0}
     down: {fileID: 0}
+    upLeft: {fileID: 0}
+    upRight: {fileID: 0}
+    downLeft: {fileID: 0}
+    downRight: {fileID: 0}
   walkSpeedThreshold: 0.1
   runSpeedThreshold: 3
   debugActionActive: 0
   debugLayer: 
   debugResolvedClipName: 
-  debugResolvedMirror: 0
-  debugLocomotionTier: 
-  debugSpeed: 0
-  debugSliceStartFrame: 0
-  debugSliceEndFrame: 0
-  debugSliceFps: 0
-  debugResolvedFrameCount: 0
+  debugMirrorX: 0
+  debugMirrorY: 0
 --- !u!1 &1156628997
 GameObject:
   m_ObjectHideFlags: 0
@@ -1420,6 +1411,10 @@ MonoBehaviour:
     right: {fileID: 0}
     up: {fileID: 0}
     down: {fileID: 0}
+    upLeft: {fileID: 0}
+    upRight: {fileID: 0}
+    downLeft: {fileID: 0}
+    downRight: {fileID: 0}
   walkVisual:
     mode: 1
     allowMirrorFallback: 1
@@ -1429,6 +1424,10 @@ MonoBehaviour:
     right: {fileID: 0}
     up: {fileID: 0}
     down: {fileID: 0}
+    upLeft: {fileID: 0}
+    upRight: {fileID: 0}
+    downLeft: {fileID: 0}
+    downRight: {fileID: 0}
   runVisual:
     mode: 1
     allowMirrorFallback: 1
@@ -1438,18 +1437,17 @@ MonoBehaviour:
     right: {fileID: 0}
     up: {fileID: 0}
     down: {fileID: 0}
+    upLeft: {fileID: 0}
+    upRight: {fileID: 0}
+    downLeft: {fileID: 0}
+    downRight: {fileID: 0}
   walkSpeedThreshold: 0.1
   runSpeedThreshold: 3
   debugActionActive: 0
   debugLayer: 
   debugResolvedClipName: 
-  debugResolvedMirror: 0
-  debugLocomotionTier: 
-  debugSpeed: 0
-  debugSliceStartFrame: 0
-  debugSliceEndFrame: 0
-  debugSliceFps: 0
-  debugResolvedFrameCount: 0
+  debugMirrorX: 0
+  debugMirrorY: 0
 --- !u!4 &1156629001
 Transform:
   m_ObjectHideFlags: 0
@@ -1809,19 +1807,48 @@ MonoBehaviour:
   mode: 0
   observedState: {fileID: 1252769412}
   player: {fileID: 1252769421}
+  facingSource: 2
+  fixedFacing: {x: 1, y: 0}
+  facingTransform: {fileID: 1252769404}
   transitionA:
-    clip: {fileID: 11400000, guid: 64201c31b9d90e44da13e9cceedddc62, type: 2}
+    visuals:
+      mode: 1
+      allowMirrorFallback: 1
+      one: {fileID: 0}
+      oneFacesRight: 1
+      left: {fileID: 0}
+      right: {fileID: 0}
+      up: {fileID: 0}
+      down: {fileID: 0}
+      upLeft: {fileID: 0}
+      upRight: {fileID: 0}
+      downLeft: {fileID: 0}
+      downRight: {fileID: 0}
     playInReverse: 0
     loop: 0
   transitionB:
-    clip: {fileID: 11400000, guid: 64201c31b9d90e44da13e9cceedddc62, type: 2}
+    visuals:
+      mode: 1
+      allowMirrorFallback: 1
+      one: {fileID: 0}
+      oneFacesRight: 1
+      left: {fileID: 0}
+      right: {fileID: 0}
+      up: {fileID: 0}
+      down: {fileID: 0}
+      upLeft: {fileID: 0}
+      upRight: {fileID: 0}
+      downLeft: {fileID: 0}
+      downRight: {fileID: 0}
     playInReverse: 1
     loop: 0
   next: 0
-  previewInEditor: 1
   debugLastPlayed: 
   debugLastReverse: 0
   debugLastLoop: 0
+  debugLastMirrorX: 0
+  debugLastMirrorY: 0
+  previewInEditor: 1
 --- !u!114 &1252769421
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2102,7 +2129,7 @@ Transform:
   m_GameObject: {fileID: 1478170940}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 9.7, y: 0.83, z: 0}
+  m_LocalPosition: {x: 6.99, y: -2.99, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
