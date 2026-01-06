@@ -235,10 +235,10 @@ namespace Animation
             EditorPreview_TryApply();
         }
 
-        private void OnDrawGizmosSelected()
-        {
-            EditorPreview_TryApply();
-        }
+        //private void OnDrawGizmosSelected()
+        //{
+        //    EditorPreview_TryApply();
+        //}
 
         private void EditorPreview_TryApply()
         {

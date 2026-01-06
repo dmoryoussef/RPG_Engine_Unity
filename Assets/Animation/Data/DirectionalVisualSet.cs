@@ -162,8 +162,16 @@ namespace Animation
         private bool TryGet_Eight(Vector2 facing, out ResolvedVisual visual)
         {
             visual = default;
-
+            
             Dir8 d = QuantizeTo8(facing);
+
+            Debug.Log(
+        $"[DirectionalVisualSet] Eight: facing={facing} d={d} " +
+        $"downLeft={(downLeft ? downLeft.name : "NULL")} " +
+        $"downRight={(downRight ? downRight.name : "NULL")} " +
+        $"upLeft={(upLeft ? upLeft.name : "NULL")} " +
+        $"upRight={(upRight ? upRight.name : "NULL")}"
+    );
 
             // Exact
             if (TryGetExact(d, out var clip))

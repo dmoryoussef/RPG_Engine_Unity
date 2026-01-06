@@ -14,6 +14,8 @@ namespace UI
         [Header("References")]
         [SerializeField]
         private GameObject _controlledEntityRoot;
+        [SerializeField, Tooltip("Optional canvas to parent the HUD to. If null, will search for any Canvas in the scene.")]
+        private Canvas _parentCanvas;
 
         private UserHudRoot _instance;
 
@@ -32,6 +34,10 @@ namespace UI
 
         private void SpawnHud()
         {
+            if (_parentCanvas == null)
+            {
+                Debug.LogWarning("[HUD] No Canvas found in the scene to parent the HUD to.", this);
+            }
             if (_userHudRootPrefab == null)
             {
                 Debug.LogWarning("[HUD] UserHudRoot prefab not assigned.", this);
@@ -42,8 +48,7 @@ namespace UI
             {
                 return;
             }
-            var canvas = GameObject.FindFirstObjectByType<Canvas>();
-            Transform parent = canvas != null ? canvas.transform : null;
+            Transform parent = _parentCanvas != null ? _parentCanvas.transform : null;
 
             _instance = Instantiate(_userHudRootPrefab, parent);
             _instance.Initialize(_controlledEntityRoot);

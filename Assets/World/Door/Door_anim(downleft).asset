@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 894f7b7edc5eb3245a9af5845bb99765, type: 3}
-  m_Name: Door_anim
+  m_Name: Door_anim(downleft)
   m_EditorClassIdentifier: Assembly-CSharp::Animation.AnimationClipDef
   source: 0
   frames:

@@ -12,6 +12,18 @@ namespace Inspection
     /// </summary>
     public class InspectableComponent : MonoBehaviour, IInspectable
     {
+        // In InspectableComponent.cs
+        [Header("Hover Prompt")]
+        [SerializeField] private string _hoverAction = "Inspect";      // Talk / Interact / Inspect
+        [SerializeField] private string _hoverInputHint = "LMB";        // LMB / [E]
+        [SerializeField] private string _hoverBlockedText = "Too far";  // optional override
+
+        public string DisplayName => _displayName;
+        public string HoverAction => _hoverAction;
+        public string HoverInputHint => _hoverInputHint;
+        public string HoverBlockedText => _hoverBlockedText;
+
+
         [Header("Inspection Display")]
         [SerializeField] private string _displayName = "Unnamed Object";
 
