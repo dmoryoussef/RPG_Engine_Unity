@@ -3,131 +3,230 @@ using Player; // PlayerMover2D
 
 public sealed class CameraRig2D : MonoBehaviour
 {
-    [Header("Binding")]
-    [SerializeField] private UnityEngine.Camera _camera;
-    [SerializeField] private Transform _followTarget;
+    /* ===================================================================== */
+    /* Settings (Inspector Organization)                                      */
+    /* ===================================================================== */
 
-    [Header("Optional (Inspector Override)")]
-    [Tooltip("If assigned, look bias uses this mover's Facing. If null, we try to find it on the Follow Target.")]
-    [SerializeField] private PlayerMover2D _playerMover;
+    [System.Serializable]
+    private sealed class BindingSettings
+    {
+        [Tooltip("Camera driven by this rig. If null, we try to find one in children on Awake.")]
+        public UnityEngine.Camera Camera;
 
-    [Header("Follow Smoothing")]
-    [Tooltip("Higher = snappier camera movement.")]
-    [SerializeField] private float _followLerp = 20f;
+        [Tooltip("Transform to follow (usually the controlled player/pawn).")]
+        public Transform FollowTarget;
 
-    [Header("World Pan (Input-agnostic)")]
-    [SerializeField] private Vector2 _panWorld;
+        [Tooltip("Optional override for look direction source.\n" +
+                 "If set, uses this mover's Facing.\n" +
+                 "If null, we try to find PlayerMover2D on the FollowTarget.")]
+        public PlayerMover2D PlayerMover;
+    }
 
-    [Header("Zoom (Input-agnostic target)")]
-    [SerializeField] private float _minOrthoSize = 2f;
-    [SerializeField] private float _maxOrthoSize = 20f;
-    [Tooltip("Higher = snappier zoom smoothing.")]
-    [SerializeField] private float _zoomLerp = 20f;
+    [System.Serializable]
+    private sealed class FollowSettings
+    {
+        [Tooltip("If false, position snaps to the resolved anchor each frame.")]
+        public bool UseSmoothing = true;
 
-    [Header("Dead Zone (World Units)")]
-    [Tooltip("Half-size of the dead-zone rectangle in world units. Camera won't move while target stays inside.")]
-    [SerializeField] private Vector2 _deadZoneHalfSize = new Vector2(2.5f, 1.5f);
+        [Tooltip("How quickly the camera moves toward its target position.\nHigher = snappier.")]
+        [Min(0f)]
+        public float PositionLerp = 20f;
+    }
 
-    [Header("Look Bias")]
-    [SerializeField] private bool _useLookBias = true;
+    [System.Serializable]
+    private sealed class PanSettings
+    {
+        [Tooltip("World-space offset applied to the camera center.\nDriven by external scripts (cutscenes, input adapters).")]
+        public Vector2 PanWorld;
 
-    [Tooltip("Signed world-units to shift the dead-zone center in look direction.\n" +
-             "Positive tends to TRAIL; negative tends to LEAD (show more ahead).")]
-    [SerializeField] private float _lookBiasDistance = -1.5f;
+        [Tooltip("Enable applying PanWorld to the camera center.")]
+        public bool PanEnabled = true;
+    }
 
-    [Tooltip("How quickly look direction responds to changes (higher = snappier).")]
-    [SerializeField] private float _lookDirLerp = 12f;
+    [System.Serializable]
+    private sealed class DeadZoneSettings
+    {
+        [Tooltip("If false, dead-zone behaves like size (0,0) => immediate follow.")]
+        public bool DeadZoneEnabled = true;
 
-    [Header("Facing Change Snap")]
-    [Tooltip("If enabled, bias direction snaps immediately when Facing changes sharply.")]
-    [SerializeField] private bool _snapBiasOnFacingChange = true;
+        [Tooltip("Half-size of the dead-zone rectangle in world units.")]
+        public Vector2 HalfSize = new Vector2(2.5f, 1.5f);
+    }
 
-    [Tooltip("Degrees. If Facing direction changes more than this, we snap look direction.")]
-    [SerializeField] private float _facingSnapAngleDeg = 25f;
+    [System.Serializable]
+    private sealed class LookSettings
+    {
+        [Tooltip("Enable reading look direction from PlayerMover2D.Facing.")]
+        public bool LookDirectionEnabled = true;
 
-    [Tooltip("Optional time window to hold the snapped direction (seconds). 0 = no hold.")]
-    [SerializeField] private float _snapHoldSeconds = 0f;
+        [Tooltip("Enable applying a bias offset to the camera zone center.")]
+        public bool LookBiasEnabled = true;
 
-    [Header("Debug Draw")]
-    [SerializeField] private bool _debugDrawInGame = false;
+        [Tooltip("Signed world-units to shift the zone center.\n" +
+                 "Negative typically LEADS (see more ahead).\n" +
+                 "Positive typically TRAILS (see more behind).")]
+        public float BiasDistance = -1.5f;
 
-    [Tooltip("Draw gizmos even when object is not selected.")]
-    [SerializeField] private bool _debugDrawGizmosAlways = false;
+        [Header("Direction + Bias Smoothing")]
+        [Tooltip("Normal smoothing speed for look direction and bias offset.\nHigher responds faster.")]
+        [Min(0f)]
+        public float LookDirLerp = 12f;
 
-    [Tooltip("Log one gizmo snapshot on selection (for diagnosis).")]
-    [SerializeField] private bool _logGizmoSnapshotOnce = false;
+        [Header("Facing Change Snap (Timed Blend)")]
+        [Tooltip("If enabled, sharp facing changes trigger a timed blend.\n" +
+                 "This blend is applied to the BIAS OFFSET (linear), preventing arc motion.")]
+        public bool SnapOnFacingChange = true;
 
-    [Tooltip("Length of the look direction arrow in world units.")]
-    [SerializeField] private float _debugDirLength = 2.0f;
+        [Tooltip("Degrees. Facing change >= this triggers a snap blend.")]
+        [Range(0f, 180f)]
+        public float SnapAngleDeg = 25f;
 
-    // Smoothed look direction (unit vector in XY).
+        [Tooltip("Duration (seconds) of the snap blend.\nThis is a true duration (3.0 means 3 seconds).")]
+        [Min(0f)]
+        public float SnapBlendSeconds = 0.35f;
+
+        [Header("Snap Responsiveness (Optional)")]
+        [Tooltip("If enabled, dead-zone is temporarily scaled down during snap blend.\n" +
+                 "This makes the camera react immediately to bias changes instead of waiting for target to exit the zone.")]
+        public bool ShrinkDeadZoneDuringSnap = true;
+
+        [Tooltip("Dead-zone half-size multiplier during snap blend.\n" +
+                 "0 = acts like no dead-zone during snap; 1 = unchanged.")]
+        [Range(0f, 1f)]
+        public float SnapDeadZoneScale = 0.25f;
+    }
+
+    [System.Serializable]
+    private sealed class ZoomSettings
+    {
+        [Tooltip("Minimum allowed orthographic size (max zoom-in).")]
+        [Min(0.01f)]
+        public float MinOrthoSize = 2f;
+
+        [Tooltip("Maximum allowed orthographic size (max zoom-out).")]
+        [Min(0.01f)]
+        public float MaxOrthoSize = 20f;
+
+        [Tooltip("If false, zoom snaps to target each frame.")]
+        public bool UseSmoothing = true;
+
+        [Tooltip("How quickly the camera zooms toward the target size.\nHigher = snappier.")]
+        [Min(0f)]
+        public float ZoomLerp = 20f;
+    }
+
+    [System.Serializable]
+    private sealed class GizmoSettings
+    {
+        [Tooltip("Draw gizmos even when the object isn't selected.")]
+        public bool DrawAlways = false;
+
+        [Tooltip("Length of look direction arrow in world units.")]
+        [Min(0.01f)]
+        public float DirLength = 2f;
+
+        [Tooltip("Z for gizmo drawing. Use 0 for 2D visibility.")]
+        public float DrawZ = 0f;
+    }
+
+    [Header("Camera Rig Settings")]
+    [SerializeField] private BindingSettings _binding = new();
+    [SerializeField] private FollowSettings _follow = new();
+    [SerializeField] private PanSettings _pan = new();
+    [SerializeField] private DeadZoneSettings _deadZone = new();
+    [SerializeField] private LookSettings _look = new();
+    [SerializeField] private ZoomSettings _zoom = new();
+    [SerializeField] private GizmoSettings _gizmos = new();
+
+    /* ===================================================================== */
+    /* Runtime State                                                          */
+    /* ===================================================================== */
+
+    // Smoothed facing direction (unit vector). Used for debug arrow and for desired bias computation.
     private Vector2 _smoothedLookDir = Vector2.right;
-
-    // Facing tracking for snap logic.
     private Vector2 _lastFacing = Vector2.right;
-    private float _snapUntilTime;
 
-    // Zoom target we smooth toward.
+    // Bias offset (world units) actually applied to zone center.
+    // This is what we blend linearly during snap to avoid arc motion.
+    private Vector2 _biasOffset;
+
+    // Snap blending for bias offset (linear world-space blend).
+    private bool _isBiasBlending;
+    private float _biasBlendStartTime;
+    private Vector2 _biasBlendFrom;
+    private Vector2 _biasBlendTo;
+
     private float _targetOrthoSize;
 
-    /// <summary>
-    /// Bind rig to a camera and follow target.
-    /// Also refreshes cached PlayerMover2D if not explicitly assigned in inspector.
-    /// </summary>
+    /* ===================================================================== */
+    /* Public Accessors (for adapter scripts)                                  */
+    /* ===================================================================== */
+
+    public UnityEngine.Camera ViewCamera => _binding.Camera;
+
+    public Vector2 PanWorld
+    {
+        get => _pan.PanWorld;
+        set => _pan.PanWorld = value;
+    }
+
+    public bool IsSnapBlending => _isBiasBlending;
+
+    /* ===================================================================== */
+    /* Public API                                                             */
+    /* ===================================================================== */
+
     public void Bind(UnityEngine.Camera camera, Transform followTarget)
     {
-        _camera = camera;
+        _binding.Camera = camera;
         SetFollowTarget(followTarget);
         EnsureCameraInitialized();
     }
 
-    /// <summary>
-    /// Set follow target (and refresh mover cache if mover not manually assigned).
-    /// </summary>
     public void SetFollowTarget(Transform followTarget)
     {
-        _followTarget = followTarget;
+        _binding.FollowTarget = followTarget;
 
-        // Respect inspector assignment: only auto-find if not set.
-        if (_playerMover == null && _followTarget != null)
+        if (_binding.PlayerMover == null && _binding.FollowTarget != null)
         {
-            _playerMover = _followTarget.GetComponent<PlayerMover2D>();
+            _binding.PlayerMover = _binding.FollowTarget.GetComponent<PlayerMover2D>();
         }
     }
 
-    /// <summary>
-    /// Add world-space pan offset (e.g., scripted camera pan).
-    /// </summary>
-    public void AddPanWorld(Vector2 deltaWorld) => _panWorld += deltaWorld;
+    public void AddPanWorld(Vector2 deltaWorld)
+    {
+        _pan.PanWorld += deltaWorld;
+    }
 
-    public void ClearPan() => _panWorld = Vector2.zero;
+    public void ClearPan()
+    {
+        _pan.PanWorld = Vector2.zero;
+    }
 
-    /// <summary>
-    /// Set desired orthographic zoom (orthographicSize).
-    /// </summary>
     public void SetZoom(float orthoSize)
     {
-        _targetOrthoSize = Mathf.Clamp(orthoSize, _minOrthoSize, _maxOrthoSize);
+        _targetOrthoSize = Mathf.Clamp(orthoSize, _zoom.MinOrthoSize, _zoom.MaxOrthoSize);
     }
 
-    /// <summary>
-    /// Adjust zoom by a delta amount (positive increases ortho size = zoom out).
-    /// </summary>
     public void AddZoomDelta(float delta)
     {
-        _targetOrthoSize = Mathf.Clamp(_targetOrthoSize + delta, _minOrthoSize, _maxOrthoSize);
+        _targetOrthoSize = Mathf.Clamp(_targetOrthoSize + delta, _zoom.MinOrthoSize, _zoom.MaxOrthoSize);
     }
+
+    /* ===================================================================== */
+    /* Unity Lifecycle                                                        */
+    /* ===================================================================== */
 
     private void Awake()
     {
-        if (_camera == null)
+        if (_binding.Camera == null)
         {
-            _camera = GetComponentInChildren<UnityEngine.Camera>();
+            _binding.Camera = GetComponentInChildren<UnityEngine.Camera>();
         }
 
-        if (_playerMover == null && _followTarget != null)
+        if (_binding.PlayerMover == null && _binding.FollowTarget != null)
         {
-            _playerMover = _followTarget.GetComponent<PlayerMover2D>();
+            _binding.PlayerMover = _binding.FollowTarget.GetComponent<PlayerMover2D>();
         }
 
         EnsureCameraInitialized();
@@ -135,182 +234,333 @@ public sealed class CameraRig2D : MonoBehaviour
 
     private void EnsureCameraInitialized()
     {
-        if (_camera == null)
+        if (_binding.Camera == null)
         {
             return;
         }
 
-        _camera.orthographic = true;
+        _binding.Camera.orthographic = true;
 
-        // Critical: initialize zoom target so we never lerp toward 0 by accident.
-        _targetOrthoSize = Mathf.Clamp(_camera.orthographicSize, _minOrthoSize, _maxOrthoSize);
+        if (_zoom.MaxOrthoSize < _zoom.MinOrthoSize)
+        {
+            _zoom.MaxOrthoSize = _zoom.MinOrthoSize;
+        }
+
+        _targetOrthoSize = Mathf.Clamp(
+            _binding.Camera.orthographicSize,
+            _zoom.MinOrthoSize,
+            _zoom.MaxOrthoSize
+        );
     }
 
     private void LateUpdate()
     {
-        if (_camera == null)
+        if (_binding.Camera == null)
         {
             return;
         }
 
-        // --------------------------------------------------------------------
-        // 1) Resolve look direction from PlayerMover2D.Facing
-        // --------------------------------------------------------------------
-        Vector2 facing = Vector2.zero;
-        if (_useLookBias && _playerMover != null)
+        float dt = Time.deltaTime;
+
+        // Update look direction (smoothed) and start bias blending on sharp turns (optional)
+        if (_look.LookDirectionEnabled)
         {
-            facing = _playerMover.Facing;
+            UpdateLookDirectionAndMaybeStartBiasBlend(dt);
         }
 
-        Vector2 desiredLookDir = _smoothedLookDir;
+        // Update bias offset (linear during snap; exponential otherwise)
+        UpdateBiasOffset(dt);
 
-        if (_useLookBias && facing.sqrMagnitude > 0.0001f)
-        {
-            desiredLookDir = facing.normalized;
+        Vector2 anchor = GetAnchorFromTransform();
+        Vector2 zoneCenter = ComputeZoneCenter(anchor);
 
-            if (_snapBiasOnFacingChange)
-            {
-                float angle = Vector2.Angle(_lastFacing, desiredLookDir);
-                if (angle >= _facingSnapAngleDeg)
-                {
-                    // Snap immediately on sharp turns
-                    _smoothedLookDir = desiredLookDir;
-                    _snapUntilTime = Time.time + _snapHoldSeconds;
-                }
+        // Always resolve follow. DeadZoneEnabled=false => halfSize=(0,0) => immediate follow.
+        Vector2 resolvedAnchor = ResolveAnchorWithDeadZone(zoneCenter, anchor);
 
-                _lastFacing = desiredLookDir;
-            }
-        }
-
-        // If we're in a snap-hold window, keep snapped; otherwise smooth normally.
-        if (Time.time >= _snapUntilTime)
-        {
-            _smoothedLookDir = Vector2.Lerp(_smoothedLookDir, desiredLookDir, _lookDirLerp * Time.deltaTime);
-            if (_smoothedLookDir.sqrMagnitude > 0.0001f)
-            {
-                _smoothedLookDir.Normalize();
-            }
-        }
-
-        // --------------------------------------------------------------------
-        // 2) Dead-zone follow (world units)
-        // --------------------------------------------------------------------
-        Vector3 current = transform.position;
-        Vector2 anchor = new Vector2(current.x, current.y);
-
-        Vector2 zoneCenter = anchor + _panWorld;
-
-        // Signed bias distance: negative means "lead" in practice (show more ahead),
-        // positive means "trail" in practice (camera lags more).
-        if (_useLookBias && _smoothedLookDir.sqrMagnitude > 0.0001f && Mathf.Abs(_lookBiasDistance) > 0.0001f)
-        {
-            zoneCenter += _smoothedLookDir.normalized * _lookBiasDistance;
-        }
-
-        if (_followTarget != null)
-        {
-            Vector2 targetPos = (Vector2)_followTarget.position;
-            Vector2 delta = targetPos - zoneCenter;
-
-            float moveX = 0f;
-            if (delta.x > _deadZoneHalfSize.x) moveX = delta.x - _deadZoneHalfSize.x;
-            else if (delta.x < -_deadZoneHalfSize.x) moveX = delta.x + _deadZoneHalfSize.x;
-
-            float moveY = 0f;
-            if (delta.y > _deadZoneHalfSize.y) moveY = delta.y - _deadZoneHalfSize.y;
-            else if (delta.y < -_deadZoneHalfSize.y) moveY = delta.y + _deadZoneHalfSize.y;
-
-            anchor += new Vector2(moveX, moveY);
-        }
-
-        Vector3 desiredPos = new Vector3(anchor.x, anchor.y, current.z);
-        transform.position = Vector3.Lerp(transform.position, desiredPos, _followLerp * Time.deltaTime);
-
-        // --------------------------------------------------------------------
-        // 3) Smooth zoom
-        // --------------------------------------------------------------------
-        _camera.orthographicSize = Mathf.Lerp(_camera.orthographicSize, _targetOrthoSize, _zoomLerp * Time.deltaTime);
-
-        // --------------------------------------------------------------------
-        // 4) Runtime debug drawing
-        // --------------------------------------------------------------------
-        if (_debugDrawInGame)
-        {
-            RuntimeDebugDraw(zoneCenter);
-        }
+        ApplyPosition(resolvedAnchor, dt);
+        ApplyZoom(dt);
     }
 
-    private void RuntimeDebugDraw(Vector2 zoneCenter)
+    /* ===================================================================== */
+    /* Look Direction + Bias Blend (No Arc Motion)                             */
+    /* ===================================================================== */
+
+    private void UpdateLookDirectionAndMaybeStartBiasBlend(float dt)
     {
-        // Draw at Z=0 so it matches gameplay plane and is visible in 2D view.
-        float z = 0f;
-
-        Vector2 half = _deadZoneHalfSize;
-
-        Vector3 a = new Vector3(zoneCenter.x - half.x, zoneCenter.y - half.y, z);
-        Vector3 b = new Vector3(zoneCenter.x + half.x, zoneCenter.y - half.y, z);
-        Vector3 c = new Vector3(zoneCenter.x + half.x, zoneCenter.y + half.y, z);
-        Vector3 d = new Vector3(zoneCenter.x - half.x, zoneCenter.y + half.y, z);
-
-        Debug.DrawLine(a, b);
-        Debug.DrawLine(b, c);
-        Debug.DrawLine(c, d);
-        Debug.DrawLine(d, a);
-
-        Vector2 dir = (_smoothedLookDir.sqrMagnitude > 0.0001f) ? _smoothedLookDir.normalized : Vector2.right;
-        Vector3 center = new Vector3(zoneCenter.x, zoneCenter.y, z);
-        Vector3 dirEnd = center + new Vector3(dir.x, dir.y, 0f) * _debugDirLength;
-
-        Debug.DrawLine(center, dirEnd);
-
-        if (_followTarget != null)
+        if (_binding.PlayerMover == null)
         {
-            Vector3 target = new Vector3(_followTarget.position.x, _followTarget.position.y, z);
-            Debug.DrawLine(center, target);
+            return;
+        }
+
+        Vector2 facing = _binding.PlayerMover.Facing;
+        if (facing.sqrMagnitude <= 0.0001f)
+        {
+            return;
+        }
+
+        Vector2 desired = facing.normalized;
+
+        // If this is a sharp direction change, start a LINEAR bias offset blend.
+        if (_look.SnapOnFacingChange)
+        {
+            float angle = Vector2.Angle(_lastFacing, desired);
+            if (angle >= _look.SnapAngleDeg)
+            {
+                StartBiasBlendTo(desired);
+            }
+
+            _lastFacing = desired;
+        }
+
+        // Keep a smoothed look direction for non-snap situations / debug arrows.
+        // Exponential smoothing (frame-rate stable).
+        float alpha = 1f - Mathf.Exp(-_look.LookDirLerp * dt);
+        _smoothedLookDir = Vector2.Lerp(_smoothedLookDir, desired, alpha);
+
+        if (_smoothedLookDir.sqrMagnitude > 0.0001f)
+        {
+            _smoothedLookDir.Normalize();
         }
     }
+
+    private void StartBiasBlendTo(Vector2 newLookDirUnit)
+    {
+        if (!_look.LookBiasEnabled || Mathf.Abs(_look.BiasDistance) <= 0.0001f)
+        {
+            _isBiasBlending = false;
+            return;
+        }
+
+        // Blend the WORLD OFFSET linearly from old -> new (prevents arc motion).
+        _isBiasBlending = true;
+        _biasBlendStartTime = Time.time;
+        _biasBlendFrom = _biasOffset;
+        _biasBlendTo = newLookDirUnit * _look.BiasDistance;
+    }
+
+    private void UpdateBiasOffset(float dt)
+    {
+        if (!_look.LookBiasEnabled || Mathf.Abs(_look.BiasDistance) <= 0.0001f)
+        {
+            _biasOffset = Vector2.zero;
+            _isBiasBlending = false;
+            return;
+        }
+
+        // Desired offset from current smoothed look dir
+        Vector2 lookDir = (_smoothedLookDir.sqrMagnitude > 0.0001f) ? _smoothedLookDir.normalized : Vector2.right;
+        Vector2 desiredOffset = lookDir * _look.BiasDistance;
+
+        // If we're in a snap blend, bias offset moves LINEARLY from old -> new over time
+        if (_isBiasBlending)
+        {
+            float dur = Mathf.Max(0.0001f, _look.SnapBlendSeconds);
+            float t = Mathf.Clamp01((Time.time - _biasBlendStartTime) / dur);
+            t = Mathf.SmoothStep(0f, 1f, t);
+
+            _biasOffset = Vector2.Lerp(_biasBlendFrom, _biasBlendTo, t);
+
+            if (t >= 1f)
+            {
+                _isBiasBlending = false;
+            }
+
+            return;
+        }
+
+        // Normal behavior: exponential smoothing toward desired offset
+        float alpha = 1f - Mathf.Exp(-_look.LookDirLerp * dt);
+        _biasOffset = Vector2.Lerp(_biasOffset, desiredOffset, alpha);
+    }
+
+    /* ===================================================================== */
+    /* Zone Center                                                            */
+    /* ===================================================================== */
+
+    private Vector2 GetAnchorFromTransform()
+    {
+        Vector3 pos = transform.position;
+        return new Vector2(pos.x, pos.y);
+    }
+
+    private Vector2 ComputeZoneCenter(Vector2 anchor)
+    {
+        Vector2 zoneCenter = anchor;
+
+        if (_pan.PanEnabled)
+        {
+            zoneCenter += _pan.PanWorld;
+        }
+
+        // Apply bias offset (world-space). This is what we blend linearly to avoid arcs.
+        if (_look.LookBiasEnabled && Mathf.Abs(_look.BiasDistance) > 0.0001f)
+        {
+            zoneCenter += _biasOffset;
+        }
+
+        return zoneCenter;
+    }
+
+    /* ===================================================================== */
+    /* Dead Zone Follow                                                       */
+    /* ===================================================================== */
+
+    private Vector2 ResolveAnchorWithDeadZone(Vector2 zoneCenter, Vector2 anchor)
+    {
+        if (_binding.FollowTarget == null)
+        {
+            return anchor;
+        }
+
+        Vector2 half = _deadZone.DeadZoneEnabled ? _deadZone.HalfSize : Vector2.zero;
+
+        // Optional: during snap, shrink dead-zone so bias changes move the camera immediately.
+        if (_isBiasBlending && _look.ShrinkDeadZoneDuringSnap)
+        {
+            half *= _look.SnapDeadZoneScale;
+        }
+
+        Vector2 targetPos = (Vector2)_binding.FollowTarget.position;
+        Vector2 delta = targetPos - zoneCenter;
+
+        float moveX = 0f;
+        if (delta.x > half.x) moveX = delta.x - half.x;
+        else if (delta.x < -half.x) moveX = delta.x + half.x;
+
+        float moveY = 0f;
+        if (delta.y > half.y) moveY = delta.y - half.y;
+        else if (delta.y < -half.y) moveY = delta.y + half.y;
+
+        return anchor + new Vector2(moveX, moveY);
+    }
+
+    /* ===================================================================== */
+    /* Apply Position / Zoom                                                  */
+    /* ===================================================================== */
+
+    private void ApplyPosition(Vector2 anchor, float dt)
+    {
+        Vector3 current = transform.position;
+        Vector3 desired = new Vector3(anchor.x, anchor.y, current.z);
+
+        if (_follow.UseSmoothing)
+        {
+            transform.position = Vector3.Lerp(transform.position, desired, _follow.PositionLerp * dt);
+        }
+        else
+        {
+            transform.position = desired;
+        }
+    }
+
+    private void ApplyZoom(float dt)
+    {
+        float clampedTarget = Mathf.Clamp(_targetOrthoSize, _zoom.MinOrthoSize, _zoom.MaxOrthoSize);
+
+        if (_zoom.UseSmoothing)
+        {
+            _binding.Camera.orthographicSize = Mathf.Lerp(_binding.Camera.orthographicSize, clampedTarget, _zoom.ZoomLerp * dt);
+        }
+        else
+        {
+            _binding.Camera.orthographicSize = clampedTarget;
+        }
+    }
+
+    public void RequestZoomDelta(float deltaOrthoSize, Vector2 pivotScreenPos)
+    {
+        if (_binding.Camera == null)
+        {
+            return;
+        }
+
+        float oldTarget = Mathf.Clamp(_targetOrthoSize, _zoom.MinOrthoSize, _zoom.MaxOrthoSize);
+        float newTarget = Mathf.Clamp(oldTarget + deltaOrthoSize, _zoom.MinOrthoSize, _zoom.MaxOrthoSize);
+
+        if (Mathf.Approximately(newTarget, oldTarget))
+        {
+            return;
+        }
+
+        // If pan is disabled, we can't keep cursor anchored: fall back to center zoom.
+        if (!_pan.PanEnabled)
+        {
+            _targetOrthoSize = newTarget;
+            return;
+        }
+
+        Vector2 before = ScreenToWorldOrtho(_binding.Camera, oldTarget, pivotScreenPos);
+        Vector2 after = ScreenToWorldOrtho(_binding.Camera, newTarget, pivotScreenPos);
+
+        // panDelta represents how the CAMERA should move in world space.
+        // But PanWorld shifts the zone center, which moves the camera in the opposite direction.
+        // So we subtract here.
+        Vector2 panDelta = before - after;
+        _pan.PanWorld -= panDelta;
+
+        _targetOrthoSize = newTarget;
+
+    }
+
+    private static Vector2 ScreenToWorldOrtho(UnityEngine.Camera cam, float orthoSize, Vector2 screenPos)
+    {
+        Rect r = cam.pixelRect;
+
+        float vx = (screenPos.x - r.xMin) / Mathf.Max(1f, r.width);
+        float vy = (screenPos.y - r.yMin) / Mathf.Max(1f, r.height);
+
+        float aspect = (r.width > 0f && r.height > 0f) ? (r.width / r.height) : cam.aspect;
+
+        float halfH = orthoSize;
+        float halfW = orthoSize * aspect;
+
+        float ox = (vx - 0.5f) * (2f * halfW);
+        float oy = (vy - 0.5f) * (2f * halfH);
+
+        Vector3 camPos = cam.transform.position;
+        return new Vector2(camPos.x + ox, camPos.y + oy);
+    }
+
+
+    /* ===================================================================== */
+    /* Gizmos                                                                 */
+    /* ===================================================================== */
 
 #if UNITY_EDITOR
     private void OnDrawGizmos()
     {
-        if (!_debugDrawGizmosAlways)
+        if (_gizmos.DrawAlways)
         {
-            return;
+            DrawGizmosInternal();
         }
-
-        DrawGizmosInternal();
     }
 
     private void OnDrawGizmosSelected()
     {
-        if (_debugDrawGizmosAlways)
+        if (!_gizmos.DrawAlways)
         {
-            return;
+            DrawGizmosInternal();
         }
-
-        DrawGizmosInternal();
     }
 
     private void DrawGizmosInternal()
     {
+        float z = _gizmos.DrawZ;
 
-        if (_deadZoneHalfSize.x <= 0f || _deadZoneHalfSize.y <= 0f)
-        {
-            return;
-        }
-
-        // Draw on the gameplay plane so it's visible in 2D Scene view even if camera is at Z=-10.
-        float z = 0f;
+        Vector2 half = _deadZone.DeadZoneEnabled ? _deadZone.HalfSize : Vector2.zero;
 
         Vector2 anchor = new Vector2(transform.position.x, transform.position.y);
-        Vector2 zoneCenter = anchor + _panWorld;
+        Vector2 zoneCenter = anchor;
 
-        if (Application.isPlaying && _useLookBias && _smoothedLookDir.sqrMagnitude > 0.0001f && Mathf.Abs(_lookBiasDistance) > 0.0001f)
+        if (_pan.PanEnabled)
         {
-            zoneCenter += _smoothedLookDir.normalized * _lookBiasDistance;
+            zoneCenter += _pan.PanWorld;
         }
 
-        Vector2 half = _deadZoneHalfSize;
+        if (Application.isPlaying && _look.LookBiasEnabled)
+        {
+            zoneCenter += _biasOffset;
+        }
 
         Vector3 a = new Vector3(zoneCenter.x - half.x, zoneCenter.y - half.y, z);
         Vector3 b = new Vector3(zoneCenter.x + half.x, zoneCenter.y - half.y, z);
@@ -322,17 +572,13 @@ public sealed class CameraRig2D : MonoBehaviour
         Gizmos.DrawLine(c, d);
         Gizmos.DrawLine(d, a);
 
-        // Look direction arrow (debug)
-        Vector2 dir = (Application.isPlaying && _smoothedLookDir.sqrMagnitude > 0.0001f)
-            ? _smoothedLookDir.normalized
-            : Vector2.right;
-
-        Vector3 center = new Vector3(zoneCenter.x, zoneCenter.y, z);
-        Vector3 dirEnd = center + new Vector3(dir.x, dir.y, 0f) * _debugDirLength;
-
-        Gizmos.DrawLine(center, dirEnd);
-        Gizmos.DrawWireSphere(center, 0.05f);
+        if (Application.isPlaying && _look.LookDirectionEnabled)
+        {
+            Vector3 center = new Vector3(zoneCenter.x, zoneCenter.y, z);
+            Vector3 dirEnd = center + new Vector3(_smoothedLookDir.x, _smoothedLookDir.y, 0f) * _gizmos.DirLength;
+            Gizmos.DrawLine(center, dirEnd);
+            Gizmos.DrawWireSphere(center, 0.05f);
+        }
     }
-
 #endif
 }
