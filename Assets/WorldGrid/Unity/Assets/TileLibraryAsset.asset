@@ -1,0 +1,542 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 802972750d57ddb4cb1e13d05f5731cf, type: 3}
+  m_Name: TileLibraryAsset
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Assets.TileLibraryAsset
+  atlasTexture: {fileID: 2800000, guid: 1c9ed9d1200c29d4cbfd2071028c1cd5, type: 3}
+  atlasMaterial: {fileID: 2100000, guid: 19704e9ae5c085e448aa0ac666facbc0, type: 2}
+  tilePixelSize: {x: 32, y: 32}
+  paddingPixels: {x: 0, y: 0}
+  originTopLeft: 1
+  reserveZeroForEmpty: 1
+  autoIdStart: 0
+  entries:
+  - tileId: 1
+    name: 
+    tileCoord: {x: 0, y: 0}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 2
+    name: 
+    tileCoord: {x: 1, y: 0}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 3
+    name: 
+    tileCoord: {x: 2, y: 0}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 4
+    name: 
+    tileCoord: {x: 3, y: 0}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 5
+    name: 
+    tileCoord: {x: 4, y: 0}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 6
+    name: 
+    tileCoord: {x: 5, y: 0}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 7
+    name: 
+    tileCoord: {x: 6, y: 0}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 8
+    name: 
+    tileCoord: {x: 7, y: 0}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 9
+    name: 
+    tileCoord: {x: 0, y: 1}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 10
+    name: 
+    tileCoord: {x: 1, y: 1}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 11
+    name: 
+    tileCoord: {x: 2, y: 1}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 12
+    name: 
+    tileCoord: {x: 3, y: 1}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 13
+    name: 
+    tileCoord: {x: 4, y: 1}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 14
+    name: 
+    tileCoord: {x: 5, y: 1}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 15
+    name: 
+    tileCoord: {x: 6, y: 1}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 16
+    name: 
+    tileCoord: {x: 7, y: 1}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 17
+    name: 
+    tileCoord: {x: 0, y: 2}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 18
+    name: 
+    tileCoord: {x: 1, y: 2}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 19
+    name: 
+    tileCoord: {x: 2, y: 2}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 20
+    name: 
+    tileCoord: {x: 3, y: 2}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 21
+    name: 
+    tileCoord: {x: 4, y: 2}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 22
+    name: 
+    tileCoord: {x: 5, y: 2}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 23
+    name: 
+    tileCoord: {x: 6, y: 2}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 24
+    name: 
+    tileCoord: {x: 7, y: 2}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 25
+    name: 
+    tileCoord: {x: 0, y: 3}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 26
+    name: 
+    tileCoord: {x: 1, y: 3}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 27
+    name: 
+    tileCoord: {x: 2, y: 3}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 28
+    name: 
+    tileCoord: {x: 3, y: 3}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 29
+    name: 
+    tileCoord: {x: 4, y: 3}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 30
+    name: 
+    tileCoord: {x: 5, y: 3}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 31
+    name: 
+    tileCoord: {x: 6, y: 3}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 32
+    name: 
+    tileCoord: {x: 7, y: 3}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 33
+    name: 
+    tileCoord: {x: 0, y: 4}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 34
+    name: 
+    tileCoord: {x: 1, y: 4}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 35
+    name: 
+    tileCoord: {x: 2, y: 4}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 36
+    name: 
+    tileCoord: {x: 3, y: 4}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 37
+    name: 
+    tileCoord: {x: 4, y: 4}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 38
+    name: 
+    tileCoord: {x: 5, y: 4}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 39
+    name: 
+    tileCoord: {x: 6, y: 4}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 40
+    name: 
+    tileCoord: {x: 7, y: 4}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 41
+    name: 
+    tileCoord: {x: 0, y: 5}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 42
+    name: 
+    tileCoord: {x: 1, y: 5}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 43
+    name: 
+    tileCoord: {x: 2, y: 5}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 44
+    name: 
+    tileCoord: {x: 3, y: 5}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 45
+    name: 
+    tileCoord: {x: 4, y: 5}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 46
+    name: 
+    tileCoord: {x: 5, y: 5}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 47
+    name: 
+    tileCoord: {x: 6, y: 5}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 48
+    name: 
+    tileCoord: {x: 7, y: 5}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 49
+    name: 
+    tileCoord: {x: 0, y: 6}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 50
+    name: 
+    tileCoord: {x: 1, y: 6}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 51
+    name: 
+    tileCoord: {x: 2, y: 6}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 52
+    name: 
+    tileCoord: {x: 3, y: 6}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 53
+    name: 
+    tileCoord: {x: 4, y: 6}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 54
+    name: 
+    tileCoord: {x: 5, y: 6}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 55
+    name: 
+    tileCoord: {x: 6, y: 6}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 56
+    name: 
+    tileCoord: {x: 7, y: 6}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 57
+    name: 
+    tileCoord: {x: 0, y: 7}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 58
+    name: 
+    tileCoord: {x: 1, y: 7}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 59
+    name: 
+    tileCoord: {x: 2, y: 7}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 60
+    name: 
+    tileCoord: {x: 3, y: 7}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 61
+    name: 
+    tileCoord: {x: 4, y: 7}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 62
+    name: 
+    tileCoord: {x: 5, y: 7}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 63
+    name: 
+    tileCoord: {x: 6, y: 7}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 64
+    name: 
+    tileCoord: {x: 7, y: 7}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 0
+    name: 
+    tileCoord: {x: 0, y: 0}
+    tileSpan: {x: 1, y: 1}
+    tags: []
+    overrideUv: 1
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}

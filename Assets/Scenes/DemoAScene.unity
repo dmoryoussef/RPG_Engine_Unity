@@ -506,12 +506,12 @@ MonoBehaviour:
     PanWorld: {x: 0, y: 0}
     PanEnabled: 1
   _deadZone:
-    DeadZoneEnabled: 1
+    DeadZoneEnabled: 0
     HalfSize: {x: 2.5, y: 1.5}
   _look:
-    LookDirectionEnabled: 1
-    LookBiasEnabled: 1
-    BiasDistance: -1.5
+    LookDirectionEnabled: 0
+    LookBiasEnabled: 0
+    BiasDistance: -3
     LookDirLerp: 12
     SnapOnFacingChange: 1
     SnapAngleDeg: 89
@@ -1362,7 +1362,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!212 &970198418
 SpriteRenderer:
   serializedVersion: 2
@@ -1438,6 +1438,240 @@ Transform:
   - {fileID: 1252769404}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1058400940
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1058400944}
+  - component: {fileID: 1058400943}
+  - component: {fileID: 1058400942}
+  - component: {fileID: 1058400945}
+  - component: {fileID: 1058400947}
+  - component: {fileID: 1058400948}
+  - component: {fileID: 1058400949}
+  - component: {fileID: 1058400950}
+  - component: {fileID: 1058400951}
+  - component: {fileID: 1058400952}
+  m_Layer: 0
+  m_Name: WorldGridRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1058400942
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058400940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d768a6f32e645364eb05af3663fdae48, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ChunkMeshRender
+  worldHost: {fileID: 1058400943}
+  tileLibraryAsset: {fileID: 11400000, guid: 0163a0fc49b330343beec8e0071f1a54, type: 2}
+  defaultBackgroundSprite: {fileID: 21300000, guid: 33dccf83b7f7f294992c97ebe1990464, type: 3}
+  defaultBackgroundShader: {fileID: 0}
+  renderDefaultBackground: 1
+  viewChunksSize: {x: 16, y: 16}
+  viewChunkMin:
+    x: 0
+    y: 0
+  showDebugOverlay: 0
+  debugOverlayAlpha: 0.2
+  debugOverlayMissing: {r: 1, g: 0, b: 0, a: 1}
+  debugOverlayUniform: {r: 0, g: 1, b: 0, a: 1}
+  debugOverlayDense: {r: 1, g: 1, b: 0, a: 1}
+--- !u!114 &1058400943
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058400940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 943b383d225d37849949a28e0271f508, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.WorldHost
+  chunkSize: 32
+  defaultTileId: 0
+  cellSize: 1
+  worldRoot: {fileID: 0}
+--- !u!4 &1058400944
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058400940}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1058400945
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058400940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cffcd178b542f0641a7c292ad4b65712, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Input.WorldPointer2D
+  worldHost: {fileID: 1058400943}
+  cameraOverride: {fileID: 519420031}
+  ignoreWhenPointerOverUi: 1
+  clickMaxSeconds: 0.25
+--- !u!114 &1058400947
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058400940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9bb50d9febd26e1408527c6b638ec2b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldGridLinesDebugView
+  worldHost: {fileID: 1058400943}
+  rendererSource: {fileID: 1058400942}
+  pointer: {fileID: 1058400945}
+  drawChunkBounds: 1
+  drawChunkLabels: 0
+  drawTileGridNearMouse: 0
+  tileGridRadiusCells: 6
+  chunkGridColor: {r: 0, g: 1, b: 0, a: 1}
+  tileGridColor: {r: 0, g: 1, b: 0, a: 1}
+  gizmoZ: -0.05
+  drawHoveredChunkEmphasis: 1
+  drawHoveredChunkEvenIfOutsideView: 1
+  hoveredChunkColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  hoveredChunkThickness: 6
+  hoveredChunkGizmoZ: -0.04
+--- !u!114 &1058400948
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058400940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2db5480dbdde2ea41899d848841dbca7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldHoverInspectorProbe
+  pointer: {fileID: 1058400945}
+  worldHost: {fileID: 1058400943}
+  tileLibraryAsset: {fileID: 11400000, guid: 0163a0fc49b330343beec8e0071f1a54, type: 2}
+  hoverValid: 0
+  worldPoint: {x: 0, y: 0, z: 0}
+  localX: 0
+  localY: 0
+  tileId: 0
+  tileInfo: 
+--- !u!114 &1058400949
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058400940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d328440f9d416fc438af2e2983d62ecc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldPinDebug
+  worldHost: {fileID: 1058400943}
+  pointer: {fileID: 1058400945}
+  enablePinning: 1
+  clearWithBackspace: 1
+  drawPinnedOutline: 1
+  drawMouseToPinLine: 0
+  gizmoZ: -0.05
+  outlineThickness: 4
+  lineThickness: 2
+  hasPin: 0
+  pinnedLocalX: 0
+  pinnedLocalY: 0
+  pinnedTileId: 0
+--- !u!114 &1058400950
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058400940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: afd6fff708de55b43addb60c714ef41f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldDebugPaintTool
+  worldHost: {fileID: 1058400943}
+  pointer: {fileID: 1058400945}
+  tileLibraryAsset: {fileID: 0}
+  enablePainting: 1
+  paintSelectionMode: 0
+  paintTileId: 1
+  paintTileName: 
+  paintTag: 
+  eraseTileId: 0
+  brushRadius: 0
+  minWriteIntervalSeconds: 0.02
+  writeOnCellChange: 1
+  resolvedPaintTileId: 1
+  resolvedPaintTileInfo: 
+--- !u!114 &1058400951
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058400940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 973793418b2f7c34ab45efdf3022d887, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldChunkStorageTransitionLogger
+  worldHost: {fileID: 1058400943}
+  logChunkCreated: 1
+  logChunkRemoved: 1
+  logKindTransitions: 1
+--- !u!114 &1058400952
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058400940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 497060ad6bdd8dc48883684a017168c7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldViewNudger
+  rendererSource: {fileID: 1058400942}
+  leftKey: 276
+  rightKey: 275
+  upKey: 273
+  downKey: 274
+  fastModifier: 304
+  stepChunks: 1
+  fastStepChunks: 4
+  pruneViewsOutsideWindow: 0
 --- !u!1 &1106162213
 GameObject:
   m_ObjectHideFlags: 0
@@ -3024,7 +3258,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!212 &1907383954
 SpriteRenderer:
   serializedVersion: 2
@@ -3325,3 +3559,4 @@ SceneRoots:
   - {fileID: 970198419}
   - {fileID: 1907383955}
   - {fileID: 65112652}
+  - {fileID: 1058400944}
