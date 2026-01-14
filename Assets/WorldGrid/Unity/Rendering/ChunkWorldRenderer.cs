@@ -181,6 +181,12 @@ namespace WorldGrid.Unity.Rendering
             RefreshAllOverlays();
         }
 
+        public void SetViewWindow(ChunkCoord min, Vector2Int size, bool pruneViewsOutsideWindow = false)
+        {
+            viewChunksSize = new Vector2Int(Mathf.Max(1, size.x), Mathf.Max(1, size.y));
+            SetViewChunkMin(min, pruneViewsOutsideWindow);
+        }
+
         public void NudgeViewChunkMin(int dx, int dy, bool pruneViewsOutsideWindow = false)
         {
             var cur = ViewChunkMin;

@@ -520,7 +520,7 @@ MonoBehaviour:
     SnapDeadZoneScale: 0.25
   _zoom:
     MinOrthoSize: 2
-    MaxOrthoSize: 20
+    MaxOrthoSize: 50
     UseSmoothing: 1
     ZoomLerp: 20
   _gizmos:
@@ -1456,6 +1456,7 @@ GameObject:
   - component: {fileID: 1058400950}
   - component: {fileID: 1058400951}
   - component: {fileID: 1058400952}
+  - component: {fileID: 1058400953}
   m_Layer: 0
   m_Name: WorldGridRoot
   m_TagString: Untagged
@@ -1477,7 +1478,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ChunkMeshRender
   worldHost: {fileID: 1058400943}
   tileLibraryAsset: {fileID: 11400000, guid: 0163a0fc49b330343beec8e0071f1a54, type: 2}
-  defaultBackgroundSprite: {fileID: 21300000, guid: 33dccf83b7f7f294992c97ebe1990464, type: 3}
+  defaultBackgroundSprite: {fileID: 0}
   defaultBackgroundShader: {fileID: 0}
   renderDefaultBackground: 1
   viewChunksSize: {x: 16, y: 16}
@@ -1551,15 +1552,28 @@ MonoBehaviour:
   worldHost: {fileID: 1058400943}
   rendererSource: {fileID: 1058400942}
   pointer: {fileID: 1058400945}
-  drawChunkBounds: 1
-  drawChunkLabels: 0
+  drawRendererChunkBounds: 1
+  drawRendererChunkLabels: 1
+  drawCameraChunkBounds: 1
+  drawCameraChunkLabels: 1
+  cameraSource: {fileID: 519420031}
+  cameraMarginChunks: 1
+  drawExistingChunksInCameraView: 1
+  labelExistingChunks: 0
   drawTileGridNearMouse: 0
-  tileGridRadiusCells: 6
-  chunkGridColor: {r: 0, g: 1, b: 0, a: 1}
+  tileGridRadiusCells: 1
+  enableLabels: 1
+  labelWorldYOffset: 0.15
+  enableRendererLabels: 1
+  enableCameraLabels: 1
+  enableExistingChunkLabels: 1
+  rendererChunkGridColor: {r: 0, g: 1, b: 0, a: 1}
+  cameraChunkGridColor: {r: 0.2, g: 0.8, b: 1, a: 1}
+  existingChunksColor: {r: 1, g: 0.6, b: 0.2, a: 1}
   tileGridColor: {r: 0, g: 1, b: 0, a: 1}
   gizmoZ: -0.05
   drawHoveredChunkEmphasis: 1
-  drawHoveredChunkEvenIfOutsideView: 1
+  drawHoveredChunkEvenIfOutsideRendererView: 1
   hoveredChunkColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   hoveredChunkThickness: 6
   hoveredChunkGizmoZ: -0.04
@@ -1660,18 +1674,30 @@ MonoBehaviour:
   m_GameObject: {fileID: 1058400940}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 497060ad6bdd8dc48883684a017168c7, type: 3}
+  m_Script: {fileID: 11500000, guid: a46273a3ce361e849a1ccf4729d51ab8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WorldViewNudger
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldHostDebugStats
+  worldHost: {fileID: 1058400943}
+  logChunkCreated: 1
+  logChunkRemoved: 1
+  totalChunks: 0
+--- !u!114 &1058400953
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058400940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8aeabbeb3677e8c459ad596a484f7676, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldCameraChunkViewDriver
+  targetCamera: {fileID: 519420031}
+  worldHost: {fileID: 1058400943}
   rendererSource: {fileID: 1058400942}
-  leftKey: 276
-  rightKey: 275
-  upKey: 273
-  downKey: 274
-  fastModifier: 304
-  stepChunks: 1
-  fastStepChunks: 4
-  pruneViewsOutsideWindow: 0
+  marginChunks: 1
+  alwaysUpdate: 1
 --- !u!1 &1106162213
 GameObject:
   m_ObjectHideFlags: 0
