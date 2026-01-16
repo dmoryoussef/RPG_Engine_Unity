@@ -31,7 +31,7 @@ namespace WorldGrid.Unity.Debug
                 return;
             }
 
-            UnityEngine.Debug.Log(_runtime.ToString(tileIdToInspect));
+            UnityEngine.Debug.Log(_runtime.ToDebugString(tileIdToInspect));
         }
     }
 }

@@ -107,7 +107,7 @@ namespace WorldGrid.Unity.Debug
             tileId = hit.TileId;
 
             if (_tileLibrary != null)
-                tileInfo = _tileLibrary.ToString(tileId);
+                tileInfo = _tileLibrary.ToDebugString(tileId);
             else
                 tileInfo = string.Empty;
         }

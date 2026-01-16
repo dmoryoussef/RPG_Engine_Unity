@@ -8,6 +8,13 @@ using WorldGrid.Unity;
 
 namespace WorldGrid.Unity.Input
 {
+    /// <summary>
+    /// Single source of truth for pointer -> world -> cell/chunk/local math.
+    /// Produces WorldPointerHit and raises:
+    /// - Hover* events when pointer is valid on the world plane
+    /// - TileHover* events only when hovered cell contains a non-default tile
+    /// - PointerDown/Up/Held/Clicked for mouse buttons (0..2)
+    /// </summary>
     public sealed class WorldPointer2D : MonoBehaviour
     {
         [Header("Refs")]
@@ -23,16 +30,32 @@ namespace WorldGrid.Unity.Input
         [Header("Click")]
         [SerializeField] private float clickMaxSeconds = 0.25f;
 
+        // Plane hover (valid on world plane)
         public event Action<WorldPointerHit> HoverEntered;
         public event Action<WorldPointerHit> HoverExited;
         public event Action<WorldPointerHit, WorldPointerHit> HoverChanged;
 
+        // Tile hover (valid AND non-default tile)
+        public event Action<WorldPointerHit> TileHoverEntered;
+        public event Action<WorldPointerHit> TileHoverExited;
+        public event Action<WorldPointerHit, WorldPointerHit> TileHoverChanged;
+
+        // Buttons
         public event Action<WorldPointerHit, int> PointerDown;
         public event Action<WorldPointerHit, int> PointerUp;
         public event Action<WorldPointerHit, int> PointerHeld;
         public event Action<WorldPointerHit, int> Clicked;
 
+        /// <summary>
+        /// Last sampled hit (plane-valid hover). Default when invalid.
+        /// </summary>
         public WorldPointerHit CurrentHit { get; private set; }
+
+        /// <summary>
+        /// Last sampled hit that is over an "existing" tile (non-default tileId).
+        /// Default when not hovering an existing tile.
+        /// </summary>
+        public WorldPointerHit CurrentTileHit { get; private set; }
 
         private SparseChunkWorld _world;
         private ButtonState[] _buttons;
@@ -60,6 +83,7 @@ namespace WorldGrid.Unity.Input
             }
 
             CurrentHit = default;
+            CurrentTileHit = default;
         }
 
         private void Update()
@@ -122,6 +146,9 @@ namespace WorldGrid.Unity.Input
 
         private void UpdateHover(WorldPointerHit next)
         {
+            // -----------------------
+            // Plane hover (existing behavior)
+            // -----------------------
             var prev = CurrentHit;
 
             if (prev.Valid && !next.Valid)
@@ -134,6 +161,51 @@ namespace WorldGrid.Unity.Input
                 HoverChanged?.Invoke(prev, next);
 
             CurrentHit = next;
+
+            // -----------------------
+            // Tile hover (non-default tile only)
+            // -----------------------
+            bool prevTileValid = IsExistingTileHit(CurrentTileHit);
+            bool nextTileValid = IsExistingTileHit(next);
+
+            if (prevTileValid && !nextTileValid)
+            {
+                TileHoverExited?.Invoke(CurrentTileHit);
+                CurrentTileHit = default;
+                return;
+            }
+
+            if (!prevTileValid && nextTileValid)
+            {
+                CurrentTileHit = next;
+                TileHoverEntered?.Invoke(CurrentTileHit);
+                return;
+            }
+
+            if (prevTileValid && nextTileValid)
+            {
+                // Only treat as "changed" when cell identity changes (stable + cheap).
+                if (CurrentTileHit.Cell != next.Cell)
+                {
+                    var prevTile = CurrentTileHit;
+                    CurrentTileHit = next;
+                    TileHoverChanged?.Invoke(prevTile, CurrentTileHit);
+                }
+                else
+                {
+                    // Same cell; keep CurrentTileHit up-to-date (tileId may change due to writes).
+                    CurrentTileHit = next;
+                }
+            }
+        }
+
+        private bool IsExistingTileHit(WorldPointerHit hit)
+        {
+            if (!hit.Valid)
+                return false;
+
+            // "Existing tile" definition: non-default tileId.
+            return hit.TileId != _world.DefaultTileId;
         }
 
         private void HandleButtons(WorldPointerHit hit)

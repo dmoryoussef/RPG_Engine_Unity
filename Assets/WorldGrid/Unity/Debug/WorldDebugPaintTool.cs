@@ -204,21 +204,21 @@ namespace WorldGrid.Unity.Debug
             // If no asset, selection is just the id.
             if (tileLibraryAsset == null)
             {
-                resolvedPaintTileInfo = _runtimeLibrary != null ? _runtimeLibrary.ToString(resolvedPaintTileId) : string.Empty;
+                resolvedPaintTileInfo = _runtimeLibrary != null ? _runtimeLibrary.ToDebugString(resolvedPaintTileId) : string.Empty;
                 return;
             }
 
             var entries = tileLibraryAsset.entries;
             if (entries == null || entries.Count == 0)
             {
-                resolvedPaintTileInfo = _runtimeLibrary != null ? _runtimeLibrary.ToString(resolvedPaintTileId) : string.Empty;
+                resolvedPaintTileInfo = _runtimeLibrary != null ? _runtimeLibrary.ToDebugString(resolvedPaintTileId) : string.Empty;
                 return;
             }
 
             if (paintSelectionMode == PaintSelectionMode.TileId)
             {
                 resolvedPaintTileId = paintTileId;
-                resolvedPaintTileInfo = _runtimeLibrary != null ? _runtimeLibrary.ToString(resolvedPaintTileId) : string.Empty;
+                resolvedPaintTileInfo = _runtimeLibrary != null ? _runtimeLibrary.ToDebugString(resolvedPaintTileId) : string.Empty;
                 return;
             }
 
@@ -235,7 +235,7 @@ namespace WorldGrid.Unity.Debug
                         if (string.Equals(e.name, target, StringComparison.OrdinalIgnoreCase))
                         {
                             resolvedPaintTileId = e.tileId;
-                            resolvedPaintTileInfo = _runtimeLibrary != null ? _runtimeLibrary.ToString(resolvedPaintTileId) : string.Empty;
+                            resolvedPaintTileInfo = _runtimeLibrary != null ? _runtimeLibrary.ToDebugString(resolvedPaintTileId) : string.Empty;
                             return;
                         }
                     }
@@ -257,7 +257,7 @@ namespace WorldGrid.Unity.Debug
                             if (string.Equals(e.tags[t], target, StringComparison.OrdinalIgnoreCase))
                             {
                                 resolvedPaintTileId = e.tileId;
-                                resolvedPaintTileInfo = _runtimeLibrary != null ? _runtimeLibrary.ToString(resolvedPaintTileId) : string.Empty;
+                                resolvedPaintTileInfo = _runtimeLibrary != null ? _runtimeLibrary.ToDebugString(resolvedPaintTileId) : string.Empty;
                                 return;
                             }
                         }
@@ -267,7 +267,7 @@ namespace WorldGrid.Unity.Debug
 
             // No match: fall back to id.
             resolvedPaintTileId = paintTileId;
-            resolvedPaintTileInfo = _runtimeLibrary != null ? _runtimeLibrary.ToString(resolvedPaintTileId) : string.Empty;
+            resolvedPaintTileInfo = _runtimeLibrary != null ? _runtimeLibrary.ToDebugString(resolvedPaintTileId) : string.Empty;
         }
     }
 }

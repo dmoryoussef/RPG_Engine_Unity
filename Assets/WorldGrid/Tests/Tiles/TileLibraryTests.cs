@@ -45,10 +45,10 @@ namespace WorldGrid.Tests.Tiles
         public void TileLibrary_ToString_LooksUpOrReportsUnknown()
         {
             var lib = new TileLibrary();
-            Assert.That(lib.ToString(42), Is.EqualTo("<unknown tileId=42>"));
+            Assert.That(lib.ToDebugString(42), Is.EqualTo("<unknown tileId=42>"));
 
             lib.Set(new TileDef(42, "Stone", new RectUv(0, 0, 0.5f, 0.5f), new[] { "solid" }));
-            var s = lib.ToString(42);
+            var s = lib.ToDebugString(42);
 
             Assert.That(s, Does.Contain("Stone"));
             Assert.That(s, Does.Contain("id=42"));

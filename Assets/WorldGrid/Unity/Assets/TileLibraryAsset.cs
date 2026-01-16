@@ -16,8 +16,19 @@ namespace WorldGrid.Unity.Assets
         [Tooltip("The atlas/spritesheet texture (PNG).")]
         public Texture2D atlasTexture;
 
-        [Tooltip("Optional: material that uses the atlasTexture (Sprint 1.3 renderer will use this).")]
+        [Tooltip("Optional: material that uses the atlasTexture. If null, it can be auto-created in editor.")]
         public Material atlasMaterial;
+
+        [Header("Atlas Material Auto-Create (Editor)")]
+        [Tooltip("If true, the asset will auto-create/update atlasMaterial in the Editor when possible.")]
+        public bool autoCreateAtlasMaterial = true;
+
+        [Tooltip("Material asset name suffix (created next to this TileLibraryAsset).")]
+        public string autoMaterialSuffix = "_WorldGrid_Mat";
+
+        [Tooltip("Preferred shader name for the auto-created material. " +
+                 "Examples: 'Universal Render Pipeline/Unlit', 'Sprites/Default', 'Unlit/Transparent'.")]
+        public string autoMaterialShaderName = "Universal Render Pipeline/Unlit";
 
         [Header("Atlas Layout")]
         [Tooltip("Tile size in pixels (e.g., 16x16, 32x32).")]
@@ -30,7 +41,7 @@ namespace WorldGrid.Unity.Assets
                  "If false, (0,0) is BOTTOM-LEFT (matches UV space).")]
         public bool originTopLeft = true;
 
-        [Header("Auto-Populate (Option A)")]
+        [Header("Auto-Populate")]
         [Tooltip("If true, auto-populate will reserve tileId=0 for 'empty/default' and start real tiles at 1.")]
         public bool reserveZeroForEmpty = true;
 
@@ -58,6 +69,11 @@ namespace WorldGrid.Unity.Assets
             [Tooltip("Optional tags for debugging/querying (string-based for now).")]
             public List<string> tags = new();
 
+            [Header("Properties (Optional)")]
+            [Tooltip("Optional modular semantics for this tile type (e.g., MovementProperty).")]
+            [SerializeReference]
+            public List<TileProperty> properties = new();
+
             [Header("Advanced")]
             [Tooltip("If enabled, uvMin/uvMax are used directly instead of computing from tileCoord/tileSpan.")]
             public bool overrideUv = false;
@@ -76,6 +92,13 @@ namespace WorldGrid.Unity.Assets
         {
             ValidateOrThrow();
 
+#if UNITY_EDITOR
+            if (autoCreateAtlasMaterial)
+            {
+                EnsureAtlasMaterialExistsOrUpdated();
+            }
+#endif
+
             var lib = new TileLibrary();
             int atlasW = atlasTexture.width;
             int atlasH = atlasTexture.height;
@@ -85,7 +108,6 @@ namespace WorldGrid.Unity.Assets
                 if (e == null) continue;
 
                 // Name is optional for auto-populate workflows, but TileDef requires a non-null string.
-                // Use a stable fallback name if empty.
                 string entryName = string.IsNullOrWhiteSpace(e.name) ? $"tile_{e.tileId}" : e.name;
 
                 RectUv uv;
@@ -103,9 +125,17 @@ namespace WorldGrid.Unity.Assets
                     );
                 }
 
-                lib.Set(new TileDef(e.tileId, entryName, uv, e.tags));
+                // IMPORTANT: properties now flow from Entry -> runtime TileDef
+                lib.Set(new TileDef(
+                    e.tileId,
+                    entryName,
+                    uv,
+                    e.tags,
+                    e.properties
+                ));
             }
 
+            lib.FinalizeBuild();
             return lib;
         }
 
@@ -134,7 +164,6 @@ namespace WorldGrid.Unity.Assets
             int tilesX = atlasWidthPx / stepX;
             int tilesY = atlasHeightPx / stepY;
 
-            // Convert authoring coord to bottom-left origin for UV math.
             int tx = tileCoord.x;
             int ty = tileCoord.y;
 
@@ -171,19 +200,79 @@ namespace WorldGrid.Unity.Assets
 
             if (stepX <= 0 || stepY <= 0)
                 throw new InvalidOperationException($"{name}: invalid atlas step size.");
-
-            // Optional warnings (not fatal) could be added via editor context menu.
         }
 
         private int GetAutoPopulateStartId()
         {
             if (reserveZeroForEmpty)
-                return 1; // Option A: 0 reserved for empty/default
-
+                return 1;
             return autoIdStart;
         }
 
 #if UNITY_EDITOR
+        private void OnValidate()
+        {
+            if (!autoCreateAtlasMaterial) return;
+
+            // Avoid spamming creation when asset is incomplete.
+            if (atlasTexture == null) return;
+
+            EnsureAtlasMaterialExistsOrUpdated();
+        }
+
+        private void EnsureAtlasMaterialExistsOrUpdated()
+        {
+            // If atlasMaterial exists, ensure it points at the atlas texture.
+            if (atlasMaterial != null)
+            {
+                if (atlasMaterial.mainTexture != atlasTexture)
+                {
+                    atlasMaterial.mainTexture = atlasTexture;
+                    EditorUtility.SetDirty(atlasMaterial);
+                }
+                return;
+            }
+
+            // Create a new material asset next to this TileLibraryAsset.
+            string assetPath = AssetDatabase.GetAssetPath(this);
+            if (string.IsNullOrEmpty(assetPath))
+                return;
+
+            string folder = System.IO.Path.GetDirectoryName(assetPath);
+            string atlasName = atlasTexture != null ? atlasTexture.name : "Atlas";
+            string assetName = name;
+            string matName = $"{atlasName}__{assetName}{autoMaterialSuffix}.mat";
+
+            string matPath = AssetDatabase.GenerateUniqueAssetPath(System.IO.Path.Combine(folder, matName));
+
+            Shader shader = Shader.Find(autoMaterialShaderName);
+            if (shader == null)
+            {
+                // Fallbacks for different pipelines.
+                shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Transparent") ?? Shader.Find("Unlit/Texture");
+            }
+
+            if (shader == null)
+            {
+                UnityEngine.Debug.LogWarning($"{name}: Could not find a shader to create atlas material. Please assign atlasMaterial manually.", this);
+                return;
+            }
+
+            var mat = new Material(shader)
+            {
+                name = System.IO.Path.GetFileNameWithoutExtension(matPath)
+            };
+            mat.mainTexture = atlasTexture;
+
+            AssetDatabase.CreateAsset(mat, matPath);
+            AssetDatabase.SaveAssets();
+
+            atlasMaterial = mat;
+            EditorUtility.SetDirty(this);
+
+            UnityEngine.Debug.Log($"{name}: Auto-created atlas material at {matPath}", this);
+        }
+
         [ContextMenu("Validate (Log)")]
         private void Validate_Log()
         {
@@ -251,10 +340,11 @@ namespace WorldGrid.Unity.Assets
                     var e = new Entry
                     {
                         tileId = id,
-                        name = string.Empty, // user can fill later; runtime falls back to "tile_<id>"
+                        name = string.Empty,
                         tileCoord = new Vector2Int(x, y),
                         tileSpan = Vector2Int.one,
                         tags = new List<string>(),
+                        properties = new List<TileProperty>(),
                         overrideUv = false,
                         uvMin = Vector2.zero,
                         uvMax = Vector2.zero
@@ -286,7 +376,7 @@ namespace WorldGrid.Unity.Assets
             foreach (var e in entries)
             {
                 if (e == null) continue;
-                if (e.overrideUv) continue; // don’t touch manual overrides
+                if (e.overrideUv) continue;
 
                 RectUv uv;
                 try

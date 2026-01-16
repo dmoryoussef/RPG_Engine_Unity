@@ -1,3 +1,4 @@
+using Unity.Burst.CompilerServices;
 using UnityEngine;
 using WorldGrid.Unity.Input;
 
@@ -41,8 +42,9 @@ public sealed class InteractionAudioRouter : MonoBehaviour
     {
         if (pointer == null) return;
 
-        pointer.HoverEntered += OnHoverEntered;
-        pointer.HoverExited += OnHoverExited;
+        pointer.TileHoverChanged += OnTileHoverChanged;
+        pointer.TileHoverEntered += OnHoverEntered;
+        pointer.TileHoverExited += OnHoverExited;
         pointer.Clicked += OnClicked;
     }
 
@@ -50,9 +52,21 @@ public sealed class InteractionAudioRouter : MonoBehaviour
     {
         if (pointer == null) return;
 
-        pointer.HoverEntered -= OnHoverEntered;
-        pointer.HoverExited -= OnHoverExited;
+        pointer.TileHoverChanged -= OnTileHoverChanged;
+        pointer.TileHoverEntered -= OnHoverEntered;
+        pointer.TileHoverExited -= OnHoverExited;
         pointer.Clicked -= OnClicked;
+    }
+
+    private void OnTileHoverChanged(WorldPointerHit prev, WorldPointerHit cur)
+    {
+        if (playHoverOnlyWhenValid && !cur.Valid)
+            return;
+
+        if (!CanPlayHover())
+            return;
+
+        Play(hoverEnter, hoverEnterVolume);
     }
 
     private void OnHoverEntered(WorldPointerHit hit)

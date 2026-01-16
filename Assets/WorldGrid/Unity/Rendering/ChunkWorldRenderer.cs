@@ -319,6 +319,9 @@ namespace WorldGrid.Unity.Rendering
                     var tilesMr = tilesGo.AddComponent<MeshRenderer>();
                     tilesMr.sharedMaterial = tileLibraryAsset.atlasMaterial;
 
+                    tilesMr.sortingLayerName = "Tiles";
+                    tilesMr.sortingOrder = 0;
+
                     var tilesMesh = new Mesh { name = $"ChunkTiles_{cc.X}_{cc.Y}" };
                     tilesMf.sharedMesh = tilesMesh;
 
