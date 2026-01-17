@@ -36,6 +36,25 @@ namespace WorldGrid.Unity.UI
             Rebuild();
         }
 
+        private void OnEnable()
+        {
+            if (brushState != null)
+                brushState.OnSelectionChanged += HandleSelectionChanged;
+        }
+
+        private void OnDisable()
+        {
+            if (brushState != null)
+                brushState.OnSelectionChanged -= HandleSelectionChanged;
+        }
+
+        private void HandleSelectionChanged(int selectedTileId)
+        {
+            foreach (var btn in _buttons)
+                btn.SetSelected(btn.TileId == selectedTileId);
+        }
+
+
         public void Rebuild()
         {
             ClearButtons();
@@ -89,11 +108,13 @@ namespace WorldGrid.Unity.UI
 
         private void OnTileClicked(int tileId)
         {
-            brushState.selectedTileId = tileId;
-
-            foreach (var btn in _buttons)
-                btn.SetSelected(btn.TileId == tileId);
+            // Toggle selection
+            if (brushState.selectedTileId == tileId)
+                brushState.selectedTileId = -1;
+            else
+                brushState.selectedTileId = tileId;
         }
+
 
         private void ClearButtons()
         {

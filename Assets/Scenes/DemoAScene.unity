@@ -1995,6 +1995,7 @@ MonoBehaviour:
   enableStamping: 1
   minWriteIntervalSeconds: 0.02
   writeOnCellChange: 1
+  noSelectionTileId: -1
 --- !u!1 &1106162213
 GameObject:
   m_ObjectHideFlags: 0

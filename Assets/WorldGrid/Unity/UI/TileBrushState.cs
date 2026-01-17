@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 
 namespace WorldGrid.Unity.UI
 {
@@ -7,13 +8,28 @@ namespace WorldGrid.Unity.UI
         fileName = "TileBrushState")]
     public sealed class TileBrushState : ScriptableObject
     {
-        [Tooltip("TileId to paint when LMB is held.")]
-        public int selectedTileId = 1;
+        [SerializeField]
+        private int _selectedTileId = -1;
 
-        [Tooltip("TileId to paint when RMB is held (erase). Usually 0.")]
+        public int selectedTileId
+        {
+            get => _selectedTileId;
+            set
+            {
+                if (_selectedTileId == value)
+                    return;
+
+                _selectedTileId = value;
+                OnSelectionChanged?.Invoke(_selectedTileId);
+            }
+        }
+
         public int eraseTileId = 0;
-
-        [Tooltip("0 = single cell. 1 = 3x3. 2 = 5x5, etc.")]
         public int brushRadius = 0;
+
+        /// <summary>
+        /// Fired whenever selectedTileId changes (UI, ESC, tools, etc.)
+        /// </summary>
+        public event Action<int> OnSelectionChanged;
     }
 }

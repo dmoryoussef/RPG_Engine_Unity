@@ -29,6 +29,10 @@ namespace WorldGrid.Unity.Tilemap
         [Tooltip("If true, always write immediately when the hovered cell changes.")]
         [SerializeField] private bool writeOnCellChange = true;
 
+        [Header("Selection")]
+        [Tooltip("TileIds < 0 mean 'no brush selected'.")]
+        [SerializeField] private int noSelectionTileId = -1;
+
         private float _nextAllowedWriteTime;
         private bool _hasLastCell;
         private CellCoord _lastCell;
@@ -48,6 +52,14 @@ namespace WorldGrid.Unity.Tilemap
             if (!enabled || !enableStamping)
                 return;
 
+            // ESC cancels stamping selection (no brush).
+            if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
+            {
+                brushState.selectedTileId = noSelectionTileId;
+                _hasLastCell = false;
+                return;
+            }
+
             // If clicking UI (palette), do not stamp into the world.
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
                 return;
@@ -63,6 +75,13 @@ namespace WorldGrid.Unity.Tilemap
             bool eraseHeld = UnityEngine.Input.GetMouseButton(1);
 
             if (!paintHeld && !eraseHeld)
+            {
+                _hasLastCell = false;
+                return;
+            }
+
+            // If painting but no brush is selected, do nothing.
+            if (paintHeld && brushState.selectedTileId < 0)
             {
                 _hasLastCell = false;
                 return;
