@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using WorldGrid.Runtime.Chunks;
@@ -13,20 +14,19 @@ namespace WorldGrid.Unity.Rendering
     {
         [Header("Refs")]
         [SerializeField] private WorldHost worldHost;
+
+        [Tooltip("Legacy fallback tile library asset (used if no TileLibrarySource is configured).")]
         [SerializeField] private TileLibraryAsset tileLibraryAsset;
 
-        [Header("Default / Empty Background (Sprite)")]
-        [Tooltip("Optional sprite used to visualize default/empty space. If null, no background is drawn.")]
-        [SerializeField] private Sprite defaultBackgroundSprite;
+        [Header("Tile Library Source (Optional)")]
+        [Tooltip("Optional: MonoBehaviour implementing ITileLibrarySource (eg TileLibraryProvider on WorldHost).")]
+        [SerializeField] private MonoBehaviour tileSourceBehaviour;
 
-        [Tooltip("Optional shader used for the background sprite material. If null, uses Shader.Find(\"Unlit/Texture\").")]
-        [SerializeField] private Shader defaultBackgroundShader;
+        [Tooltip("Key used with ITileLibrarySource. If empty or missing, falls back to TileLibraryAsset.")]
+        [SerializeField] private TileLibraryKey tileLibraryKey;
 
         [Header("Rendering")]
-        [Tooltip("Draw a single background quad per chunk (uses Default Background Sprite).")]
-        [SerializeField] private bool renderDefaultBackground = true;
-
-        [Tooltip("Chunks rendered in X and Y (width/height).")]
+        [Tooltip("Chunks rendered in X and Y (width / height).")]
         [SerializeField] private Vector2Int viewChunksSize = new Vector2Int(4, 4);
 
         [Tooltip("Chunk coordinate for the bottom-left of the view window.")]
@@ -45,18 +45,23 @@ namespace WorldGrid.Unity.Rendering
         private static readonly int ColorPropId = Shader.PropertyToID("_Color");
 
         private SparseChunkWorld _world;
-        private TileLibrary _tileLibrary;
 
-        private Material _defaultBackgroundRuntimeMaterial;
+        // Resolved tile resources
+        private TileLibrary _tileLibrary;
+        private Material _atlasMaterial;
+
+        // Runtime overlay material
         private Material _debugOverlayMaterial;
 
-        private readonly Dictionary<ChunkCoord, ChunkView> _views = new();
-
+        // Mesh build scratch data
         private readonly MeshData _tilesMeshData = new();
-        private readonly MeshData _bgMeshData = new();
 
+        // Overlay state cache
         private bool _lastShowDebugOverlay;
         private float _lastDebugOverlayAlpha;
+
+        // View storage
+        private readonly Dictionary<ChunkCoord, ChunkView> _views = new();
 
         public ChunkCoord ViewChunkMin => new ChunkCoord(viewChunkMin.x, viewChunkMin.y);
         public Vector2Int ViewChunksSize => viewChunksSize;
@@ -72,13 +77,6 @@ namespace WorldGrid.Unity.Rendering
                 enabled = false;
                 return;
             }
-
-            if (tileLibraryAsset == null)
-            {
-                UnityEngine.Debug.LogError("ChunkWorldRenderer: tileLibraryAsset not assigned.", this);
-                enabled = false;
-                return;
-            }
         }
 
         private void Start()
@@ -91,40 +89,26 @@ namespace WorldGrid.Unity.Rendering
                 return;
             }
 
-            if (tileLibraryAsset.atlasMaterial == null)
+            if (!ResolveTileResources(out _tileLibrary, out _atlasMaterial, out var error))
             {
-                UnityEngine.Debug.LogError("ChunkWorldRenderer: tileLibraryAsset.atlasMaterial is not assigned.", this);
+                UnityEngine.Debug.LogError(error, this);
                 enabled = false;
                 return;
             }
 
-            _tileLibrary = tileLibraryAsset.BuildRuntime();
-
-            if (renderDefaultBackground && defaultBackgroundSprite != null)
-                _defaultBackgroundRuntimeMaterial = CreateRuntimeSpriteMaterial(defaultBackgroundSprite);
-
-            // IMPORTANT: Use a blending-capable shader so alpha actually blends.
             _debugOverlayMaterial = CreateRuntimeOverlayMaterial();
 
             EnsureViewChunkGameObjectsExist();
             ForceRebuildAll();
 
-            // Cache settings so toggles update immediately in play mode.
             _lastShowDebugOverlay = showDebugOverlay;
             _lastDebugOverlayAlpha = debugOverlayAlpha;
 
-            // Ensure overlays reflect current toggles/colors immediately.
             RefreshAllOverlays();
         }
 
         private void OnDestroy()
         {
-            if (_defaultBackgroundRuntimeMaterial != null)
-            {
-                Destroy(_defaultBackgroundRuntimeMaterial);
-                _defaultBackgroundRuntimeMaterial = null;
-            }
-
             if (_debugOverlayMaterial != null)
             {
                 Destroy(_debugOverlayMaterial);
@@ -137,9 +121,8 @@ namespace WorldGrid.Unity.Rendering
             if (_world == null)
                 return;
 
-            // If overlay settings changed, refresh overlays immediately.
-            if (_lastShowDebugOverlay != showDebugOverlay
-                || Mathf.Abs(_lastDebugOverlayAlpha - debugOverlayAlpha) > 0.0001f)
+            if (_lastShowDebugOverlay != showDebugOverlay ||
+                Mathf.Abs(_lastDebugOverlayAlpha - debugOverlayAlpha) > 0.0001f)
             {
                 RefreshAllOverlays();
                 _lastShowDebugOverlay = showDebugOverlay;
@@ -157,26 +140,15 @@ namespace WorldGrid.Unity.Rendering
             ClearAllDirtyRenderFlags();
         }
 
-        /// <summary>
-        /// Set the bottom-left chunk coordinate of the renderer view window.
-        /// IMPORTANT: this must create missing view objects for newly-visible chunks,
-        /// otherwise nudging only moves debug outlines and nothing is rendered.
-        /// </summary>
         public void SetViewChunkMin(ChunkCoord min, bool pruneViewsOutsideWindow = false)
         {
             viewChunkMin = new ChunkCoordSerializable(min.X, min.Y);
 
-            if (_world == null)
-                return;
-
-            // Create views for newly-visible chunk coords.
             EnsureViewChunkGameObjectsExist();
 
-            // Optional: destroy views outside the current window to prevent buildup.
             if (pruneViewsOutsideWindow)
                 PruneViewsOutsideCurrentWindow();
 
-            // Rebuild all chunk meshes and overlays for the current views.
             ForceRebuildAll();
             RefreshAllOverlays();
         }
@@ -193,33 +165,122 @@ namespace WorldGrid.Unity.Rendering
             SetViewChunkMin(new ChunkCoord(cur.X + dx, cur.Y + dy), pruneViewsOutsideWindow);
         }
 
+        private bool ResolveTileResources(out TileLibrary library, out Material material, out string error)
+        {
+            var source = tileSourceBehaviour as ITileLibrarySource;
+
+            if (source != null && !tileLibraryKey.IsEmpty && source.Has(tileLibraryKey))
+            {
+                var view = source.Get(tileLibraryKey);
+                library = view?.Library;
+                material = view?.AtlasMaterial;
+
+                if (library != null && material != null)
+                {
+                    error = null;
+                    return true;
+                }
+
+                error = $"ChunkWorldRenderer: TileLibrarySource returned invalid view for key '{tileLibraryKey}'.";
+                return false;
+            }
+
+            if (tileLibraryAsset == null)
+            {
+                library = null;
+                material = null;
+                error = "ChunkWorldRenderer: No TileLibrarySource configured and tileLibraryAsset is null.";
+                return false;
+            }
+
+            if (tileLibraryAsset.atlasMaterial == null)
+            {
+                library = null;
+                material = null;
+                error = "ChunkWorldRenderer: tileLibraryAsset.atlasMaterial is not assigned.";
+                return false;
+            }
+
+            library = tileLibraryAsset.BuildRuntime();
+            material = tileLibraryAsset.atlasMaterial;
+            error = null;
+            return true;
+        }
+
+        private void EnsureViewChunkGameObjectsExist()
+        {
+            int w = Mathf.Max(1, viewChunksSize.x);
+            int h = Mathf.Max(1, viewChunksSize.y);
+
+            for (int dy = 0; dy < h; dy++)
+                for (int dx = 0; dx < w; dx++)
+                {
+                    var cc = new ChunkCoord(viewChunkMin.x + dx, viewChunkMin.y + dy);
+                    if (_views.ContainsKey(cc))
+                        continue;
+
+                    var root = new GameObject($"Chunk_{cc.X}_{cc.Y}");
+                    root.transform.SetParent(WorldRoot, false);
+                    root.transform.localPosition = new Vector3(
+                        cc.X * _world.ChunkSize * CellSize,
+                        cc.Y * _world.ChunkSize * CellSize,
+                        0f
+                    );
+
+                    var tilesGo = new GameObject("Tiles");
+                    tilesGo.transform.SetParent(root.transform, false);
+                    tilesGo.transform.localPosition = new Vector3(0f, 0f, -0.01f);
+
+                    var mf = tilesGo.AddComponent<MeshFilter>();
+                    var mr = tilesGo.AddComponent<MeshRenderer>();
+                    mr.sharedMaterial = _atlasMaterial;
+                    mr.sortingLayerName = "Tiles";
+                    mr.sortingOrder = 0;
+
+                    var tilesMesh = new Mesh { name = $"ChunkTiles_{cc.X}_{cc.Y}" };
+                    mf.sharedMesh = tilesMesh;
+
+                    MeshRenderer overlayMr = null;
+                    if (_debugOverlayMaterial != null)
+                    {
+                        var overlayGo = new GameObject("DebugOverlay");
+                        overlayGo.transform.SetParent(root.transform, false);
+                        overlayGo.transform.localPosition = new Vector3(0f, 0f, -0.02f);
+
+                        var omf = overlayGo.AddComponent<MeshFilter>();
+                        overlayMr = overlayGo.AddComponent<MeshRenderer>();
+                        overlayMr.sharedMaterial = _debugOverlayMaterial;
+
+                        var overlayMesh = new Mesh { name = $"ChunkOverlay_{cc.X}_{cc.Y}" };
+                        omf.sharedMesh = overlayMesh;
+
+                        BuildSolidQuad(overlayMesh, _world.ChunkSize, CellSize);
+                    }
+
+                    _views.Add(cc, new ChunkView(root, tilesMesh, overlayMr));
+                }
+        }
+
         private void PruneViewsOutsideCurrentWindow()
         {
-            ChunkCoord min = ViewChunkMin;
-
             int w = Mathf.Max(1, viewChunksSize.x);
             int h = Mathf.Max(1, viewChunksSize.y);
 
             bool InWindow(ChunkCoord cc) =>
-                cc.X >= min.X && cc.X < min.X + w &&
-                cc.Y >= min.Y && cc.Y < min.Y + h;
+                cc.X >= viewChunkMin.x && cc.X < viewChunkMin.x + w &&
+                cc.Y >= viewChunkMin.y && cc.Y < viewChunkMin.y + h;
 
             var keys = new List<ChunkCoord>(_views.Keys);
-            for (int i = 0; i < keys.Count; i++)
+            foreach (var cc in keys)
             {
-                var cc = keys[i];
                 if (InWindow(cc))
                     continue;
 
                 if (_views.TryGetValue(cc, out var view))
                 {
-                    if (view.BackgroundMesh != null)
-                        Destroy(view.BackgroundMesh);
-
                     if (view.TilesMesh != null)
                         Destroy(view.TilesMesh);
 
-                    // Overlay mesh is owned by the MeshFilter on the Overlay GO, not stored directly.
                     if (view.OverlayRenderer != null)
                     {
                         var mf = view.OverlayRenderer.GetComponent<MeshFilter>();
@@ -235,128 +296,10 @@ namespace WorldGrid.Unity.Rendering
             }
         }
 
-        private void RefreshAllOverlays()
-        {
-            foreach (var kv in _views)
-                RebuildChunkOverlay(kv.Key);
-        }
-
-        private void ClearAllDirtyRenderFlags()
-        {
-            var tmp = ListPool<ChunkCoord>.Get();
-            tmp.AddRange(_world.DirtyRenderChunks);
-
-            for (int i = 0; i < tmp.Count; i++)
-                _world.ClearDirtyRender(tmp[i]);
-
-            ListPool<ChunkCoord>.Release(tmp);
-        }
-
-        private void EnsureViewChunkGameObjectsExist()
-        {
-            var min = new ChunkCoord(viewChunkMin.x, viewChunkMin.y);
-
-            int w = Mathf.Max(1, viewChunksSize.x);
-            int h = Mathf.Max(1, viewChunksSize.y);
-
-            bool canDrawBackground = renderDefaultBackground
-                                     && defaultBackgroundSprite != null
-                                     && _defaultBackgroundRuntimeMaterial != null;
-
-            // IMPORTANT: Always create overlays if we have a material,
-            // so toggling showDebugOverlay at runtime works both directions.
-            bool canCreateOverlay = _debugOverlayMaterial != null;
-
-            float cs = CellSize;
-
-            for (int dy = 0; dy < h; dy++)
-                for (int dx = 0; dx < w; dx++)
-                {
-                    var cc = new ChunkCoord(min.X + dx, min.Y + dy);
-                    if (_views.ContainsKey(cc))
-                        continue;
-
-                    var chunkRoot = new GameObject($"Chunk_{cc.X}_{cc.Y}");
-                    chunkRoot.transform.SetParent(WorldRoot, worldPositionStays: false);
-
-                    chunkRoot.transform.localPosition = new Vector3(
-                        cc.X * _world.ChunkSize * cs,
-                        cc.Y * _world.ChunkSize * cs,
-                        0f
-                    );
-
-                    chunkRoot.transform.localRotation = Quaternion.identity;
-                    chunkRoot.transform.localScale = Vector3.one;
-
-                    // Background child
-                    Mesh bgMesh = null;
-                    if (canDrawBackground)
-                    {
-                        var bgGo = new GameObject("DefaultBG");
-                        bgGo.transform.SetParent(chunkRoot.transform, worldPositionStays: false);
-                        bgGo.transform.localPosition = Vector3.zero;
-                        bgGo.transform.localRotation = Quaternion.identity;
-                        bgGo.transform.localScale = Vector3.one;
-
-                        var bgMf = bgGo.AddComponent<MeshFilter>();
-                        var bgMr = bgGo.AddComponent<MeshRenderer>();
-                        bgMr.sharedMaterial = _defaultBackgroundRuntimeMaterial;
-
-                        bgMesh = new Mesh { name = $"ChunkBG_{cc.X}_{cc.Y}" };
-                        bgMf.sharedMesh = bgMesh;
-
-                        BuildBackgroundQuadFromSprite(bgMesh, _world.ChunkSize, cs, defaultBackgroundSprite);
-                    }
-
-                    // Foreground child (atlas tiles)
-                    var tilesGo = new GameObject("Tiles");
-                    tilesGo.transform.SetParent(chunkRoot.transform, worldPositionStays: false);
-                    tilesGo.transform.localPosition = new Vector3(0f, 0f, -0.01f);
-                    tilesGo.transform.localRotation = Quaternion.identity;
-                    tilesGo.transform.localScale = Vector3.one;
-
-                    var tilesMf = tilesGo.AddComponent<MeshFilter>();
-                    var tilesMr = tilesGo.AddComponent<MeshRenderer>();
-                    tilesMr.sharedMaterial = tileLibraryAsset.atlasMaterial;
-
-                    tilesMr.sortingLayerName = "Tiles";
-                    tilesMr.sortingOrder = 0;
-
-                    var tilesMesh = new Mesh { name = $"ChunkTiles_{cc.X}_{cc.Y}" };
-                    tilesMf.sharedMesh = tilesMesh;
-
-                    // Debug overlay child (tint quad)
-                    MeshRenderer overlayMr = null;
-                    if (canCreateOverlay)
-                    {
-                        var overlayGo = new GameObject("DebugOverlay");
-                        overlayGo.transform.SetParent(chunkRoot.transform, worldPositionStays: false);
-
-                        // Place behind tiles (more negative is farther back in 2D camera looking down -Z),
-                        // but note transparency queue can still visually overlay. Alpha blending now works.
-                        overlayGo.transform.localPosition = new Vector3(0f, 0f, -0.02f);
-
-                        overlayGo.transform.localRotation = Quaternion.identity;
-                        overlayGo.transform.localScale = Vector3.one;
-
-                        var overlayMf = overlayGo.AddComponent<MeshFilter>();
-                        overlayMr = overlayGo.AddComponent<MeshRenderer>();
-                        overlayMr.sharedMaterial = _debugOverlayMaterial;
-
-                        var overlayMesh = new Mesh { name = $"ChunkOverlay_{cc.X}_{cc.Y}" };
-                        overlayMf.sharedMesh = overlayMesh;
-
-                        BuildSolidQuad(overlayMesh, _world.ChunkSize, cs);
-                    }
-
-                    _views.Add(cc, new ChunkView(chunkRoot, bgMesh, tilesMesh, overlayMr));
-                }
-        }
-
         private void ForceRebuildAll()
         {
-            foreach (var kv in _views)
-                RebuildChunkTiles(kv.Key);
+            foreach (var cc in _views.Keys)
+                RebuildChunkTiles(cc);
         }
 
         private void RebuildChunkTiles(ChunkCoord cc)
@@ -380,6 +323,12 @@ namespace WorldGrid.Unity.Rendering
             RebuildChunkOverlay(cc);
         }
 
+        private void RefreshAllOverlays()
+        {
+            foreach (var cc in _views.Keys)
+                RebuildChunkOverlay(cc);
+        }
+
         private void RebuildChunkOverlay(ChunkCoord cc)
         {
             if (!_views.TryGetValue(cc, out var view))
@@ -388,9 +337,10 @@ namespace WorldGrid.Unity.Rendering
             if (view.OverlayRenderer == null)
                 return;
 
-            view.OverlayRenderer.enabled = showDebugOverlay;
+            bool show = showDebugOverlay;
+            view.OverlayRenderer.enabled = show;
 
-            if (!showDebugOverlay)
+            if (!show)
                 return;
 
             bool hasChunk = _world.TryGetChunk(cc, out var chunk);
@@ -411,38 +361,21 @@ namespace WorldGrid.Unity.Rendering
             view.OverlayRenderer.SetPropertyBlock(mpb);
         }
 
-        private Material CreateRuntimeSpriteMaterial(Sprite sprite)
+        private bool IsInView(ChunkCoord cc)
         {
-            Shader shader = defaultBackgroundShader != null
-                ? defaultBackgroundShader
-                : Shader.Find("Unlit/Texture");
+            int w = Mathf.Max(1, viewChunksSize.x);
+            int h = Mathf.Max(1, viewChunksSize.y);
 
-            if (shader == null)
-            {
-                UnityEngine.Debug.LogError("ChunkWorldRenderer: Could not find shader for default background (Unlit/Texture).", this);
-                return null;
-            }
-
-            var mat = new Material(shader)
-            {
-                name = "WorldGrid_DefaultBackground_RuntimeMat"
-            };
-
-            mat.mainTexture = sprite.texture;
-
-            return mat;
+            return cc.X >= viewChunkMin.x && cc.Y >= viewChunkMin.y &&
+                   cc.X < viewChunkMin.x + w && cc.Y < viewChunkMin.y + h;
         }
 
         private static Material CreateRuntimeOverlayMaterial()
         {
-            // Sprites/Default blends alpha correctly in Built-in and most pipelines.
-            Shader shader = Shader.Find("Sprites/Default");
-            if (shader == null)
-                shader = Shader.Find("Unlit/Transparent");
-
+            Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Transparent");
             if (shader == null)
             {
-                UnityEngine.Debug.LogError("ChunkWorldRenderer: Could not find an alpha-blending shader for DebugOverlay (Sprites/Default).");
+                UnityEngine.Debug.LogError("ChunkWorldRenderer: No suitable shader found for DebugOverlay.");
                 return null;
             }
 
@@ -478,78 +411,32 @@ namespace WorldGrid.Unity.Rendering
             mesh.RecalculateNormals();
         }
 
-        private static void BuildBackgroundQuadFromSprite(Mesh mesh, int chunkSize, float cellSize, Sprite sprite)
+        private void ClearAllDirtyRenderFlags()
         {
-            float w = chunkSize * cellSize;
-            float h = chunkSize * cellSize;
+            var tmp = ListPool<ChunkCoord>.Get();
+            tmp.AddRange(_world.DirtyRenderChunks);
 
-            var verts = new List<Vector3>(4)
-            {
-                new Vector3(0f, 0f, 0f),
-                new Vector3(w, 0f, 0f),
-                new Vector3(w, h, 0f),
-                new Vector3(0f, h, 0f)
-            };
+            foreach (var cc in tmp)
+                _world.ClearDirtyRender(cc);
 
-            Rect tr = sprite.textureRect;
-            Texture tex = sprite.texture;
-
-            float uMin = tr.xMin / tex.width;
-            float vMin = tr.yMin / tex.height;
-            float uMax = tr.xMax / tex.width;
-            float vMax = tr.yMax / tex.height;
-
-            var uvs = new List<Vector2>(4)
-            {
-                new Vector2(uMin, vMin),
-                new Vector2(uMax, vMin),
-                new Vector2(uMax, vMax),
-                new Vector2(uMin, vMax)
-            };
-
-            var tris = new List<int>(6)
-            {
-                0, 2, 1,
-                0, 3, 2
-            };
-
-            mesh.Clear();
-            mesh.SetVertices(verts);
-            mesh.SetUVs(0, uvs);
-            mesh.SetTriangles(tris, 0);
-            mesh.RecalculateBounds();
-            mesh.RecalculateNormals();
-        }
-
-        private bool IsInView(ChunkCoord cc)
-        {
-            var min = new ChunkCoord(viewChunkMin.x, viewChunkMin.y);
-
-            int w = Mathf.Max(1, viewChunksSize.x);
-            int h = Mathf.Max(1, viewChunksSize.y);
-
-            return cc.X >= min.X && cc.Y >= min.Y
-                && cc.X < min.X + w
-                && cc.Y < min.Y + h;
+            ListPool<ChunkCoord>.Release(tmp);
         }
 
         private sealed class ChunkView
         {
             public GameObject Root { get; }
-            public Mesh BackgroundMesh { get; }
             public Mesh TilesMesh { get; }
             public MeshRenderer OverlayRenderer { get; }
 
-            public ChunkView(GameObject root, Mesh backgroundMesh, Mesh tilesMesh, MeshRenderer overlayRenderer)
+            public ChunkView(GameObject root, Mesh tilesMesh, MeshRenderer overlayRenderer)
             {
                 Root = root;
-                BackgroundMesh = backgroundMesh;
                 TilesMesh = tilesMesh;
                 OverlayRenderer = overlayRenderer;
             }
         }
 
-        [System.Serializable]
+        [Serializable]
         private struct ChunkCoordSerializable
         {
             public int x;

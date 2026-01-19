@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
-using WorldGrid.Unity.Assets;
 using WorldGrid.Runtime.Tiles;
+using WorldGrid.Unity;
 
 namespace WorldGrid.Unity.UI
 {
@@ -9,8 +9,12 @@ namespace WorldGrid.Unity.UI
     public sealed class TilePaletteUI : MonoBehaviour
     {
         [Header("Refs")]
-        [SerializeField] private TileLibraryAsset tileLibraryAsset;
+        [SerializeField] private WorldHost worldHost;
         [SerializeField] private TileBrushState brushState;
+
+        [Header("Tile Library Selection")]
+        [Tooltip("Which tile library entry to display (e.g. 'world', 'debug', 'interior').")]
+        [SerializeField] private TileLibraryKey tileLibraryKey;
 
         [Header("UI")]
         [SerializeField] private Transform contentRoot;
@@ -21,21 +25,44 @@ namespace WorldGrid.Unity.UI
 
         private readonly List<TilePaletteTileButton> _buttons = new();
 
+        private ITileLibrarySource _tileSource;
+        private ITileLibraryView _tileView;
+
         private void Awake()
         {
-            if (tileLibraryAsset == null ||
-                brushState == null ||
-                contentRoot == null ||
-                tileButtonPrefab == null)
+            if (brushState == null || contentRoot == null || tileButtonPrefab == null)
             {
-                UnityEngine.Debug.LogError("TilePaletteUI: Missing references.", this);
+                UnityEngine.Debug.LogError("TilePaletteUI: Missing required UI references.", this);
                 enabled = false;
                 return;
             }
 
-            if (tileLibraryAsset.atlasTexture == null)
+            if (worldHost == null)
             {
-                UnityEngine.Debug.LogError("TilePaletteUI: TileLibraryAsset atlasTexture is null.", this);
+                UnityEngine.Debug.LogError("TilePaletteUI: worldHost not assigned.", this);
+                enabled = false;
+                return;
+            }
+
+            _tileSource = FindTileLibrarySource(worldHost);
+            if (_tileSource == null)
+            {
+                UnityEngine.Debug.LogError("TilePaletteUI: No component on WorldHost implements ITileLibrarySource.", this);
+                enabled = false;
+                return;
+            }
+
+            if (tileLibraryKey.IsEmpty || !_tileSource.Has(tileLibraryKey))
+            {
+                UnityEngine.Debug.LogError($"TilePaletteUI: Tile library key '{tileLibraryKey}' not found on provider.", this);
+                enabled = false;
+                return;
+            }
+
+            _tileView = _tileSource.Get(tileLibraryKey);
+            if (_tileView == null || _tileView.Library == null || _tileView.AtlasTexture == null)
+            {
+                UnityEngine.Debug.LogError($"TilePaletteUI: Provider returned invalid view for key '{tileLibraryKey}'.", this);
                 enabled = false;
                 return;
             }
@@ -47,9 +74,6 @@ namespace WorldGrid.Unity.UI
         {
             if (brushState != null)
                 brushState.OnSelectionChanged += HandleSelectionChanged;
-
-            // Make sure visuals match current selection when enabled
-            HandleSelectionChanged(brushState != null ? brushState.selectedTileId : -1);
         }
 
         private void OnDisable()
@@ -60,78 +84,63 @@ namespace WorldGrid.Unity.UI
 
         private void HandleSelectionChanged(int selectedTileId)
         {
-            foreach (var btn in _buttons)
-            {
-                if (btn != null)
-                    btn.SetSelected(btn.TileId == selectedTileId);
-            }
+            for (int i = 0; i < _buttons.Count; i++)
+                _buttons[i].SetSelected(_buttons[i].TileId == selectedTileId);
         }
 
         public void Rebuild()
         {
             ClearButtons();
 
-            var atlas = tileLibraryAsset.atlasTexture;
-            int atlasW = atlas.width;
-            int atlasH = atlas.height;
+            var atlas = _tileView.AtlasTexture;
+            var lib = _tileView.Library;
 
-            var entries = tileLibraryAsset.entries;
-            if (entries == null || entries.Count == 0)
-                return;
-
-            foreach (var e in entries)
+            foreach (var def in lib.EnumerateDefs())
             {
-                if (e == null) continue;
-
-                RectUv uv = e.overrideUv
-                    ? new RectUv(e.uvMin.x, e.uvMin.y, e.uvMax.x, e.uvMax.y)
-                    : TileLibraryAsset.ComputeUvFromTileCoord(
-                        atlasW, atlasH,
-                        tileLibraryAsset.tilePixelSize,
-                        tileLibraryAsset.paddingPixels,
-                        tileLibraryAsset.originTopLeft,
-                        e.tileCoord,
-                        e.tileSpan
-                    );
-
-                string label = showTileIdLabel
-                    ? e.tileId.ToString()
-                    : (string.IsNullOrWhiteSpace(e.name) ? $"tile_{e.tileId}" : e.name);
+                if (def == null) continue;
 
                 var btn = Instantiate(tileButtonPrefab, contentRoot);
                 _buttons.Add(btn);
 
-                // Assumes your TilePaletteTileButton has a Bind method like this:
-                // Bind(int tileId, Texture2D atlas, RectUv uv, string label, System.Action<int> onClicked)
+                string label = showTileIdLabel ? def.TileId.ToString() : def.Name;
+
                 btn.Bind(
-                    tileId: e.tileId,
+                    tileId: def.TileId,
                     atlas: atlas,
-                    uv: uv,
+                    uv: def.Uv,
                     label: label,
                     onClicked: OnTileClicked
                 );
 
-                btn.SetSelected(brushState.selectedTileId == e.tileId);
+                btn.SetSelected(def.TileId == brushState.selectedTileId);
             }
         }
 
         private void OnTileClicked(int tileId)
         {
-            // Preserve your prior behavior: clicking selects; clicking same tile again deselects (optional).
-            if (brushState.selectedTileId == tileId)
-                brushState.selectedTileId = -1;
-            else
-                brushState.selectedTileId = tileId;
+            brushState.selectedTileId = (brushState.selectedTileId == tileId) ? -1 : tileId;
         }
 
         private void ClearButtons()
         {
-            foreach (var b in _buttons)
+            for (int i = 0; i < _buttons.Count; i++)
             {
-                if (b != null)
-                    Destroy(b.gameObject);
+                if (_buttons[i] != null)
+                    Destroy(_buttons[i].gameObject);
             }
             _buttons.Clear();
+        }
+
+        private static ITileLibrarySource FindTileLibrarySource(WorldHost host)
+        {
+            // Unity can't GetComponent<Interface>(), so scan MonoBehaviours.
+            var behaviours = host.GetComponents<MonoBehaviour>();
+            for (int i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] is ITileLibrarySource src)
+                    return src;
+            }
+            return null;
         }
     }
 }

@@ -12,6 +12,7 @@ namespace WorldGrid.Runtime.Tiles
         private readonly Dictionary<int, TileDef> _defs = new();
 
         public int Count => _defs.Count;
+        public IEnumerable<TileDef> EnumerateDefs() => _defs.Values;
 
         public void Clear()
         {
