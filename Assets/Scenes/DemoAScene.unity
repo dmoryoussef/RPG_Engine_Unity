@@ -1499,8 +1499,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 38b9836ade753734083c65864158ba77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.UI.TilePaletteUI
-  tileLibraryAsset: {fileID: 11400000, guid: 0163a0fc49b330343beec8e0071f1a54, type: 2}
+  worldHost: {fileID: 1058400943}
   brushState: {fileID: 11400000, guid: 5a6b91c4236f2d24781d479320ed06be, type: 2}
+  tileLibraryKey:
+    value: TestWorld
   contentRoot: {fileID: 874496142}
   tileButtonPrefab: {fileID: 3354108652672369136, guid: ce5875ab574411b4cb63e4243896c203, type: 3}
   showTileIdLabel: 1
@@ -1680,6 +1682,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1058400944}
   - component: {fileID: 1058400943}
+  - component: {fileID: 1058400957}
   - component: {fileID: 1058400942}
   - component: {fileID: 1058400945}
   - component: {fileID: 1058400947}
@@ -1712,10 +1715,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ChunkMeshRender
   worldHost: {fileID: 1058400943}
-  tileLibraryAsset: {fileID: 11400000, guid: 0163a0fc49b330343beec8e0071f1a54, type: 2}
-  defaultBackgroundSprite: {fileID: 0}
-  defaultBackgroundShader: {fileID: 0}
-  renderDefaultBackground: 1
+  tileLibraryAsset: {fileID: 0}
+  tileSourceBehaviour: {fileID: 1058400957}
+  tileLibraryKey:
+    value: TestWorld
   viewChunksSize: {x: 16, y: 16}
   viewChunkMin:
     x: 0
@@ -1996,6 +1999,23 @@ MonoBehaviour:
   minWriteIntervalSeconds: 0.02
   writeOnCellChange: 1
   noSelectionTileId: -1
+--- !u!114 &1058400957
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058400940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2dca220fe36958847b0ec65851b08ed9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Runtime.Tiles.TileLibraryProvider
+  entries:
+  - key:
+      value: TestWorld
+    asset: {fileID: 11400000, guid: 0163a0fc49b330343beec8e0071f1a54, type: 2}
+    materialTemplateOverride: {fileID: 0}
 --- !u!1 &1106162213
 GameObject:
   m_ObjectHideFlags: 0

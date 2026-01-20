@@ -85,6 +85,12 @@ namespace WorldGrid.Unity.Assets
             public Vector2 uvMax;
         }
 
+        [ContextMenu("Clear Entries")]
+        public void ClearEntries()
+        {
+            entries.Clear();
+        }
+
         /// <summary>
         /// Creates a pure runtime TileLibrary from this asset.
         /// </summary>
@@ -295,7 +301,7 @@ namespace WorldGrid.Unity.Assets
         }
 
         [ContextMenu("Auto-Populate Entries From Atlas Layout")]
-        private void AutoPopulateEntriesFromAtlasLayout()
+        public void AutoPopulateEntriesFromAtlasLayout()
         {
             if (atlasTexture == null)
             {
@@ -404,4 +410,5 @@ namespace WorldGrid.Unity.Assets
         }
 #endif
     }
+
 }

@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: TileLibraryTestAsset
   m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Assets.TileLibraryAsset
   atlasTexture: {fileID: 2800000, guid: 1c9ed9d1200c29d4cbfd2071028c1cd5, type: 3}
-  atlasMaterial: {fileID: 2100000, guid: fcc647c24eef42c4d914c631b714c21c, type: 2}
-  autoCreateAtlasMaterial: 1
+  atlasMaterial: {fileID: 2100000, guid: ef6036773ed011243af44f3aafd70ac9, type: 2}
+  autoCreateAtlasMaterial: 0
   autoMaterialSuffix: _WorldGrid_Mat
   autoMaterialShaderName: Universal Render Pipeline/Unlit
   tilePixelSize: {x: 32, y: 32}
@@ -25,7 +25,7 @@ MonoBehaviour:
   entries:
   - tileId: 1
     name: Grass
-    tileCoord: {x: 0, y: 0}
+    tileCoord: {x: 14, y: 0}
     tileSpan: {x: 1, y: 1}
     tags: []
     properties: []

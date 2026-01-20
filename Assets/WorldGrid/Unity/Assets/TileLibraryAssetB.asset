@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 802972750d57ddb4cb1e13d05f5731cf, type: 3}
-  m_Name: TileLibraryAsset 1
+  m_Name: TileLibraryAssetB
   m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Assets.TileLibraryAsset
   atlasTexture: {fileID: 2800000, guid: f094595c900579d4c85a02612d8fa36c, type: 3}
-  atlasMaterial: {fileID: 2100000, guid: 547eba373f09fda44b5f6a22348d6cac, type: 2}
+  atlasMaterial: {fileID: 0}
   autoCreateAtlasMaterial: 1
   autoMaterialSuffix: _WorldGrid_Mat
   autoMaterialShaderName: Universal Render Pipeline/Unlit
