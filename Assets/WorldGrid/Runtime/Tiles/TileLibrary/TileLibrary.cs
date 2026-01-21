@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace WorldGrid.Runtime.Tiles
 {
@@ -69,6 +70,39 @@ namespace WorldGrid.Runtime.Tiles
             }
 
             uv = default;
+            return false;
+        }
+
+        /// <summary>
+        /// Renderer helper: try get base color for a tileId.
+        /// Defaults to opaque white if tileId is unknown or has no color property.
+        /// </summary>
+        public bool TryGetColor(int tileId, out Color32 color)
+        {
+            if (TryGetProperty<TileColorProperty>(tileId, out var colorProp) && colorProp != null)
+            {
+                color = colorProp.Color;
+                return true;
+            }
+
+            // Unknown tileId or missing property => white.
+            color = new Color32(255, 255, 255, 255);
+            return false;
+        }
+
+        /// <summary>
+        /// Renderer helper: try get per-cell jitter amplitude (0..0.25 recommended).
+        /// Defaults to 0 if tileId is unknown or has no color property.
+        /// </summary>
+        public bool TryGetColorJitter(int tileId, out float jitter)
+        {
+            if (TryGetProperty<TileColorProperty>(tileId, out var colorProp) && colorProp != null)
+            {
+                jitter = colorProp.Jitter;
+                return true;
+            }
+
+            jitter = 0f;
             return false;
         }
 

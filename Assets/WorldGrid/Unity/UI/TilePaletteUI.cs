@@ -28,6 +28,9 @@ namespace WorldGrid.Unity.UI
         private ITileLibrarySource _tileSource;
         private ITileLibraryView _tileView;
 
+        // NEW: fallback texture for no-atlas previews
+        private static Texture2D s_White1x1;
+
         private void Awake()
         {
             if (brushState == null || contentRoot == null || tileButtonPrefab == null)
@@ -60,11 +63,18 @@ namespace WorldGrid.Unity.UI
             }
 
             _tileView = _tileSource.Get(tileLibraryKey);
-            if (_tileView == null || _tileView.Library == null || _tileView.AtlasTexture == null)
+            if (_tileView == null || _tileView.Library == null)
             {
                 UnityEngine.Debug.LogError($"TilePaletteUI: Provider returned invalid view for key '{tileLibraryKey}'.", this);
                 enabled = false;
                 return;
+            }
+
+            if (_tileView.AtlasTexture == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"TilePaletteUI: View for key '{tileLibraryKey}' has no AtlasTexture. " +
+                    "Using fallback swatches (tinted 1x1).", this);
             }
 
             Rebuild();
@@ -92,8 +102,9 @@ namespace WorldGrid.Unity.UI
         {
             ClearButtons();
 
-            var atlas = _tileView.AtlasTexture;
             var lib = _tileView.Library;
+
+            Texture atlas = _tileView.AtlasTexture != null ? _tileView.AtlasTexture : GetWhite1x1();
 
             foreach (var def in lib.EnumerateDefs())
             {
@@ -104,12 +115,24 @@ namespace WorldGrid.Unity.UI
 
                 string label = showTileIdLabel ? def.TileId.ToString() : def.Name;
 
+                // If we have a real atlas, use authored UVs.
+                // If not, use full-rect UV on a 1x1 texture and tint via TileColorProperty.
+                RectUv uv = _tileView.AtlasTexture != null ? def.Uv : new RectUv(0f, 0f, 1f, 1f);
+
+                // Default tint = white (no effect)
+                var tint = new Color32(255, 255, 255, 255);
+                if (lib.TryGetProperty<TileColorProperty>(def.TileId, out var cp) && cp != null)
+                {
+                    tint = cp.Color;
+                }
+
                 btn.Bind(
                     tileId: def.TileId,
                     atlas: atlas,
-                    uv: def.Uv,
+                    uv: uv,
                     label: label,
-                    onClicked: OnTileClicked
+                    onClicked: OnTileClicked,
+                    tint: tint
                 );
 
                 btn.SetSelected(def.TileId == brushState.selectedTileId);
@@ -133,7 +156,6 @@ namespace WorldGrid.Unity.UI
 
         private static ITileLibrarySource FindTileLibrarySource(WorldHost host)
         {
-            // Unity can't GetComponent<Interface>(), so scan MonoBehaviours.
             var behaviours = host.GetComponents<MonoBehaviour>();
             for (int i = 0; i < behaviours.Length; i++)
             {
@@ -141,6 +163,22 @@ namespace WorldGrid.Unity.UI
                     return src;
             }
             return null;
+        }
+
+        private static Texture2D GetWhite1x1()
+        {
+            if (s_White1x1 != null)
+                return s_White1x1;
+
+            s_White1x1 = new Texture2D(1, 1, TextureFormat.RGBA32, mipChain: false, linear: false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                name = "WorldGrid_White1x1"
+            };
+            s_White1x1.SetPixel(0, 0, Color.white);
+            s_White1x1.Apply(false, false);
+            return s_White1x1;
         }
     }
 }

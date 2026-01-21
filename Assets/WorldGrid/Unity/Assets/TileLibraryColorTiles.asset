@@ -1,0 +1,240 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 802972750d57ddb4cb1e13d05f5731cf, type: 3}
+  m_Name: TileLibraryColorTiles
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Assets.TileLibraryAsset
+  atlasTexture: {fileID: 0}
+  atlasMaterial: {fileID: 2100000, guid: 8fd7b98358237ae48bc93f2ee066db57, type: 2}
+  autoCreateAtlasMaterial: 0
+  autoMaterialSuffix: _WorldGrid_Mat
+  autoMaterialShaderName: Universal Render Pipeline/Unlit
+  atlasLayoutMode: 2
+  tilePixelSize: {x: 32, y: 32}
+  paddingPixels: {x: 0, y: 0}
+  originTopLeft: 1
+  manualAtlasWidthPixels: 1024
+  manualAtlasHeightPixels: 1024
+  manualColumns: 8
+  manualRows: 8
+  inferRowsFromTileCount: 1
+  manualTileCount: 16
+  reserveZeroForEmpty: 1
+  autoIdStart: 0
+  entries:
+  - tileId: 1
+    name: Tile 0
+    tileCoord: {x: 0, y: 0}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4278190335
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 2
+    name: Tile 1
+    tileCoord: {x: 1, y: 0}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294913536
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 3
+    name: Tile 2
+    tileCoord: {x: 2, y: 0}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4278255362
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 4
+    name: Tile 3
+    tileCoord: {x: 3, y: 0}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4292280575
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 5
+    name: Tile 4
+    tileCoord: {x: 4, y: 0}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 6
+    name: Tile 5
+    tileCoord: {x: 5, y: 0}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 7
+    name: Tile 6
+    tileCoord: {x: 6, y: 0}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 8
+    name: Tile 7
+    tileCoord: {x: 7, y: 0}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 9
+    name: Tile 8
+    tileCoord: {x: 0, y: 1}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 10
+    name: Tile 9
+    tileCoord: {x: 1, y: 1}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 11
+    name: Tile 10
+    tileCoord: {x: 2, y: 1}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 12
+    name: Tile 11
+    tileCoord: {x: 3, y: 1}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 13
+    name: Tile 12
+    tileCoord: {x: 4, y: 1}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 14
+    name: Tile 13
+    tileCoord: {x: 5, y: 1}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 15
+    name: Tile 14
+    tileCoord: {x: 6, y: 1}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}
+  - tileId: 16
+    name: Tile 15
+    tileCoord: {x: 7, y: 1}
+    tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
+    tags: []
+    overrideUv: 0
+    uvMin: {x: 0, y: 0}
+    uvMax: {x: 0, y: 0}

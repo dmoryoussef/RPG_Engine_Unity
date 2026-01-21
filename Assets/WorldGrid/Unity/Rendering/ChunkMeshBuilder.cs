@@ -14,7 +14,7 @@ namespace WorldGrid.Unity.Rendering
         public static void BuildChunkTilesMesh(
             MeshData md,
             Mesh mesh,
-            ChunkCoord chunkCoord,      // kept for symmetry/debugging; not used for vertex placement
+            ChunkCoord chunkCoord,      // used for deterministic color variation
             Chunk chunkOrNull,
             int chunkSize,
             int defaultTileId,
@@ -23,6 +23,13 @@ namespace WorldGrid.Unity.Rendering
         )
         {
             md.Clear();
+
+            if (tileLibrary == null)
+            {
+                // Upstream failure (provider not ready / exception). Build empty mesh to avoid spam.
+                Apply(md, mesh);
+                return;
+            }
 
             // Missing chunk == uniform default -> no foreground quads.
             if (chunkOrNull == null)
@@ -41,7 +48,13 @@ namespace WorldGrid.Unity.Rendering
                     if (!tileLibrary.TryGetUv(tileId, out var uv))
                         continue;
 
-                    AddQuad_Local(md, cellSize, lx, ly, uv);
+                    // Color channel (defaults are handled inside TileLibrary)
+                    tileLibrary.TryGetColor(tileId, out var baseColor);
+                    tileLibrary.TryGetColorJitter(tileId, out var jitter);
+
+                    var finalColor = ApplyDeterministicJitter(baseColor, jitter, chunkCoord, lx, ly);
+
+                    AddQuad_Local(md, cellSize, lx, ly, uv, finalColor);
                 }
 
             Apply(md, mesh);
@@ -52,12 +65,16 @@ namespace WorldGrid.Unity.Rendering
             mesh.Clear();
             mesh.SetVertices(md.Vertices);
             mesh.SetUVs(0, md.Uvs);
+
+            if (md.Colors.Count == md.Vertices.Count)
+                mesh.SetColors(md.Colors);
+
             mesh.SetTriangles(md.Triangles, 0);
             mesh.RecalculateBounds();
             mesh.RecalculateNormals();
         }
 
-        private static void AddQuad_Local(MeshData md, float cellSize, int cellX, int cellY, RectUv uv)
+        private static void AddQuad_Local(MeshData md, float cellSize, int cellX, int cellY, RectUv uv, Color32 color)
         {
             Vector3 p0 = new Vector3(cellX * cellSize, cellY * cellSize, 0f);
 
@@ -77,6 +94,12 @@ namespace WorldGrid.Unity.Rendering
             md.Uvs.Add(new Vector2(uv.UMax, uv.VMax));
             md.Uvs.Add(new Vector2(uv.UMin, uv.VMax));
 
+            // Vertex colors (tint/variation)
+            md.Colors.Add(color);
+            md.Colors.Add(color);
+            md.Colors.Add(color);
+            md.Colors.Add(color);
+
             md.Triangles.Add(i0 + 0);
             md.Triangles.Add(i0 + 2);
             md.Triangles.Add(i0 + 1);
@@ -84,6 +107,34 @@ namespace WorldGrid.Unity.Rendering
             md.Triangles.Add(i0 + 0);
             md.Triangles.Add(i0 + 3);
             md.Triangles.Add(i0 + 2);
+        }
+
+        private static Color32 ApplyDeterministicJitter(Color32 c, float jitter, ChunkCoord chunkCoord, int lx, int ly)
+        {
+            if (jitter <= 0f)
+                return c;
+
+            uint h = Hash((uint)chunkCoord.X, (uint)chunkCoord.Y, (uint)lx, (uint)ly);
+
+            // Map to [-1, +1]
+            float t = ((h & 0xFFFFu) / 65535f) * 2f - 1f;
+            float m = 1f + t * jitter;
+
+            byte r = (byte)Mathf.Clamp(Mathf.RoundToInt(c.r * m), 0, 255);
+            byte g = (byte)Mathf.Clamp(Mathf.RoundToInt(c.g * m), 0, 255);
+            byte b = (byte)Mathf.Clamp(Mathf.RoundToInt(c.b * m), 0, 255);
+            return new Color32(r, g, b, c.a);
+        }
+
+        private static uint Hash(uint a, uint b, uint c, uint d)
+        {
+            // Simple deterministic mix (FNV-ish)
+            uint x = 2166136261u;
+            x = (x ^ a) * 16777619u;
+            x = (x ^ b) * 16777619u;
+            x = (x ^ c) * 16777619u;
+            x = (x ^ d) * 16777619u;
+            return x;
         }
     }
 }

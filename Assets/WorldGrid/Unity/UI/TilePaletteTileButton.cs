@@ -20,12 +20,25 @@ namespace WorldGrid.Unity.UI
 
         public int TileId { get; private set; }
 
+        // Existing signature preserved
         public void Bind(
             int tileId,
             Texture atlas,
             RectUv uv,
             string label,
             Action<int> onClicked)
+        {
+            Bind(tileId, atlas, uv, label, onClicked, new Color32(255, 255, 255, 255));
+        }
+
+        // NEW: tint overload
+        public void Bind(
+            int tileId,
+            Texture atlas,
+            RectUv uv,
+            string label,
+            Action<int> onClicked,
+            Color32 tint)
         {
             TileId = tileId;
 
@@ -38,6 +51,9 @@ namespace WorldGrid.Unity.UI
                     uv.UMax - uv.UMin,
                     uv.VMax - uv.VMin
                 );
+
+                // NEW: allow swatch tinting (works with fallback 1x1 as well)
+                image.color = tint;
             }
 
             if (this.label != null)

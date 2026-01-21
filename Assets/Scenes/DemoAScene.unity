@@ -1459,7 +1459,6 @@ GameObject:
   m_Component:
   - component: {fileID: 874496142}
   - component: {fileID: 874496144}
-  - component: {fileID: 874496143}
   - component: {fileID: 874496145}
   m_Layer: 0
   m_Name: Content
@@ -1487,25 +1486,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0.000015258789}
   m_SizeDelta: {x: 15.8668, y: 0}
   m_Pivot: {x: 0, y: 1}
---- !u!114 &874496143
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 874496141}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 38b9836ade753734083c65864158ba77, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.UI.TilePaletteUI
-  worldHost: {fileID: 1058400943}
-  brushState: {fileID: 11400000, guid: 5a6b91c4236f2d24781d479320ed06be, type: 2}
-  tileLibraryKey:
-    value: TestWorld
-  contentRoot: {fileID: 874496142}
-  tileButtonPrefab: {fileID: 3354108652672369136, guid: ce5875ab574411b4cb63e4243896c203, type: 3}
-  showTileIdLabel: 1
 --- !u!114 &874496144
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2015,6 +1995,10 @@ MonoBehaviour:
   - key:
       value: TestWorld
     asset: {fileID: 11400000, guid: 0163a0fc49b330343beec8e0071f1a54, type: 2}
+    materialTemplateOverride: {fileID: 0}
+  - key:
+      value: ColorTiles
+    asset: {fileID: 11400000, guid: e48d621e030959a4da4e2732815bc605, type: 2}
     materialTemplateOverride: {fileID: 0}
 --- !u!1 &1106162213
 GameObject:
@@ -3140,6 +3124,7 @@ GameObject:
   - component: {fileID: 1259169709}
   - component: {fileID: 1259169711}
   - component: {fileID: 1259169710}
+  - component: {fileID: 1259169712}
   m_Layer: 0
   m_Name: PalettePanel
   m_TagString: Untagged
@@ -3205,6 +3190,25 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1259169708}
   m_CullTransparentMesh: 1
+--- !u!114 &1259169712
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1259169708}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 38b9836ade753734083c65864158ba77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.UI.TilePaletteUI
+  worldHost: {fileID: 1058400943}
+  brushState: {fileID: 11400000, guid: 5a6b91c4236f2d24781d479320ed06be, type: 2}
+  tileLibraryKey:
+    value: TestWorld
+  contentRoot: {fileID: 874496142}
+  tileButtonPrefab: {fileID: 3354108652672369136, guid: ce5875ab574411b4cb63e4243896c203, type: 3}
+  showTileIdLabel: 1
 --- !u!1 &1283259211
 GameObject:
   m_ObjectHideFlags: 0

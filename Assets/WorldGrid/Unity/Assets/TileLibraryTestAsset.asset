@@ -14,12 +14,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Assets.TileLibraryAsset
   atlasTexture: {fileID: 2800000, guid: 1c9ed9d1200c29d4cbfd2071028c1cd5, type: 3}
   atlasMaterial: {fileID: 2100000, guid: ef6036773ed011243af44f3aafd70ac9, type: 2}
-  autoCreateAtlasMaterial: 0
+  autoCreateAtlasMaterial: 1
   autoMaterialSuffix: _WorldGrid_Mat
   autoMaterialShaderName: Universal Render Pipeline/Unlit
+  atlasLayoutMode: 0
   tilePixelSize: {x: 32, y: 32}
   paddingPixels: {x: 0, y: 0}
   originTopLeft: 1
+  manualAtlasWidthPixels: 1024
+  manualAtlasHeightPixels: 1024
+  manualColumns: 8
+  manualRows: 8
+  inferRowsFromTileCount: 1
+  manualTileCount: 64
   reserveZeroForEmpty: 1
   autoIdStart: 0
   entries:
@@ -27,8 +34,12 @@ MonoBehaviour:
     name: Grass
     tileCoord: {x: 14, y: 0}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4279304447
+    colorJitter: 0
+    colorBlend: 0.099
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -36,8 +47,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 1, y: 0}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -45,8 +60,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 2, y: 0}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4293795331
+    colorJitter: 0.05
+    colorBlend: 0.896
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -54,8 +73,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 3, y: 0}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -63,8 +86,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 4, y: 0}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -72,8 +99,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 5, y: 0}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -81,8 +112,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 6, y: 0}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -90,8 +125,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 7, y: 0}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -99,8 +138,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 0, y: 1}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -108,8 +151,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 1, y: 1}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -117,8 +164,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 2, y: 1}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -126,8 +177,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 3, y: 1}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -135,8 +190,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 4, y: 1}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -144,8 +203,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 5, y: 1}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -153,8 +216,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 6, y: 1}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -162,8 +229,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 7, y: 1}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -171,8 +242,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 0, y: 2}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -180,8 +255,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 1, y: 2}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -189,8 +268,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 2, y: 2}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -198,8 +281,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 3, y: 2}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -207,8 +294,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 4, y: 2}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -216,8 +307,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 5, y: 2}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -225,8 +320,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 6, y: 2}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -234,8 +333,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 7, y: 2}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -243,8 +346,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 0, y: 3}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -252,8 +359,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 1, y: 3}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -261,8 +372,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 2, y: 3}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -270,8 +385,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 3, y: 3}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -279,8 +398,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 4, y: 3}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -288,8 +411,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 5, y: 3}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -297,8 +424,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 6, y: 3}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -306,8 +437,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 7, y: 3}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -315,8 +450,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 0, y: 4}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -324,8 +463,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 1, y: 4}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -333,8 +476,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 2, y: 4}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -342,8 +489,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 3, y: 4}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -351,8 +502,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 4, y: 4}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -360,8 +515,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 5, y: 4}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -369,8 +528,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 6, y: 4}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -378,8 +541,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 7, y: 4}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -387,8 +554,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 0, y: 5}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -396,8 +567,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 1, y: 5}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -405,8 +580,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 2, y: 5}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -414,8 +593,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 3, y: 5}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -423,8 +606,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 4, y: 5}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -432,8 +619,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 5, y: 5}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -441,8 +632,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 6, y: 5}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -450,8 +645,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 7, y: 5}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -459,8 +658,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 0, y: 6}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -468,8 +671,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 1, y: 6}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -477,8 +684,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 2, y: 6}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -486,8 +697,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 3, y: 6}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -495,8 +710,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 4, y: 6}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -504,8 +723,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 5, y: 6}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -513,8 +736,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 6, y: 6}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -522,8 +749,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 7, y: 6}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -531,8 +762,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 0, y: 7}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -540,8 +775,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 1, y: 7}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -549,8 +788,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 2, y: 7}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -558,8 +801,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 3, y: 7}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -567,8 +814,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 4, y: 7}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -576,8 +827,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 5, y: 7}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -585,8 +840,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 6, y: 7}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -594,8 +853,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 7, y: 7}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 0
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
@@ -603,11 +866,12 @@ MonoBehaviour:
     name: 
     tileCoord: {x: 0, y: 0}
     tileSpan: {x: 1, y: 1}
+    color:
+      serializedVersion: 2
+      rgba: 4294967295
+    colorJitter: 0.05
+    colorBlend: 1
     tags: []
-    properties: []
     overrideUv: 1
     uvMin: {x: 0, y: 0}
     uvMax: {x: 0, y: 0}
-  references:
-    version: 2
-    RefIds: []
