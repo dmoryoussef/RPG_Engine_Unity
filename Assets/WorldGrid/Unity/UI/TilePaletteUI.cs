@@ -1,19 +1,34 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using WorldGrid.Runtime.Tiles;
-using WorldGrid.Unity;
+using WorldGrid.Unity.Rendering;
 
 namespace WorldGrid.Unity.UI
 {
+    /// <summary>
+    /// Simple palette UI for selecting a tileId from a TileLibraryKey.
+    ///
+    /// Responsibilities:
+    /// - Resolves tile library view from a provider on the WorldHost
+    /// - Builds a set of tile buttons
+    /// - Updates selection visuals based on TileBrushState
+    ///
+    /// Lifecycle:
+    /// - Resolves provider/view and builds UI in OnEnable (safe for dynamic runtime creation)
+    /// - Subscribes/unsubscribes to brush state selection changes
+    /// </summary>
     [DisallowMultipleComponent]
     public sealed class TilePaletteUI : MonoBehaviour
     {
+        #region Inspector
+
         [Header("Refs")]
         [SerializeField] private WorldHost worldHost;
         [SerializeField] private TileBrushState brushState;
 
         [Header("Tile Library Selection")]
-        [Tooltip("Which tile library entry to display (e.g. 'world', 'debug', 'interior').")]
+        [Tooltip("Which tile library entry to display (for example 'world', 'debug', 'interior').")]
         [SerializeField] private TileLibraryKey tileLibraryKey;
 
         [Header("UI")]
@@ -23,138 +38,166 @@ namespace WorldGrid.Unity.UI
         [Header("Options")]
         [SerializeField] private bool showTileIdLabel = true;
 
+        #endregion
+
+        #region State
+
         private readonly List<TilePaletteTileButton> _buttons = new();
 
         private ITileLibrarySource _tileSource;
         private ITileLibraryView _tileView;
 
-        // NEW: fallback texture for no-atlas previews
-        private static Texture2D s_White1x1;
+        private bool _initialized;
+
+        private static Texture2D _white1x1;
+
+        #endregion
+
+        #region Unity Lifecycle
+
+        public void SetWorld(WorldHost host) => worldHost = host;
 
         private void Awake()
         {
-            if (brushState == null || contentRoot == null || tileButtonPrefab == null)
+            if (!validateRequiredRefs())
             {
-                UnityEngine.Debug.LogError("TilePaletteUI: Missing required UI references.", this);
                 enabled = false;
                 return;
             }
-
-            if (worldHost == null)
-            {
-                UnityEngine.Debug.LogError("TilePaletteUI: worldHost not assigned.", this);
-                enabled = false;
-                return;
-            }
-
-            _tileSource = FindTileLibrarySource(worldHost);
-            if (_tileSource == null)
-            {
-                UnityEngine.Debug.LogError("TilePaletteUI: No component on WorldHost implements ITileLibrarySource.", this);
-                enabled = false;
-                return;
-            }
-
-            if (tileLibraryKey.IsEmpty || !_tileSource.Has(tileLibraryKey))
-            {
-                UnityEngine.Debug.LogError($"TilePaletteUI: Tile library key '{tileLibraryKey}' not found on provider.", this);
-                enabled = false;
-                return;
-            }
-
-            _tileView = _tileSource.Get(tileLibraryKey);
-            if (_tileView == null || _tileView.Library == null)
-            {
-                UnityEngine.Debug.LogError($"TilePaletteUI: Provider returned invalid view for key '{tileLibraryKey}'.", this);
-                enabled = false;
-                return;
-            }
-
-            if (_tileView.AtlasTexture == null)
-            {
-                UnityEngine.Debug.LogWarning(
-                    $"TilePaletteUI: View for key '{tileLibraryKey}' has no AtlasTexture. " +
-                    "Using fallback swatches (tinted 1x1).", this);
-            }
-
-            Rebuild();
         }
 
         private void OnEnable()
         {
-            if (brushState != null)
-                brushState.OnSelectionChanged += HandleSelectionChanged;
+            if (!_initialized)
+            {
+                if (!tryInitialize())
+                {
+                    enabled = false;
+                    return;
+                }
+
+                _initialized = true;
+                Rebuild();
+            }
+
+            subscribe();
         }
 
         private void OnDisable()
         {
-            if (brushState != null)
-                brushState.OnSelectionChanged -= HandleSelectionChanged;
+            unsubscribe();
         }
 
-        private void HandleSelectionChanged(int selectedTileId)
-        {
-            for (int i = 0; i < _buttons.Count; i++)
-                _buttons[i].SetSelected(_buttons[i].TileId == selectedTileId);
-        }
+        #endregion
+
+        #region Public API
 
         public void Rebuild()
         {
-            ClearButtons();
+            if (_tileView == null || _tileView.Library == null)
+                return;
+
+            clearButtons();
 
             var lib = _tileView.Library;
 
-            Texture atlas = _tileView.AtlasTexture != null ? _tileView.AtlasTexture : GetWhite1x1();
+            var atlas = _tileView.AtlasTexture != null ? _tileView.AtlasTexture : getWhite1x1();
 
             foreach (var def in lib.EnumerateDefs())
             {
-                if (def == null) continue;
+                if (def == null)
+                    continue;
 
                 var btn = Instantiate(tileButtonPrefab, contentRoot);
                 _buttons.Add(btn);
 
-                string label = showTileIdLabel ? def.TileId.ToString() : def.Name;
+                var label = getTileLabel(def);
+                var uv = getTileUv(def);
+                var tint = getTileTint(lib, def.TileId);
 
-                // If we have a real atlas, use authored UVs.
-                // If not, use full-rect UV on a 1x1 texture and tint via TileColorProperty.
-                RectUv uv = _tileView.AtlasTexture != null ? def.Uv : new RectUv(0f, 0f, 1f, 1f);
+                btn.Bind(def.TileId, atlas, uv, label, onTileClicked, tint);
 
-                // Default tint = white (no effect)
-                var tint = new Color32(255, 255, 255, 255);
-                if (lib.TryGetProperty<TileColorProperty>(def.TileId, out var cp) && cp != null)
-                {
-                    tint = cp.Color;
-                }
-
-                btn.Bind(
-                    tileId: def.TileId,
-                    atlas: atlas,
-                    uv: uv,
-                    label: label,
-                    onClicked: OnTileClicked,
-                    tint: tint
-                );
 
                 btn.SetSelected(def.TileId == brushState.selectedTileId);
             }
         }
 
-        private void OnTileClicked(int tileId)
-        {
-            brushState.selectedTileId = (brushState.selectedTileId == tileId) ? -1 : tileId;
-        }
+        #endregion
 
-        private void ClearButtons()
+        #region Initialization
+
+        private bool validateRequiredRefs()
         {
-            for (int i = 0; i < _buttons.Count; i++)
+            if (brushState == null || contentRoot == null || tileButtonPrefab == null)
             {
-                if (_buttons[i] != null)
-                    Destroy(_buttons[i].gameObject);
+                UnityEngine.Debug.LogError("TilePaletteUI disabled: Missing required UI references.", this);
+                return false;
             }
-            _buttons.Clear();
+
+            if (worldHost == null)
+            {
+                UnityEngine.Debug.LogError("TilePaletteUI disabled: worldHost not assigned.", this);
+                return false;
+            }
+
+            return true;
         }
 
-        private static ITileLibrarySource FindTileLibrarySource(WorldHost host)
+        private bool tryInitialize()
+        {
+            _tileSource = findTileLibrarySource(worldHost);
+            if (_tileSource == null)
+            {
+                UnityEngine.Debug.LogError("TilePaletteUI disabled: No component on WorldHost implements ITileLibrarySource.", this);
+                return false;
+            }
+
+            if (tileLibraryKey.IsEmpty || !_tileSource.Has(tileLibraryKey))
+            {
+                UnityEngine.Debug.LogError($"TilePaletteUI disabled: Tile library key '{tileLibraryKey}' not found on provider.", this);
+                return false;
+            }
+
+            if (!tryResolveView(tileLibraryKey, out _tileView))
+            {
+                UnityEngine.Debug.LogError($"TilePaletteUI disabled: Provider returned invalid view for key '{tileLibraryKey}'.", this);
+                return false;
+            }
+
+            if (_tileView.AtlasTexture == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"TilePaletteUI: View for key '{tileLibraryKey}' has no AtlasTexture. Using fallback swatches (tinted 1x1).",
+                    this);
+            }
+
+            return true;
+        }
+
+        private bool tryResolveView(TileLibraryKey key, out ITileLibraryView view)
+        {
+            view = null;
+
+            // Prefer runtime-safe provider method when available.
+            if (_tileSource is TileLibraryProvider provider)
+            {
+                return provider.TryGet(key, out view, out _);
+            }
+
+            // Interface fallback: call Get only after Has.
+            try
+            {
+                view = _tileSource.Get(key);
+            }
+            catch
+            {
+                view = null;
+            }
+
+            return view != null && view.Library != null;
+        }
+
+        private static ITileLibrarySource findTileLibrarySource(WorldHost host)
         {
             var behaviours = host.GetComponents<MonoBehaviour>();
             for (int i = 0; i < behaviours.Length; i++)
@@ -162,23 +205,99 @@ namespace WorldGrid.Unity.UI
                 if (behaviours[i] is ITileLibrarySource src)
                     return src;
             }
+
             return null;
         }
 
-        private static Texture2D GetWhite1x1()
-        {
-            if (s_White1x1 != null)
-                return s_White1x1;
+        #endregion
 
-            s_White1x1 = new Texture2D(1, 1, TextureFormat.RGBA32, mipChain: false, linear: false)
+        #region Selection
+
+        private void subscribe()
+        {
+            if (brushState != null)
+                brushState.OnSelectionChanged += handleSelectionChanged;
+        }
+
+        private void unsubscribe()
+        {
+            if (brushState != null)
+                brushState.OnSelectionChanged -= handleSelectionChanged;
+        }
+
+        private void handleSelectionChanged(int selectedTileId)
+        {
+            for (int i = 0; i < _buttons.Count; i++)
+            {
+                var b = _buttons[i];
+                if (b != null)
+                    b.SetSelected(b.TileId == selectedTileId);
+            }
+        }
+
+        private void onTileClicked(int tileId)
+        {
+            brushState.selectedTileId = (brushState.selectedTileId == tileId) ? -1 : tileId;
+        }
+
+        #endregion
+
+        #region Button Build Helpers
+
+        private string getTileLabel(TileDef def)
+        {
+            return showTileIdLabel ? def.TileId.ToString() : def.Name;
+        }
+
+        private RectUv getTileUv(TileDef def)
+        {
+            // If we have a real atlas, use authored UVs.
+            // If not, use full-rect UV on a 1x1 texture and tint via TileColorProperty.
+            return _tileView.AtlasTexture != null ? def.Uv : new RectUv(0f, 0f, 1f, 1f);
+        }
+
+        private static Color32 getTileTint(TileLibrary lib, int tileId)
+        {
+            var tint = new Color32(255, 255, 255, 255);
+
+            if (lib.TryGetProperty<TileColorProperty>(tileId, out var cp) && cp != null)
+                tint = cp.Color;
+
+            return tint;
+        }
+
+        #endregion
+
+        #region Cleanup
+
+        private void clearButtons()
+        {
+            for (int i = 0; i < _buttons.Count; i++)
+            {
+                if (_buttons[i] != null)
+                    Destroy(_buttons[i].gameObject);
+            }
+
+            _buttons.Clear();
+        }
+
+        private static Texture2D getWhite1x1()
+        {
+            if (_white1x1 != null)
+                return _white1x1;
+
+            _white1x1 = new Texture2D(1, 1, TextureFormat.RGBA32, mipChain: false, linear: false)
             {
                 filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp,
                 name = "WorldGrid_White1x1"
             };
-            s_White1x1.SetPixel(0, 0, Color.white);
-            s_White1x1.Apply(false, false);
-            return s_White1x1;
+
+            _white1x1.SetPixel(0, 0, Color.white);
+            _white1x1.Apply(false, false);
+            return _white1x1;
         }
+
+        #endregion
     }
 }

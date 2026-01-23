@@ -1,95 +1,74 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace WorldGrid.Runtime.Tiles
 {
-    /// <summary>
-    /// Runtime lookup table: tileId -> TileDef.
-    /// Also provides a generic property query API so systems do not need hard-coded getters.
-    /// </summary>
     public sealed class TileLibrary
     {
-        private readonly Dictionary<int, TileDef> _defs = new();
+        #region State
 
-        public int Count => _defs.Count;
-        public IEnumerable<TileDef> EnumerateDefs() => _defs.Values;
+        private readonly Dictionary<int, TileDef> _defs;
+        private readonly int _defaultTileId;
 
-        public void Clear()
+        #endregion
+
+        #region Construction
+
+        public TileLibrary(Dictionary<int, TileDef> defs, int defaultTileId)
         {
-            _defs.Clear();
+            _defs = defs ?? new Dictionary<int, TileDef>();
+            _defaultTileId = defaultTileId;
         }
 
-        /// <summary>
-        /// Adds or replaces a tile definition for its tileId.
-        /// </summary>
-        public void Set(TileDef def)
-        {
-            if (def == null) throw new ArgumentNullException(nameof(def));
-            _defs[def.TileId] = def;
-        }
+        #endregion
 
-        /// <summary>
-        /// Optional hook for post-population validation later.
-        /// Currently a no-op by design.
-        /// </summary>
-        public void FinalizeBuild()
-        {
-            // Intentionally empty for now.
-            // Future examples: validate duplicate ids, missing ids, etc.
-        }
+        #region Lookup
 
-        public bool TryGetDef(int tileId, out TileDef def) =>
-            _defs.TryGetValue(tileId, out def);
-
-        /// <summary>
-        /// Generic property lookup: asks for a property type on the tile definition for tileId.
-        /// This is Option 2’s key API.
-        /// </summary>
-        public bool TryGetProperty<T>(int tileId, out T property)
-            where T : TileProperty
+        public bool TryGetDef(int tileId, out TileDef def)
         {
-            if (_defs.TryGetValue(tileId, out var def))
+            if (tileId == _defaultTileId)
             {
-                return def.TryGetProperty(out property);
+                def = null;
+                return false;
             }
 
-            property = null;
-            return false;
+            return _defs.TryGetValue(tileId, out def);
         }
 
-        /// <summary>
-        /// Renderer helper: try get UV for a tileId.
-        /// </summary>
+        public IEnumerable<TileDef> EnumerateDefs()
+        {
+            return _defs.Values;
+        }
+
+        #endregion
+
+        #region UV
+
         public bool TryGetUv(int tileId, out RectUv uv)
         {
-            if (_defs.TryGetValue(tileId, out var def))
-            {
-                uv = def.Uv;
-                return true;
-            }
-
             uv = default;
-            return false;
+
+            if (!TryGetDef(tileId, out var def))
+                return false;
+
+            uv = def.Uv;
+            return true;
         }
 
-        /// <summary>
-        /// Renderer helper: try get base color for a tileId.
-        /// Defaults to opaque white if tileId is unknown or has no color property.
-        /// </summary>
+        #endregion
+
+        #region Color / Properties
+
         public bool TryGetColor(int tileId, out Color32 color)
         {
-            if (TryGetProperty<TileColorProperty>(tileId, out var colorProp) && colorProp != null)
-            {
-                color = colorProp.Color;
-                return true;
-            }
-
-            // Unknown tileId or missing property => white.
             color = new Color32(255, 255, 255, 255);
-            return false;
-        }
 
+            if (!TryGetProperty<TileColorProperty>(tileId, out var prop))
+                return false;
+
+            color = prop.Color;
+            return true;
+        }
         /// <summary>
         /// Renderer helper: try get per-cell jitter amplitude (0..0.25 recommended).
         /// Defaults to 0 if tileId is unknown or has no color property.
@@ -106,26 +85,60 @@ namespace WorldGrid.Runtime.Tiles
             return false;
         }
 
-        /// <summary>
-        /// Debug/tools helper: returns tags or an empty list if tileId is unknown.
-        /// </summary>
-        public IReadOnlyList<string> GetTagsOrEmpty(int tileId)
+        public bool TryGetProperty<T>(int tileId, out T property) where T : TileProperty
         {
-            if (_defs.TryGetValue(tileId, out var def))
-                return def.Tags;
+            property = null;
 
-            return Array.Empty<string>();
+            if (!TryGetDef(tileId, out var def))
+                return false;
+
+            return def.TryGetProperty(out property);
         }
 
-        /// <summary>
-        /// Debug string for a tileId lookup.
-        /// </summary>
-        public string ToDebugString(int tileId)
-        {
-            if (_defs.TryGetValue(tileId, out var def))
-                return def.ToString();
+        #endregion
 
-            return $"<unknown tileId={tileId}>";
+        public string ToDebugString(int maxEntries = 64)
+        {
+            var sb = new System.Text.StringBuilder(256);
+
+            sb.Append("TileLibrary { ");
+            sb.Append("defaultTileId=").Append(_defaultTileId);
+            sb.Append(", tileCount=").Append(_defs != null ? _defs.Count : 0);
+
+            if (_defs == null || _defs.Count == 0)
+            {
+                sb.Append(" }");
+                return sb.ToString();
+            }
+
+            sb.Append(", tiles=[");
+
+            int shown = 0;
+            foreach (var kvp in _defs)
+            {
+                if (shown > 0)
+                    sb.Append(", ");
+
+                int id = kvp.Key;
+                var def = kvp.Value;
+
+                sb.Append(id);
+
+                // Include name when available for easier debugging.
+                if (def != null && !string.IsNullOrEmpty(def.Name))
+                    sb.Append(":").Append(def.Name);
+
+                shown++;
+                if (shown >= maxEntries)
+                    break;
+            }
+
+            if (_defs.Count > shown)
+                sb.Append(", ...");
+
+            sb.Append("] }");
+            return sb.ToString();
         }
+
     }
 }

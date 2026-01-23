@@ -36,7 +36,7 @@ MonoBehaviour:
     tileSpan: {x: 1, y: 1}
     color:
       serializedVersion: 2
-      rgba: 4279304447
+      rgba: 4294967295
     colorJitter: 0
     colorBlend: 0.099
     tags: []
@@ -62,7 +62,7 @@ MonoBehaviour:
     tileSpan: {x: 1, y: 1}
     color:
       serializedVersion: 2
-      rgba: 4293795331
+      rgba: 4294967295
     colorJitter: 0.05
     colorBlend: 0.896
     tags: []

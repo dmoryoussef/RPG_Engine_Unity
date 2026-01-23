@@ -8,19 +8,29 @@ using WorldGrid.Unity.UI;
 namespace WorldGrid.Unity.Tilemap
 {
     /// <summary>
-    /// World stamping tool driven by TileBrushState (selectedTileId / eraseTileId / brushRadius).
-    /// Replaces WorldDebugPaintTool selection logic with a UI-driven brush.
+    /// World stamping tool driven by TileBrushState.
+    /// Handles paint/erase input and writes tileIds into the SparseChunkWorld.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class WorldStampTool : MonoBehaviour
     {
-        [Header("Refs")]
+        #region Inspector References
+
+        [Header("References")]
         [SerializeField] private WorldHost worldHost;
         [SerializeField] private WorldPointer2D pointer;
         [SerializeField] private TileBrushState brushState;
 
+        #endregion
+
+        #region Stamping Mode
+
         [Header("Mode")]
         [SerializeField] private bool enableStamping = true;
+
+        #endregion
+
+        #region Rate Limiting
 
         [Header("Rate Limiting")]
         [Tooltip("Minimum time between writes while staying on the same cell.")]
@@ -29,19 +39,30 @@ namespace WorldGrid.Unity.Tilemap
         [Tooltip("If true, always write immediately when the hovered cell changes.")]
         [SerializeField] private bool writeOnCellChange = true;
 
+        #endregion
+
+        #region Selection Rules
+
         [Header("Selection")]
         [Tooltip("TileIds < 0 mean 'no brush selected'.")]
         [SerializeField] private int noSelectionTileId = -1;
+
+        #endregion
+
+        #region State
 
         private float _nextAllowedWriteTime;
         private bool _hasLastCell;
         private CellCoord _lastCell;
 
+        #endregion
+
+        #region Unity Lifecycle
+
         private void Awake()
         {
-            if (worldHost == null || pointer == null || brushState == null)
+            if (!validateReferences())
             {
-                UnityEngine.Debug.LogError("WorldStampTool: Missing required references.", this);
                 enabled = false;
                 return;
             }
@@ -49,27 +70,87 @@ namespace WorldGrid.Unity.Tilemap
 
         private void Update()
         {
-            if (!enabled || !enableStamping)
+            if (!shouldProcessFrame())
                 return;
 
-            // ESC cancels stamping selection (no brush).
-            if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
-            {
-                brushState.selectedTileId = noSelectionTileId;
-                _hasLastCell = false;
+            if (handleCancelInput())
                 return;
+
+            if (isPointerOverUi())
+                return;
+
+            if (!tryGetTargetCell(out var cell))
+                return;
+
+            if (!tryGetStampIntent(out var tileId))
+                return;
+
+            processStamp(cell, tileId);
+        }
+
+        #endregion
+
+        #region Frame Guards
+
+        private bool validateReferences()
+        {
+            if (worldHost == null || pointer == null || brushState == null)
+            {
+                UnityEngine.Debug.LogError("WorldStampTool: Missing required references.", this);
+                return false;
             }
 
-            // If clicking UI (palette), do not stamp into the world.
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
-                return;
+            return true;
+        }
+
+        private bool shouldProcessFrame()
+        {
+            if (!enabled || !enableStamping)
+                return false;
+
+            return true;
+        }
+
+        private bool handleCancelInput()
+        {
+            if (!UnityEngine.Input.GetKeyDown(KeyCode.Escape))
+                return false;
+
+            brushState.selectedTileId = noSelectionTileId;
+            _hasLastCell = false;
+            return true;
+        }
+
+        private bool isPointerOverUi()
+        {
+            if (EventSystem.current == null)
+                return false;
+
+            return EventSystem.current.IsPointerOverGameObject();
+        }
+
+        #endregion
+
+        #region Input Resolution
+
+        private bool tryGetTargetCell(out CellCoord cell)
+        {
+            cell = default;
 
             var hit = pointer.CurrentHit;
             if (!hit.Valid)
             {
                 _hasLastCell = false;
-                return;
+                return false;
             }
+
+            cell = hit.Cell;
+            return true;
+        }
+
+        private bool tryGetStampIntent(out int tileId)
+        {
+            tileId = 0;
 
             bool paintHeld = UnityEngine.Input.GetMouseButton(0);
             bool eraseHeld = UnityEngine.Input.GetMouseButton(1);
@@ -77,39 +158,56 @@ namespace WorldGrid.Unity.Tilemap
             if (!paintHeld && !eraseHeld)
             {
                 _hasLastCell = false;
-                return;
+                return false;
             }
 
-            // If painting but no brush is selected, do nothing.
             if (paintHeld && brushState.selectedTileId < 0)
             {
                 _hasLastCell = false;
-                return;
+                return false;
             }
 
-            int targetTileId = paintHeld ? brushState.selectedTileId : brushState.eraseTileId;
+            tileId = paintHeld
+                ? brushState.selectedTileId
+                : brushState.eraseTileId;
 
-            bool cellChanged = !_hasLastCell || hit.Cell != _lastCell;
+            return true;
+        }
+
+        #endregion
+
+        #region Stamping Logic
+
+        private void processStamp(CellCoord cell, int tileId)
+        {
+            bool cellChanged = !_hasLastCell || cell != _lastCell;
 
             if (writeOnCellChange && cellChanged)
             {
-                ApplyBrush(hit.Cell, targetTileId);
-                _lastCell = hit.Cell;
-                _hasLastCell = true;
-                _nextAllowedWriteTime = Time.time + Mathf.Max(0f, minWriteIntervalSeconds);
+                applyBrush(cell, tileId);
+                recordWrite(cell);
                 return;
             }
 
             if (Time.time >= _nextAllowedWriteTime)
             {
-                ApplyBrush(hit.Cell, targetTileId);
-                _lastCell = hit.Cell;
-                _hasLastCell = true;
-                _nextAllowedWriteTime = Time.time + Mathf.Max(0f, minWriteIntervalSeconds);
+                applyBrush(cell, tileId);
+                recordWrite(cell);
             }
         }
 
-        private void ApplyBrush(CellCoord center, int tileId)
+        private void recordWrite(CellCoord cell)
+        {
+            _lastCell = cell;
+            _hasLastCell = true;
+            _nextAllowedWriteTime = Time.time + Mathf.Max(0f, minWriteIntervalSeconds);
+        }
+
+        #endregion
+
+        #region World Write
+
+        private void applyBrush(CellCoord center, int tileId)
         {
             SparseChunkWorld world = worldHost.World;
             if (world == null)
@@ -127,5 +225,7 @@ namespace WorldGrid.Unity.Tilemap
                 }
             }
         }
+
+        #endregion
     }
 }

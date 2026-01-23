@@ -1,25 +1,21 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace WorldGrid.Runtime.Tiles
 {
     public sealed class TileDef
     {
+        #region Properties
+
         public int TileId { get; }
         public string Name { get; }
         public RectUv Uv { get; }
-
-        /// <summary>
-        /// Optional tags for debugging/querying. Keep as strings for now.
-        /// </summary>
         public IReadOnlyList<string> Tags { get; }
-
-        /// <summary>
-        /// Optional extensible tile semantics (authoring/build-time),
-        /// intended to be compiled into fast runtime channels in TileLibrary.
-        /// </summary>
         public IReadOnlyList<TileProperty> Properties { get; }
+
+        #endregion
+
+        #region Construction
 
         public TileDef(
             int tileId,
@@ -29,64 +25,96 @@ namespace WorldGrid.Runtime.Tiles
             IEnumerable<TileProperty> properties = null)
         {
             TileId = tileId;
-            Name = name ?? throw new ArgumentNullException(nameof(name));
+            Name = name ?? string.Empty;
             Uv = uv;
 
-            Tags = NormalizeTags(tags);
-            Properties = NormalizeProperties(properties);
+            Tags = normalizeTags(tags);
+            Properties = normalizeProperties(properties);
         }
 
-        public bool TryGetProperty<T>(out T property)
-            where T : TileProperty
+        #endregion
+
+        #region Property Query
+
+        public bool TryGetProperty<T>(out T property) where T : TileProperty
         {
-            for (int i = 0; i < Properties.Count; i++)
+            property = null;
+
+            var props = Properties;
+            if (props == null)
+                return false;
+
+            for (int i = 0; i < props.Count; i++)
             {
-                if (Properties[i] is T typed)
+                if (props[i] is T match)
                 {
-                    property = typed;
+                    property = match;
                     return true;
                 }
             }
 
-            property = null;
             return false;
         }
 
-        public override string ToString()
+        #endregion
+
+        #region Normalization
+
+        private static IReadOnlyList<string> normalizeTags(IEnumerable<string> tags)
         {
-            if (Tags.Count == 0) return $"{Name} (id={TileId})";
-            return $"{Name} (id={TileId}) [{string.Join(", ", Tags)}]";
+            if (tags == null)
+                return Array.Empty<string>();
+
+            List<string> list = null;
+            HashSet<string> seen = null;
+
+            foreach (var raw in tags)
+            {
+                var t = raw?.Trim();
+                if (string.IsNullOrEmpty(t))
+                    continue;
+
+                seen ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (!seen.Add(t))
+                    continue;
+
+                list ??= new List<string>();
+                list.Add(t);
+            }
+
+            if (list == null || list.Count == 0)
+                return Array.Empty<string>();
+
+            return list.ToArray();
         }
 
-        private static IReadOnlyList<string> NormalizeTags(IEnumerable<string> tags)
+        private static IReadOnlyList<TileProperty> normalizeProperties(IEnumerable<TileProperty> properties)
         {
-            if (tags == null) return Array.Empty<string>();
+            if (properties == null)
+                return Array.Empty<TileProperty>();
 
-            return tags
-                .Select(t => t?.Trim())
-                .Where(t => !string.IsNullOrEmpty(t))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-        }
-
-        private static IReadOnlyList<TileProperty> NormalizeProperties(IEnumerable<TileProperty> properties)
-        {
-            if (properties == null) return Array.Empty<TileProperty>();
-
-            // Enforce one property per concrete type.
-            // If duplicates exist, the LAST one wins (authoring-friendly).
-            Dictionary<Type, TileProperty> byType = null;
+            Dictionary<Type, TileProperty> map = null;
 
             foreach (var p in properties)
             {
-                if (p == null) continue;
+                if (p == null)
+                    continue;
 
-                byType ??= new Dictionary<Type, TileProperty>();
-                byType[p.GetType()] = p;
+                map ??= new Dictionary<Type, TileProperty>();
+                map[p.GetType()] = p;
             }
 
-            if (byType == null || byType.Count == 0) return Array.Empty<TileProperty>();
-            return byType.Values.ToArray();
+            if (map == null || map.Count == 0)
+                return Array.Empty<TileProperty>();
+
+            var arr = new TileProperty[map.Count];
+            int i = 0;
+            foreach (var kvp in map)
+                arr[i++] = kvp.Value;
+
+            return arr;
         }
+
+        #endregion
     }
 }

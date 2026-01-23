@@ -6,61 +6,95 @@ using WorldGrid.Runtime.Tiles;
 namespace WorldGrid.Unity.Rendering
 {
     /// <summary>
-    /// Builds the FOREGROUND tile mesh for a chunk (non-default tiles only).
+    /// Builds the foreground tile mesh for a chunk (non-default tiles only).
     /// Mesh vertices are chunk-local. The chunk GameObject transform places it in world space.
     /// </summary>
     public static class ChunkMeshBuilder
     {
+        #region Public API
+
         public static void BuildChunkTilesMesh(
             MeshData md,
             Mesh mesh,
-            ChunkCoord chunkCoord,      // used for deterministic color variation
+            ChunkCoord chunkCoord,
             Chunk chunkOrNull,
             int chunkSize,
             int defaultTileId,
             TileLibrary tileLibrary,
-            float cellSize
-        )
+            float cellSize)
         {
+            if (md == null || mesh == null)
+                return;
+
             md.Clear();
 
+            if (!canBuild(tileLibrary, chunkOrNull))
+            {
+                applyMesh(md, mesh);
+                return;
+            }
+
+            buildTiles(md, chunkCoord, chunkOrNull, chunkSize, defaultTileId, tileLibrary, cellSize);
+            applyMesh(md, mesh);
+        }
+
+        #endregion
+
+        #region Build
+
+        private static bool canBuild(TileLibrary tileLibrary, Chunk chunkOrNull)
+        {
             if (tileLibrary == null)
-            {
-                // Upstream failure (provider not ready / exception). Build empty mesh to avoid spam.
-                Apply(md, mesh);
-                return;
-            }
+                return false;
 
-            // Missing chunk == uniform default -> no foreground quads.
-            if (chunkOrNull == null)
-            {
-                Apply(md, mesh);
-                return;
-            }
+            // Missing chunk means uniform default, so no foreground quads.
+            return chunkOrNull != null;
+        }
 
+        private static void buildTiles(
+            MeshData md,
+            ChunkCoord chunkCoord,
+            Chunk chunk,
+            int chunkSize,
+            int defaultTileId,
+            TileLibrary tileLibrary,
+            float cellSize)
+        {
             for (int ly = 0; ly < chunkSize; ly++)
+            {
                 for (int lx = 0; lx < chunkSize; lx++)
                 {
-                    int tileId = chunkOrNull.Get(lx, ly);
+                    int tileId = chunk.Get(lx, ly);
                     if (tileId == defaultTileId)
                         continue;
 
                     if (!tileLibrary.TryGetUv(tileId, out var uv))
                         continue;
 
-                    // Color channel (defaults are handled inside TileLibrary)
-                    tileLibrary.TryGetColor(tileId, out var baseColor);
-                    tileLibrary.TryGetColorJitter(tileId, out var jitter);
-
-                    var finalColor = ApplyDeterministicJitter(baseColor, jitter, chunkCoord, lx, ly);
-
-                    AddQuad_Local(md, cellSize, lx, ly, uv, finalColor);
+                    var color = computeTileColor(tileLibrary, tileId, chunkCoord, lx, ly);
+                    addQuadLocal(md, cellSize, lx, ly, uv, color);
                 }
-
-            Apply(md, mesh);
+            }
         }
 
-        private static void Apply(MeshData md, Mesh mesh)
+        private static Color32 computeTileColor(
+            TileLibrary tileLibrary,
+            int tileId,
+            ChunkCoord chunkCoord,
+            int lx,
+            int ly)
+        {
+            // Defaults are handled inside TileLibrary.
+            tileLibrary.TryGetColor(tileId, out var baseColor);
+            tileLibrary.TryGetColorJitter(tileId, out var jitter);
+            return applyDeterministicJitter(baseColor, jitter, chunkCoord, lx, ly);
+        }
+
+        #endregion
+
+        #region Mesh Apply
+
+        private static void applyMesh(MeshData md, Mesh mesh)
         {
             mesh.Clear();
             mesh.SetVertices(md.Vertices);
@@ -74,7 +108,11 @@ namespace WorldGrid.Unity.Rendering
             mesh.RecalculateNormals();
         }
 
-        private static void AddQuad_Local(MeshData md, float cellSize, int cellX, int cellY, RectUv uv, Color32 color)
+        #endregion
+
+        #region Geometry
+
+        private static void addQuadLocal(MeshData md, float cellSize, int cellX, int cellY, RectUv uv, Color32 color)
         {
             Vector3 p0 = new Vector3(cellX * cellSize, cellY * cellSize, 0f);
 
@@ -94,7 +132,6 @@ namespace WorldGrid.Unity.Rendering
             md.Uvs.Add(new Vector2(uv.UMax, uv.VMax));
             md.Uvs.Add(new Vector2(uv.UMin, uv.VMax));
 
-            // Vertex colors (tint/variation)
             md.Colors.Add(color);
             md.Colors.Add(color);
             md.Colors.Add(color);
@@ -109,12 +146,16 @@ namespace WorldGrid.Unity.Rendering
             md.Triangles.Add(i0 + 2);
         }
 
-        private static Color32 ApplyDeterministicJitter(Color32 c, float jitter, ChunkCoord chunkCoord, int lx, int ly)
+        #endregion
+
+        #region Jitter
+
+        private static Color32 applyDeterministicJitter(Color32 c, float jitter, ChunkCoord chunkCoord, int lx, int ly)
         {
             if (jitter <= 0f)
                 return c;
 
-            uint h = Hash((uint)chunkCoord.X, (uint)chunkCoord.Y, (uint)lx, (uint)ly);
+            uint h = hash((uint)chunkCoord.X, (uint)chunkCoord.Y, (uint)lx, (uint)ly);
 
             // Map to [-1, +1]
             float t = ((h & 0xFFFFu) / 65535f) * 2f - 1f;
@@ -126,9 +167,8 @@ namespace WorldGrid.Unity.Rendering
             return new Color32(r, g, b, c.a);
         }
 
-        private static uint Hash(uint a, uint b, uint c, uint d)
+        private static uint hash(uint a, uint b, uint c, uint d)
         {
-            // Simple deterministic mix (FNV-ish)
             uint x = 2166136261u;
             x = (x ^ a) * 16777619u;
             x = (x ^ b) * 16777619u;
@@ -136,5 +176,7 @@ namespace WorldGrid.Unity.Rendering
             x = (x ^ d) * 16777619u;
             return x;
         }
+
+        #endregion
     }
 }
