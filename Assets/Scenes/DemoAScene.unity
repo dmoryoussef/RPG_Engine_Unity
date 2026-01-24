@@ -506,6 +506,64 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952485571}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &353368237
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 353368238}
+  - component: {fileID: 353368239}
+  m_Layer: 0
+  m_Name: Renderer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &353368238
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 353368237}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1058400944}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &353368239
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 353368237}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d768a6f32e645364eb05af3663fdae48, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ChunkMeshRender
+  worldHost: {fileID: 1058400943}
+  tileLibraryAsset: {fileID: 0}
+  tileSourceBehaviour: {fileID: 1058400957}
+  tileLibraryKey:
+    value: TestWorld
+  viewChunksSize: {x: 16, y: 16}
+  viewChunkMin:
+    x: 0
+    y: 0
+  showDebugOverlay: 0
+  debugOverlayAlpha: 0.2
+  debugOverlayMissing: {r: 1, g: 0, b: 0, a: 1}
+  debugOverlayUniform: {r: 0, g: 1, b: 0, a: 1}
+  debugOverlayDense: {r: 1, g: 1, b: 0, a: 1}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -1567,17 +1625,9 @@ GameObject:
   - component: {fileID: 1058400944}
   - component: {fileID: 1058400943}
   - component: {fileID: 1058400957}
-  - component: {fileID: 1058400942}
   - component: {fileID: 1058400945}
-  - component: {fileID: 1058400947}
-  - component: {fileID: 1058400948}
-  - component: {fileID: 1058400949}
-  - component: {fileID: 1058400950}
-  - component: {fileID: 1058400951}
-  - component: {fileID: 1058400952}
   - component: {fileID: 1058400953}
   - component: {fileID: 1058400954}
-  - component: {fileID: 1058400955}
   - component: {fileID: 1058400956}
   m_Layer: 0
   m_Name: WorldGridRoot
@@ -1586,32 +1636,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1058400942
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1058400940}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d768a6f32e645364eb05af3663fdae48, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ChunkMeshRender
-  worldHost: {fileID: 1058400943}
-  tileLibraryAsset: {fileID: 0}
-  tileSourceBehaviour: {fileID: 1058400957}
-  tileLibraryKey:
-    value: TestWorld
-  viewChunksSize: {x: 16, y: 16}
-  viewChunkMin:
-    x: 0
-    y: 0
-  showDebugOverlay: 0
-  debugOverlayAlpha: 0.2
-  debugOverlayMissing: {r: 1, g: 0, b: 0, a: 1}
-  debugOverlayUniform: {r: 0, g: 1, b: 0, a: 1}
-  debugOverlayDense: {r: 1, g: 1, b: 0, a: 1}
 --- !u!114 &1058400943
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1642,6 +1666,8 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1892953513}
+  - {fileID: 1294804326}
+  - {fileID: 353368238}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1058400945
@@ -1660,153 +1686,6 @@ MonoBehaviour:
   cameraOverride: {fileID: 519420031}
   ignoreWhenPointerOverUi: 1
   clickMaxSeconds: 0.25
---- !u!114 &1058400947
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1058400940}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9bb50d9febd26e1408527c6b638ec2b8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldGridLinesDebugView
-  worldHost: {fileID: 1058400943}
-  rendererSource: {fileID: 1058400942}
-  pointer: {fileID: 1058400945}
-  drawRendererChunkBounds: 1
-  drawRendererChunkLabels: 1
-  drawCameraChunkBounds: 1
-  drawCameraChunkLabels: 1
-  cameraSource: {fileID: 519420031}
-  cameraMarginChunks: 1
-  drawExistingChunksInCameraView: 1
-  labelExistingChunks: 0
-  drawTileGridNearMouse: 0
-  tileGridRadiusCells: 1
-  enableLabels: 1
-  labelPositionOffset: {x: 0, y: 0, z: 0}
-  labelWorldYOffset: 2
-  labelPixelYOffset: 14
-  labelOffsetInScreenSpace: 1
-  enableRendererLabels: 1
-  enableCameraLabels: 1
-  enableExistingChunkLabels: 1
-  rendererChunkGridColor: {r: 0, g: 1, b: 0, a: 1}
-  cameraChunkGridColor: {r: 0.2, g: 0.8, b: 1, a: 1}
-  existingChunksColor: {r: 1, g: 0.6, b: 0.2, a: 1}
-  tileGridColor: {r: 0, g: 1, b: 0, a: 1}
-  gizmoZ: -0.05
-  drawHoveredChunkEmphasis: 1
-  drawHoveredChunkEvenIfOutsideRendererView: 1
-  hoveredChunkColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  hoveredChunkThickness: 6
-  hoveredChunkGizmoZ: -0.04
---- !u!114 &1058400948
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1058400940}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2db5480dbdde2ea41899d848841dbca7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldHoverInspectorProbe
-  pointer: {fileID: 1058400945}
-  worldHost: {fileID: 1058400943}
-  tileLibraryAsset: {fileID: 11400000, guid: 0163a0fc49b330343beec8e0071f1a54, type: 2}
-  hoverValid: 0
-  worldPoint: {x: 0, y: 0, z: 0}
-  localX: 0
-  localY: 0
-  tileId: 0
-  tileInfo: 
---- !u!114 &1058400949
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1058400940}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d328440f9d416fc438af2e2983d62ecc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldPinDebug
-  worldHost: {fileID: 1058400943}
-  pointer: {fileID: 1058400945}
-  enablePinning: 1
-  clearWithBackspace: 1
-  drawPinnedOutline: 1
-  drawMouseToPinLine: 0
-  gizmoZ: -0.05
-  outlineThickness: 4
-  lineThickness: 2
-  hasPin: 0
-  pinnedLocalX: 0
-  pinnedLocalY: 0
-  pinnedTileId: 0
---- !u!114 &1058400950
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1058400940}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: afd6fff708de55b43addb60c714ef41f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldDebugPaintTool
-  worldHost: {fileID: 1058400943}
-  pointer: {fileID: 1058400945}
-  tileLibraryAsset: {fileID: 0}
-  enablePainting: 1
-  paintSelectionMode: 0
-  paintTileId: 1
-  paintTileName: 
-  paintTag: 
-  eraseTileId: 0
-  brushRadius: 0
-  minWriteIntervalSeconds: 0.02
-  writeOnCellChange: 1
-  resolvedPaintTileId: 1
-  resolvedPaintTileInfo: 
---- !u!114 &1058400951
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1058400940}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 973793418b2f7c34ab45efdf3022d887, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldChunkStorageTransitionLogger
-  worldHost: {fileID: 1058400943}
-  logChunkCreated: 1
-  logChunkRemoved: 1
-  logKindTransitions: 1
---- !u!114 &1058400952
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1058400940}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a46273a3ce361e849a1ccf4729d51ab8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldHostDebugStats
-  worldHost: {fileID: 1058400943}
-  logChunkCreated: 1
-  logChunkRemoved: 1
-  totalChunks: 0
 --- !u!114 &1058400953
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1821,7 +1700,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldCameraChunkViewDriver
   targetCamera: {fileID: 519420031}
   worldHost: {fileID: 1058400943}
-  rendererSource: {fileID: 1058400942}
+  rendererSource: {fileID: 353368239}
   marginChunks: 1
   alwaysUpdate: 1
 --- !u!114 &1058400954
@@ -1846,25 +1725,6 @@ MonoBehaviour:
   playHoverOnlyWhenValid: 1
   playClickOnlyWhenValid: 0
   minHoverInterval: 0.05
---- !u!114 &1058400955
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1058400940}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 97e1d9a9b5a572540be599cc4b0f399c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldHoverDebugView
-  pointer: {fileID: 0}
-  drawTileOutline: 1
-  drawCenterCross: 1
-  drawLabel: 1
-  crossSizeCells: 0.25
-  gizmoZ: -0.05
-  keepLastValidWhenInvalid: 1
 --- !u!114 &1058400956
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2928,6 +2788,210 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Animation.SpriteAnimationPlayer
   spriteRenderer: {fileID: 1252769403}
+--- !u!1 &1294804325
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1294804326}
+  - component: {fileID: 1294804333}
+  - component: {fileID: 1294804332}
+  - component: {fileID: 1294804331}
+  - component: {fileID: 1294804330}
+  - component: {fileID: 1294804329}
+  - component: {fileID: 1294804328}
+  - component: {fileID: 1294804327}
+  m_Layer: 0
+  m_Name: Debug
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1294804326
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1294804325}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1058400944}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1294804327
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1294804325}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 97e1d9a9b5a572540be599cc4b0f399c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldHoverDebugView
+  pointer: {fileID: 1058400945}
+  drawTileOutline: 1
+  drawCenterCross: 1
+  drawLabel: 1
+  crossSizeCells: 0.25
+  gizmoZ: -0.05
+  keepLastValidWhenInvalid: 1
+--- !u!114 &1294804328
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1294804325}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a46273a3ce361e849a1ccf4729d51ab8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldHostDebugStats
+  worldHost: {fileID: 1058400943}
+  logChunkCreated: 1
+  logChunkRemoved: 1
+  totalChunks: 0
+--- !u!114 &1294804329
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1294804325}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 973793418b2f7c34ab45efdf3022d887, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldChunkStorageTransitionLogger
+  worldHost: {fileID: 1058400943}
+  logChunkCreated: 1
+  logChunkRemoved: 1
+  logKindTransitions: 1
+--- !u!114 &1294804330
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1294804325}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: afd6fff708de55b43addb60c714ef41f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldDebugPaintTool
+  worldHost: {fileID: 1058400943}
+  pointer: {fileID: 1058400945}
+  tileLibraryAsset: {fileID: 0}
+  enablePainting: 1
+  paintSelectionMode: 0
+  paintTileId: 1
+  paintTileName: 
+  paintTag: 
+  eraseTileId: 0
+  brushRadius: 0
+  minWriteIntervalSeconds: 0.02
+  writeOnCellChange: 1
+  resolvedPaintTileId: 1
+  resolvedPaintTileInfo: 
+--- !u!114 &1294804331
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1294804325}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d328440f9d416fc438af2e2983d62ecc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldPinDebug
+  worldHost: {fileID: 1058400943}
+  pointer: {fileID: 1058400945}
+  enablePinning: 1
+  clearWithBackspace: 1
+  drawPinnedOutline: 1
+  drawMouseToPinLine: 0
+  gizmoZ: -0.05
+  outlineThickness: 4
+  lineThickness: 2
+  hasPin: 0
+  pinnedLocalX: 0
+  pinnedLocalY: 0
+  pinnedTileId: 0
+--- !u!114 &1294804332
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1294804325}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2db5480dbdde2ea41899d848841dbca7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldHoverInspectorProbe
+  pointer: {fileID: 1058400945}
+  worldHost: {fileID: 1058400943}
+  tileLibraryAsset: {fileID: 11400000, guid: 0163a0fc49b330343beec8e0071f1a54, type: 2}
+  hoverValid: 0
+  worldPoint: {x: 0, y: 0, z: 0}
+  localX: 0
+  localY: 0
+  tileId: 0
+  tileInfo: 
+--- !u!114 &1294804333
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1294804325}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9bb50d9febd26e1408527c6b638ec2b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldGridLinesDebugView
+  worldHost: {fileID: 1058400943}
+  rendererSource: {fileID: 0}
+  pointer: {fileID: 1058400945}
+  drawRendererChunkBounds: 1
+  drawRendererChunkLabels: 1
+  drawCameraChunkBounds: 1
+  drawCameraChunkLabels: 1
+  cameraSource: {fileID: 519420031}
+  cameraMarginChunks: 1
+  drawExistingChunksInCameraView: 1
+  labelExistingChunks: 0
+  drawTileGridNearMouse: 0
+  tileGridRadiusCells: 1
+  enableLabels: 1
+  labelPositionOffset: {x: 0, y: 0, z: 0}
+  labelWorldYOffset: 2
+  labelPixelYOffset: 14
+  labelOffsetInScreenSpace: 1
+  enableRendererLabels: 1
+  enableCameraLabels: 1
+  enableExistingChunkLabels: 1
+  rendererChunkGridColor: {r: 0, g: 1, b: 0, a: 1}
+  cameraChunkGridColor: {r: 0.2, g: 0.8, b: 1, a: 1}
+  existingChunksColor: {r: 1, g: 0.6, b: 0.2, a: 1}
+  tileGridColor: {r: 0, g: 1, b: 0, a: 1}
+  gizmoZ: -0.05
+  drawHoveredChunkEmphasis: 1
+  drawHoveredChunkEvenIfOutsideRendererView: 1
+  hoveredChunkColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  hoveredChunkThickness: 6
+  hoveredChunkGizmoZ: -0.04
 --- !u!1 &1299583461
 GameObject:
   m_ObjectHideFlags: 0
@@ -3870,65 +3934,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Combat.ActionTimelineController
   _currentActionDef: {fileID: 0}
   _currentActionId: 
---- !u!1 &1954742288
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1954742290}
-  - component: {fileID: 1954742289}
-  m_Layer: 0
-  m_Name: GrassSystem
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1954742289
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1954742288}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 32919b21c5094e74cb2e77cd843460f8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Grass.GrassRendererSystem
-  surfaceProviderBehaviour: {fileID: 1954742289}
-  clumpMesh: {fileID: 4300000, guid: 30e973d053b87ed449390ea5de3c05dd, type: 2}
-  grassMaterial: {fileID: 2100000, guid: d0d7b0972d8cee349b76b08595750b8e, type: 2}
-  targetCamera: {fileID: 519420031}
-  viewMode: 0
-  grassZ: -0.05
-  patchSizeInTiles: 8
-  activeRadiusInPatches: 3
-  hardUnloadRadiusInPatches: 6
-  castShadows: 0
-  receiveShadows: 0
-  windDirection: {x: 1, y: 0, z: 0}
-  windAmplitude: 0.25
-  windFrequency: 2
-  maxInfluencers: 16
---- !u!4 &1954742290
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1954742288}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.75838, y: 0.08308, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2008907797
 GameObject:
   m_ObjectHideFlags: 0
@@ -4081,4 +4086,3 @@ SceneRoots:
   - {fileID: 1907383955}
   - {fileID: 65112652}
   - {fileID: 1058400944}
-  - {fileID: 1954742290}

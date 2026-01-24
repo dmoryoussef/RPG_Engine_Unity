@@ -10,6 +10,11 @@ namespace WorldGrid.Runtime.Tiles
         private readonly Dictionary<int, TileDef> _defs;
         private readonly int _defaultTileId;
 
+        /// <summary>
+        /// Compiled runtime channels derived from this library.
+        /// </summary>
+        public TileChannels Channels { get; private set; }
+
         #endregion
 
         #region Construction
@@ -18,6 +23,31 @@ namespace WorldGrid.Runtime.Tiles
         {
             _defs = defs ?? new Dictionary<int, TileDef>();
             _defaultTileId = defaultTileId;
+
+            // Build compiled channels immediately so consumers always have them.
+            // IMPORTANT: derive max tileId from keys (not count) to support sparse/non-contiguous IDs.
+            int maxTileId = computeMaxTileIdKey();
+            Channels = new TileChannels(this, maxTileId);
+        }
+
+        private int computeMaxTileIdKey()
+        {
+            int maxId = 0;
+
+            if (_defs == null || _defs.Count == 0)
+                return maxId;
+
+            foreach (var kvp in _defs)
+            {
+                int id = kvp.Key;
+                if (id == _defaultTileId)
+                    continue;
+
+                if (id > maxId)
+                    maxId = id;
+            }
+
+            return maxId;
         }
 
         #endregion
@@ -69,6 +99,7 @@ namespace WorldGrid.Runtime.Tiles
             color = prop.Color;
             return true;
         }
+
         /// <summary>
         /// Renderer helper: try get per-cell jitter amplitude (0..0.25 recommended).
         /// Defaults to 0 if tileId is unknown or has no color property.
@@ -139,6 +170,5 @@ namespace WorldGrid.Runtime.Tiles
             sb.Append("] }");
             return sb.ToString();
         }
-
     }
 }

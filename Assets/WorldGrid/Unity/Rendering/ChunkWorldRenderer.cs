@@ -380,7 +380,7 @@ namespace WorldGrid.Unity.Rendering
         private GameObject createChunkRoot(ChunkCoord cc)
         {
             var root = new GameObject($"Chunk_{cc.X}_{cc.Y}");
-            root.transform.SetParent(WorldRoot, false);
+            root.transform.SetParent(transform, false);
             root.transform.localPosition = new Vector3(
                 cc.X * _world.ChunkSize * CellSize,
                 cc.Y * _world.ChunkSize * CellSize,
