@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9bfbec6a40a3ba145a0e3939cd506c5f, type: 3}
   m_Name: TileBrushState
   m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.UI.TileBrushState
-  selectedTileId: 1
+  _selectedTileId: 5
   eraseTileId: 0
-  brushRadius: 0
+  brushRadius: 1

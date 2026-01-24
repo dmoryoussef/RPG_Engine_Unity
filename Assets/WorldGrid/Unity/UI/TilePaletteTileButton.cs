@@ -1,59 +1,48 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using WorldGrid.Runtime.Tiles;
 
 namespace WorldGrid.Unity.UI
 {
     [DisallowMultipleComponent]
-    public sealed class TilePaletteTileButton : MonoBehaviour
+    public sealed class TilePaletteTileButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
-        #region Inspector
-
         [SerializeField] private Button button;
         [SerializeField] private RawImage image;
 
         [Tooltip("Optional highlight graphic (Image, Outline, etc.).")]
         [SerializeField] private Graphic selectedHighlight;
 
-        [Tooltip("Optional label (TextMeshPro).")]
-        [SerializeField] private TMP_Text label;
-
-        #endregion
-
-        #region State
+        [Header("Labels")]
+        [SerializeField] private TMP_Text nameLabel;
+        [SerializeField] private TMP_Text idLabel;
 
         public int TileId { get; private set; }
 
-        #endregion
+        private TileDef _def;
+        private TilePaletteTooltipUI _tooltip;
 
-        #region Public API
-
-        // Existing signature preserved
         public void Bind(
-            int tileId,
+            TileDef def,
             Texture atlas,
             RectUv uv,
-            string labelText,
-            Action<int> onClicked)
-        {
-            Bind(tileId, atlas, uv, labelText, onClicked, new Color32(255, 255, 255, 255));
-        }
-
-        // Existing overload preserved
-        public void Bind(
-            int tileId,
-            Texture atlas,
-            RectUv uv,
-            string labelText,
             Action<int> onClicked,
-            Color32 tint)
+            Color32 tint,
+            TilePaletteTooltipUI tooltip = null)
         {
-            TileId = tileId;
+            if (def == null)
+                return;
+
+            _def = def;
+            _tooltip = tooltip;
+
+            TileId = def.TileId;
 
             applyImage(atlas, uv, tint);
-            applyLabel(labelText);
+            applyLabels(def);
             applyClick(onClicked);
         }
 
@@ -63,9 +52,18 @@ namespace WorldGrid.Unity.UI
                 selectedHighlight.enabled = selected;
         }
 
-        #endregion
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (_tooltip == null || _def == null)
+                return;
 
-        #region Apply
+            _tooltip.Show(_def);
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            _tooltip?.Hide();
+        }
 
         private void applyImage(Texture atlas, RectUv uv, Color32 tint)
         {
@@ -83,10 +81,21 @@ namespace WorldGrid.Unity.UI
             image.color = tint;
         }
 
-        private void applyLabel(string labelText)
+        private void applyLabels(TileDef def)
         {
-            if (label != null)
-                label.text = labelText ?? string.Empty;
+            if (nameLabel != null)
+            {
+                bool hasName = !string.IsNullOrWhiteSpace(def.Name);
+                nameLabel.gameObject.SetActive(hasName);
+                if (hasName)
+                    nameLabel.text = def.Name;
+            }
+
+            if (idLabel != null)
+            {
+                idLabel.gameObject.SetActive(true);
+                idLabel.text = def.TileId.ToString();
+            }
         }
 
         private void applyClick(Action<int> onClicked)
@@ -97,7 +106,5 @@ namespace WorldGrid.Unity.UI
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() => onClicked?.Invoke(TileId));
         }
-
-        #endregion
     }
 }

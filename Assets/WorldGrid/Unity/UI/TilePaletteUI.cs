@@ -6,18 +6,6 @@ using WorldGrid.Unity.Rendering;
 
 namespace WorldGrid.Unity.UI
 {
-    /// <summary>
-    /// Simple palette UI for selecting a tileId from a TileLibraryKey.
-    ///
-    /// Responsibilities:
-    /// - Resolves tile library view from a provider on the WorldHost
-    /// - Builds a set of tile buttons
-    /// - Updates selection visuals based on TileBrushState
-    ///
-    /// Lifecycle:
-    /// - Resolves provider/view and builds UI in OnEnable (safe for dynamic runtime creation)
-    /// - Subscribes/unsubscribes to brush state selection changes
-    /// </summary>
     [DisallowMultipleComponent]
     public sealed class TilePaletteUI : MonoBehaviour
     {
@@ -28,15 +16,14 @@ namespace WorldGrid.Unity.UI
         [SerializeField] private TileBrushState brushState;
 
         [Header("Tile Library Selection")]
-        [Tooltip("Which tile library entry to display (for example 'world', 'debug', 'interior').")]
         [SerializeField] private TileLibraryKey tileLibraryKey;
 
         [Header("UI")]
         [SerializeField] private Transform contentRoot;
         [SerializeField] private TilePaletteTileButton tileButtonPrefab;
 
-        [Header("Options")]
-        [SerializeField] private bool showTileIdLabel = true;
+        [Tooltip("Optional central tooltip UI (shown on hover).")]
+        [SerializeField] private TilePaletteTooltipUI tooltipUI;
 
         #endregion
 
@@ -53,14 +40,35 @@ namespace WorldGrid.Unity.UI
 
         #endregion
 
+        #region Public Read-Only Accessors (for spawner injection)
+
+        public TileBrushState BrushState => brushState;
+        public TileLibraryKey TileLibraryKey => tileLibraryKey;
+
+        #endregion
+
         #region Unity Lifecycle
 
-        public void SetWorld(WorldHost host) => worldHost = host;
+        public void SetWorld(WorldHost host)
+        {
+            worldHost = host;
+
+            if (isActiveAndEnabled && !_initialized)
+            {
+                if (tryInitialize())
+                {
+                    _initialized = true;
+                    Rebuild();
+                    subscribe();
+                }
+            }
+        }
 
         private void Awake()
         {
-            if (!validateRequiredRefs())
+            if (brushState == null || contentRoot == null || tileButtonPrefab == null)
             {
+                UnityEngine.Debug.LogError("TilePaletteUI disabled: Missing required UI references.", this);
                 enabled = false;
                 return;
             }
@@ -68,6 +76,9 @@ namespace WorldGrid.Unity.UI
 
         private void OnEnable()
         {
+            if (worldHost == null)
+                return;
+
             if (!_initialized)
             {
                 if (!tryInitialize())
@@ -86,6 +97,10 @@ namespace WorldGrid.Unity.UI
         private void OnDisable()
         {
             unsubscribe();
+
+            // Hide tooltip when panel is disabled (prevents “stuck tooltip”).
+            if (tooltipUI != null)
+                tooltipUI.Hide();
         }
 
         #endregion
@@ -100,7 +115,6 @@ namespace WorldGrid.Unity.UI
             clearButtons();
 
             var lib = _tileView.Library;
-
             var atlas = _tileView.AtlasTexture != null ? _tileView.AtlasTexture : getWhite1x1();
 
             foreach (var def in lib.EnumerateDefs())
@@ -111,13 +125,10 @@ namespace WorldGrid.Unity.UI
                 var btn = Instantiate(tileButtonPrefab, contentRoot);
                 _buttons.Add(btn);
 
-                var label = getTileLabel(def);
                 var uv = getTileUv(def);
                 var tint = getTileTint(lib, def.TileId);
 
-                btn.Bind(def.TileId, atlas, uv, label, onTileClicked, tint);
-
-
+                btn.Bind(def, atlas, uv, onTileClicked, tint, tooltipUI);
                 btn.SetSelected(def.TileId == brushState.selectedTileId);
             }
         }
@@ -125,23 +136,6 @@ namespace WorldGrid.Unity.UI
         #endregion
 
         #region Initialization
-
-        private bool validateRequiredRefs()
-        {
-            if (brushState == null || contentRoot == null || tileButtonPrefab == null)
-            {
-                UnityEngine.Debug.LogError("TilePaletteUI disabled: Missing required UI references.", this);
-                return false;
-            }
-
-            if (worldHost == null)
-            {
-                UnityEngine.Debug.LogError("TilePaletteUI disabled: worldHost not assigned.", this);
-                return false;
-            }
-
-            return true;
-        }
 
         private bool tryInitialize()
         {
@@ -178,13 +172,11 @@ namespace WorldGrid.Unity.UI
         {
             view = null;
 
-            // Prefer runtime-safe provider method when available.
             if (_tileSource is TileLibraryProvider provider)
             {
                 return provider.TryGet(key, out view, out _);
             }
 
-            // Interface fallback: call Get only after Has.
             try
             {
                 view = _tileSource.Get(key);
@@ -199,6 +191,9 @@ namespace WorldGrid.Unity.UI
 
         private static ITileLibrarySource findTileLibrarySource(WorldHost host)
         {
+            if (host == null)
+                return null;
+
             var behaviours = host.GetComponents<MonoBehaviour>();
             for (int i = 0; i < behaviours.Length; i++)
             {
@@ -244,15 +239,8 @@ namespace WorldGrid.Unity.UI
 
         #region Button Build Helpers
 
-        private string getTileLabel(TileDef def)
-        {
-            return showTileIdLabel ? def.TileId.ToString() : def.Name;
-        }
-
         private RectUv getTileUv(TileDef def)
         {
-            // If we have a real atlas, use authored UVs.
-            // If not, use full-rect UV on a 1x1 texture and tint via TileColorProperty.
             return _tileView.AtlasTexture != null ? def.Uv : new RectUv(0f, 0f, 1f, 1f);
         }
 
