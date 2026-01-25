@@ -5,7 +5,7 @@ using WorldGrid.Unity.Assets;
 
 namespace WorldGrid.Unity.Editor
 {
-    //[CustomEditor(typeof(TileLibraryAsset))]
+    [CustomEditor(typeof(TileLibraryAsset))]
     public sealed class TileLibraryAssetEditor : UnityEditor.Editor
     {
         SerializedProperty _atlasLayoutMode;
@@ -19,20 +19,51 @@ namespace WorldGrid.Unity.Editor
         {
             serializedObject.Update();
 
-            // Clean fix: keep Unity's default inspector rendering
-            // (retains labels, layout, and any existing per-entry preview/icon behavior).
             DrawDefaultInspector();
 
             EditorGUILayout.Space(10);
-
-            // Add explanation without taking over drawing.
             DrawLayoutHelp();
 
             EditorGUILayout.Space(10);
             DrawTools();
 
+            // ---- REQUIRED: Managed Reference TileProperty UI ----
+            var entriesProp = serializedObject.FindProperty("entries");
+            if (entriesProp != null)
+            {
+                EditorGUILayout.Space(12);
+                EditorGUILayout.LabelField("Tile Properties", EditorStyles.boldLabel);
+                EditorGUILayout.HelpBox(
+                    "Unity's default '+' on SerializeReference lists often creates null elements. " +
+                    "Use 'Add Property' below to instantiate a concrete TileProperty (e.g., GrassTileProperty).",
+                    MessageType.Info);
+
+                for (int i = 0; i < entriesProp.arraySize; i++)
+                {
+                    var entryProp = entriesProp.GetArrayElementAtIndex(i);
+                    var propsProp = entryProp.FindPropertyRelative("properties");
+                    if (propsProp == null) continue;
+
+                    var tileIdProp = entryProp.FindPropertyRelative("tileId");
+                    var nameProp = entryProp.FindPropertyRelative("name");
+
+                    int tileId = tileIdProp != null ? tileIdProp.intValue : -1;
+                    string nm = nameProp != null ? nameProp.stringValue : "";
+                    string header = tileId >= 0 ? $"tileId {tileId}  {nm}" : $"Entry {i}";
+
+                    EditorGUILayout.BeginVertical("box");
+                    EditorGUILayout.LabelField(header, EditorStyles.boldLabel);
+
+                    // Use one of your helper UIs (either works). This one supports Set Type per element.
+                    SerializeReferenceListUI.DrawTilePropertyList(propsProp);
+
+                    EditorGUILayout.EndVertical();
+                }
+            }
+
             serializedObject.ApplyModifiedProperties();
         }
+
 
         private void DrawLayoutHelp()
         {

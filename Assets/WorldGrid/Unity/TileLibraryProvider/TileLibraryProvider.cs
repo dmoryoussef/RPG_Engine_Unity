@@ -249,6 +249,8 @@ namespace WorldGrid.Unity.Rendering
             var instanced = TileMaterialFactory.CreateInstance(template, atlasTex);
             if (instanced != null)
                 _ownedMaterials.Add(instanced);
+            if (instanced != null) instanced.renderQueue = 2450; // or 2450
+
 
             var built = new TileLibraryView(key, runtimeLib, atlasTex, instanced);
             _views[key.Value] = built;

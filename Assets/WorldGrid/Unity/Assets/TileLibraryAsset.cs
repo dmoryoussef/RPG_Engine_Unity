@@ -129,7 +129,9 @@ namespace WorldGrid.Unity.Assets
 
             [Header("Properties (Optional)")]
             [Tooltip("Optional, extensible semantics (authoring/build time).")]
+            [SerializeReference]
             public List<TileProperty> properties = new();
+
 
             [Header("Advanced")]
             [Tooltip("If enabled, uvMin/uvMax are used directly instead of computing from tileCoord/tileSpan.")]

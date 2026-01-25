@@ -72,16 +72,22 @@ Material:
     - _Mode: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.02
+    - _PatchScale: 0.02
+    - _PatchStrength: 0.35
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
     - _UVSec: 0
+    - _UseXZPlane: 0
     - _WindAmp: 0.381
     - _WindFreq: 2
+    - _WindWorldScale: 0.03
     - _ZWrite: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _PatchColorA: {r: 0.29999998, g: 0.7, b: 0.29999998, a: 1}
+    - _PatchColorB: {r: 0.19999996, g: 0.54999995, b: 0.19999996, a: 1}
     - _WindDir: {r: 1, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
