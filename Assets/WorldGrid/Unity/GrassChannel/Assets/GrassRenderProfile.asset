@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 83447678445b04348885b130846d355a, type: 3}
+  m_Name: GrassRenderProfile
+  m_EditorClassIdentifier: Assembly-CSharp::Grass.GrassRenderProfile
+  orientationMode: 0
+  meshXY: {fileID: 4300000, guid: 771cf53553fbeb64f842052df77c0576, type: 2}
+  meshXZ: {fileID: 4300000, guid: 163d13318a96e784e83c28a0d715586b, type: 2}
+  useXZPlane: 0
+  verticalSegments: 8
+  useThirdQuad: 0
+  materialTemplate: {fileID: 2100000, guid: d0d7b0972d8cee349b76b08595750b8e, type: 2}
+  mainTextureOverride: {fileID: 2800000, guid: a5daf72d692a6da439b52c5c0eab7b45, type: 3}
+  renderQueueOverride: -1
+  castShadows: 1
+  receiveShadows: 1
+  grassZ: -0.05
+  clumpsPerTile: 8
+  clumpsPerTileMultiplier: 2.25
+  maxClumpsPerChunk: 60000
+  tilePadding: 0
+  uniformScale: 1
+  scaleWidthMin: 0.9
+  scaleWidthMax: 1.15
+  scaleHeightMin: 0.21
+  scaleHeightMax: 0.43
+  heightBias: 1
+  baseRotationDeg: 0
+  randomRotation: 0
+  minRotationDeg: -16.9
+  maxRotationDeg: 9.5
+  globalSeed: 12345
+  windDirection: {x: 1, y: 0, z: 0}
+  windAmplitude: 0.25
+  windFrequency: 2
+  windWorldScale: 0.03
+  baseStiffness: 0.1
+  bendExponent: 1.26
+  swayStrength: 0.57
+  tipBoost: 1.43
+  patchColorA: {r: 1, g: 1, b: 1, a: 1}
+  patchColorB: {r: 0, g: 0, b: 0, a: 1}
+  patchScale: 0.2
+  patchStrength: 1
+  emissionStrength: 1

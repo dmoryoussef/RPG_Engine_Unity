@@ -4,20 +4,20 @@ using UnityEngine;
 
 public static class GrassClumpMeshGenerator
 {
-    [MenuItem("Tools/Grass/Generate Cross-Quad Clump Mesh")]
+    [MenuItem("Tools/Grass/Generate Subdivided Cross-Quad Clump Mesh")]
     public static void Generate()
     {
         // --- Tweakables ---
-        const float width = 0.35f;     // total quad width in local X
-        const float height = 1.0f;     // quad height in local Y (base at 0)
-        const bool addThirdQuad = true; // adds an extra quad at 45 degrees
-        const string assetPath = "Assets/Meshes/Grass/SM_GrassClump_CrossQuads.asset";
+        const float width = 0.35f;         // blade card width
+        const float height = 1.0f;         // blade height (local +Y)
+        const int verticalSegments = 8;    // <-- increase for smoother bending (6-12 recommended)
+        const bool addThirdQuad = true;    // optional extra quad at 45 degrees
+        const string assetPath = "Assets/Meshes/Grass/SM_GrassClump_Subdivided.asset";
 
-        // Ensure folder exists
         EnsureFolders("Assets/Meshes", "Assets/Meshes/Grass");
 
-        var mesh = BuildCrossQuadMesh(width, height, addThirdQuad);
-        mesh.name = "SM_GrassClump_CrossQuads";
+        var mesh = BuildCrossQuadMeshSubdivided(width, height, verticalSegments, addThirdQuad);
+        mesh.name = "SM_GrassClump_Subdivided";
 
         // Create/replace asset
         var existing = AssetDatabase.LoadAssetAtPath<Mesh>(assetPath);
@@ -38,78 +38,95 @@ public static class GrassClumpMeshGenerator
         EditorGUIUtility.PingObject(mesh);
         Selection.activeObject = mesh;
 
-        Debug.Log($"Grass clump mesh generated at: {assetPath}");
+        Debug.Log($"Subdivided grass clump mesh generated at: {assetPath}");
     }
 
-    private static Mesh BuildCrossQuadMesh(float width, float height, bool addThirdQuad)
+    private static Mesh BuildCrossQuadMeshSubdivided(float width, float height, int verticalSegments, bool addThirdQuad)
     {
-        // Each quad: 4 verts, 6 indices
+        verticalSegments = Mathf.Clamp(verticalSegments, 1, 64);
+
+        // Each quad becomes a grid: 2 columns (left/right) x (verticalSegments+1) rows
+        int rows = verticalSegments + 1;
+        int vertsPerQuad = rows * 2;
+
         int quadCount = addThirdQuad ? 3 : 2;
-        int vCount = quadCount * 4;
-        int iCount = quadCount * 6;
+        int vCount = quadCount * vertsPerQuad;
+
+        // Each vertical segment adds 2 triangles => 6 indices per segment
+        int indicesPerQuad = verticalSegments * 6;
+        int iCount = quadCount * indicesPerQuad;
 
         var verts = new Vector3[vCount];
         var uvs = new Vector2[vCount];
         var normals = new Vector3[vCount];
         var tris = new int[iCount];
 
-        // A single upright quad centered on origin, base at y=0
-        // We'll rotate it around Y to make the cross.
-        Vector3 v0 = new Vector3(-width * 0.5f, 0f, 0f);
-        Vector3 v1 = new Vector3(width * 0.5f, 0f, 0f);
-        Vector3 v2 = new Vector3(-width * 0.5f, height, 0f);
-        Vector3 v3 = new Vector3(width * 0.5f, height, 0f);
-
-        // UVs: bottom-left, bottom-right, top-left, top-right
-        Vector2 uv0 = new Vector2(0f, 0f);
-        Vector2 uv1 = new Vector2(1f, 0f);
-        Vector2 uv2 = new Vector2(0f, 1f);
-        Vector2 uv3 = new Vector2(1f, 1f);
-
         float[] anglesDeg = addThirdQuad
             ? new[] { 0f, 90f, 45f }
             : new[] { 0f, 90f };
 
-        int vi = 0;
+        int viBase = 0;
         int ti = 0;
 
         for (int q = 0; q < quadCount; q++)
         {
             Quaternion rot = Quaternion.Euler(0f, anglesDeg[q], 0f);
-
-            verts[vi + 0] = rot * v0;
-            verts[vi + 1] = rot * v1;
-            verts[vi + 2] = rot * v2;
-            verts[vi + 3] = rot * v3;
-
-            uvs[vi + 0] = uv0;
-            uvs[vi + 1] = uv1;
-            uvs[vi + 2] = uv2;
-            uvs[vi + 3] = uv3;
-
-            // Give each quad a normal that roughly faces outward so lighting behaves if you ever re-enable lights
             Vector3 n = rot * Vector3.forward;
-            normals[vi + 0] = n;
-            normals[vi + 1] = n;
-            normals[vi + 2] = n;
-            normals[vi + 3] = n;
 
-            // Two triangles (0,2,1) (1,2,3)
-            tris[ti + 0] = vi + 0;
-            tris[ti + 1] = vi + 2;
-            tris[ti + 2] = vi + 1;
+            // Build vertices
+            for (int r = 0; r < rows; r++)
+            {
+                float t = (float)r / verticalSegments; // 0..1
+                float y = t * height;
 
-            tris[ti + 3] = vi + 1;
-            tris[ti + 4] = vi + 2;
-            tris[ti + 5] = vi + 3;
+                // left/right points along X in local quad space
+                Vector3 left = new Vector3(-width * 0.5f, y, 0f);
+                Vector3 right = new Vector3(width * 0.5f, y, 0f);
 
-            vi += 4;
-            ti += 6;
+                int vi = viBase + r * 2;
+
+                verts[vi + 0] = rot * left;
+                verts[vi + 1] = rot * right;
+
+                // UVs: U across width, V along height
+                uvs[vi + 0] = new Vector2(0f, t);
+                uvs[vi + 1] = new Vector2(1f, t);
+
+                normals[vi + 0] = n;
+                normals[vi + 1] = n;
+            }
+
+            // Build triangles per vertical segment
+            for (int s = 0; s < verticalSegments; s++)
+            {
+                int row0 = s;
+                int row1 = s + 1;
+
+                int v00 = viBase + row0 * 2 + 0; // left lower
+                int v01 = viBase + row0 * 2 + 1; // right lower
+                int v10 = viBase + row1 * 2 + 0; // left upper
+                int v11 = viBase + row1 * 2 + 1; // right upper
+
+                // Two triangles: (v00, v10, v01) and (v01, v10, v11)
+                tris[ti + 0] = v00;
+                tris[ti + 1] = v10;
+                tris[ti + 2] = v01;
+
+                tris[ti + 3] = v01;
+                tris[ti + 4] = v10;
+                tris[ti + 5] = v11;
+
+                ti += 6;
+            }
+
+            viBase += vertsPerQuad;
         }
 
         var mesh = new Mesh
         {
-            indexFormat = UnityEngine.Rendering.IndexFormat.UInt16
+            indexFormat = (vCount > 65535)
+                ? UnityEngine.Rendering.IndexFormat.UInt32
+                : UnityEngine.Rendering.IndexFormat.UInt16
         };
 
         mesh.vertices = verts;
@@ -118,15 +135,11 @@ public static class GrassClumpMeshGenerator
         mesh.triangles = tris;
 
         mesh.RecalculateBounds();
-        // We intentionally do NOT recalc normals since we set them; if you prefer softer shading:
-        // mesh.RecalculateNormals();
-
         return mesh;
     }
 
     private static void EnsureFolders(params string[] folders)
     {
-        // Create nested folders if needed
         for (int i = 0; i < folders.Length; i++)
         {
             string path = folders[i];

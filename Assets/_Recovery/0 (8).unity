@@ -1246,62 +1246,6 @@ MonoBehaviour:
   _minColor: {r: 1, g: 0, b: 0, a: 1}
   _maxColor: {r: 0, g: 1, b: 0, a: 1}
   _updateInterval: 0.1
---- !u!1 &779256974
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 779256975}
-  - component: {fileID: 779256976}
-  m_Layer: 0
-  m_Name: GrassInfluenceSystem
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &779256975
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 779256974}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 993725135}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &779256976
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 779256974}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 852719805625a424baac08a97081fa78, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GrassInfluenceSystem
-  grassRenderer: {fileID: 993725136}
-  player: {fileID: 1145219838}
-  playerRadius: 1
-  playerStrength: 0.8
-  extraEntities: []
-  entityRadius: 0.8
-  entityStrength: 0.6
-  maxInfluencers: 16
-  velocityBoost: 1
-  velocityToStrength: 0.15
-  minMultiplier: 0.5
-  maxMultiplier: 2
 --- !u!1 &831134551
 GameObject:
   m_ObjectHideFlags: 0
@@ -1700,8 +1644,7 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 779256975}
+  m_Children: []
   m_Father: {fileID: 353368238}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &993725136
@@ -1721,7 +1664,35 @@ MonoBehaviour:
   tileLibraryProvider: {fileID: 1058400957}
   tileLibraryKey:
     value: TestWorld
-  profile: {fileID: 11400000, guid: 915b392d6e83120448e81ec1f532caee, type: 2}
+  clumpMesh: {fileID: 4300000, guid: a68eabc44fef24d4195789442a8ac945, type: 2}
+  grassMaterial: {fileID: 2100000, guid: d0d7b0972d8cee349b76b08595750b8e, type: 2}
+  grassZ: -0.05
+  castShadows: 0
+  receiveShadows: 0
+  clumpsPerTile: 1.5
+  clumpsPerTileMultiplier: 2
+  maxClumpsPerChunk: 60000
+  tilePadding: 0.12
+  uniformScale: 0
+  scaleWidthMin: 0.9
+  scaleWidthMax: 1.15
+  scaleHeightMin: 0.95
+  scaleHeightMax: 1.35
+  heightBias: 1
+  globalSeed: 12345
+  windDirection: {x: 1, y: 0, z: 0}
+  windAmplitude: 0.25
+  windFrequency: 2
+  windWorldScale: 0.03
+  baseStiffness: 0.2
+  bendExponent: 3
+  swayStrength: 1
+  tipBoost: 0.5
+  useXZPlane: 0
+  patchColorA: {r: 0.3, g: 0.7, b: 0.3, a: 1}
+  patchColorB: {r: 0.2, g: 0.55, b: 0.2, a: 1}
+  patchScale: 0.02
+  patchStrength: 0.35
   maxInfluencers: 16
   bindRetrySeconds: 0.25
   logBind: 1
@@ -2164,7 +2135,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!212 &1145219837
 SpriteRenderer:
   serializedVersion: 2

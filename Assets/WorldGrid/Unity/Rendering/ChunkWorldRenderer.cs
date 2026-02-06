@@ -82,7 +82,7 @@ namespace WorldGrid.Unity.Rendering
         private float _lastDebugOverlayAlpha;
 
         private readonly Dictionary<ChunkCoord, ChunkView> _views = new();
-
+        private GameObject _chunkRootsParent;
         #endregion
 
         #region Properties
@@ -104,6 +104,9 @@ namespace WorldGrid.Unity.Rendering
                 enabled = false;
                 return;
             }
+
+            _chunkRootsParent = new GameObject("ChunkViewsRoot");
+            _chunkRootsParent.transform.SetParent(transform, false);
         }
 
         private void Start()
@@ -380,7 +383,7 @@ namespace WorldGrid.Unity.Rendering
         private GameObject createChunkRoot(ChunkCoord cc)
         {
             var root = new GameObject($"Chunk_{cc.X}_{cc.Y}");
-            root.transform.SetParent(transform, false);
+            root.transform.SetParent(_chunkRootsParent.transform, false);
             root.transform.localPosition = new Vector3(
                 cc.X * _world.ChunkSize * CellSize,
                 cc.Y * _world.ChunkSize * CellSize,

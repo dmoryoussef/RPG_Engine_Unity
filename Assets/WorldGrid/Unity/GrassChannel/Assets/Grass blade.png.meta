@@ -1,15 +1,15 @@
 fileFormatVersion: 2
-guid: 5db20e1ac12eec94fb40936607188452
+guid: 1a38e47d14b3f4c4db7fdf3ea6e0c545
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 5125268547683825207
-    second: pngkey.com-fountain-grass-png-1357536_0
+      213: 6730660452084605666
+    second: Grass blade_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
     mipMapMode: 0
-    enableMipMap: 1
+    enableMipMap: 0
     sRGBTexture: 1
     linearTexture: 0
     fadeOut: 0
@@ -37,7 +37,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 1
+    filterMode: 0
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -46,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -57,7 +57,7 @@ TextureImporter:
   alphaUsage: 1
   alphaIsTransparency: 1
   spriteTessellationDetail: -1
-  textureType: 0
+  textureType: 8
   textureShape: 1
   singleChannelComponent: 0
   flipbookRows: 1
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: pngkey.com-fountain-grass-png-1357536_0
+      name: Grass blade_0
       rect:
         serializedVersion: 2
-        x: 0
+        x: 24
         y: 0
-        width: 640
-        height: 597
+        width: 21
+        height: 64
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 7363d2bd69c902740800000000000000
-      internalID: 5125268547683825207
+      spriteID: 2e2e546450c186d50800000000000000
+      internalID: 6730660452084605666
       vertices: []
       indices: 
       edges: []
@@ -138,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      pngkey.com-fountain-grass-png-1357536_0: 5125268547683825207
+      Grass blade_0: 6730660452084605666
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
