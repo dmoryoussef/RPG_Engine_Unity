@@ -26,6 +26,7 @@ namespace WorldGrid.Unity.Rendering
 
         [SerializeField]
         private List<TileLibraryProviderEntry> entries = new();
+        [SerializeField] private bool debugTilesetBuild = true;
 
         #endregion
 
@@ -186,7 +187,8 @@ namespace WorldGrid.Unity.Rendering
 #if UNITY_EDITOR
         private void validateEntriesEditor()
         {
-            if (entries == null)
+            // Editor-only lightweight check; runtime does authoritative validation in OnEnable.
+            if (entries == null || entries.Count == 0)
                 return;
 
             var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -198,38 +200,56 @@ namespace WorldGrid.Unity.Rendering
                     continue;
 
                 if (e.key.IsEmpty)
-                    UnityEngine.Debug.LogWarning($"{name}: TileLibraryProvider entry {i} has an empty key.", this);
+                    continue;
 
-                if (e.asset == null)
-                    UnityEngine.Debug.LogWarning($"{name}: TileLibraryProvider entry '{e.key}' has no asset.", this);
-
-                if (!e.key.IsEmpty && !seen.Add(e.key.Value))
-                    UnityEngine.Debug.LogWarning($"{name}: TileLibraryProvider has a duplicate key '{e.key.Value}'.", this);
+                if (!seen.Add(e.key.Value))
+                {
+                    UnityEngine.Debug.LogWarning($"{name}: Duplicate TileLibraryKey '{e.key.Value}' in entries (first wins at runtime).", this);
+                }
             }
         }
 #endif
 
-        private void warnOnce(string key, string message)
+        private void warnOnce(string token, string message)
         {
-            if (_warned.Add(key))
-                UnityEngine.Debug.LogWarning(message, this);
+            if (_warned.Contains(token))
+                return;
+
+            _warned.Add(token);
+            UnityEngine.Debug.LogWarning(message, this);
         }
 
         #endregion
 
         #region View Build
 
+
         private bool tryBuildView(
-            TileLibraryKey key,
-            TileLibraryProviderEntry entry,
-            out ITileLibraryView view,
-            out string error)
+    TileLibraryKey key,
+    TileLibraryProviderEntry entry,
+    out ITileLibraryView view,
+    out string error)
         {
             view = null;
             error = null;
 
-            var asset = entry.asset;
+            var asset = entry != null ? entry.asset : null;
+            if (asset == null)
+            {
+                error = $"TileLibraryProvider: missing TileLibraryAsset for key '{key.Value}'.";
+                if (debugTilesetBuild) UnityEngine.Debug.LogError(error);
+                return false;
+            }
 
+            if (debugTilesetBuild)
+            {
+                UnityEngine.Debug.Log(
+                    $"[TileProvider] BuildView BEGIN key='{key.Value}' asset='{asset.name}' " +
+                    $"assetTemplateMat={(asset.templateMaterial != null ? asset.templateMaterial.name : "NULL")} " +
+                    $"assetTemplateShader={(asset.templateMaterial != null ? asset.templateMaterial.shader.name : "NULL")}");
+            }
+
+            // 1) Build runtime library
             TileLibrary runtimeLib;
             try
             {
@@ -238,25 +258,145 @@ namespace WorldGrid.Unity.Rendering
             catch (Exception ex)
             {
                 error = $"TileLibraryProvider: failed to build runtime library for key '{key.Value}': {ex.Message}";
+                if (debugTilesetBuild) UnityEngine.Debug.LogError($"[TileProvider] BuildRuntime FAILED key='{key.Value}' :: {ex}");
                 return false;
             }
 
-            var atlasTex = resolveAtlasTexture(asset);
-            var template = resolveMaterialTemplate(entry, asset);
-            if (!tryEnsureTemplateMaterial(key, ref template, out error))
+            if (runtimeLib == null)
+            {
+                error = $"TileLibraryProvider: BuildRuntime returned null for key '{key.Value}' (asset '{asset.name}').";
+                if (debugTilesetBuild) UnityEngine.Debug.LogError(error);
                 return false;
+            }
 
-            var instanced = TileMaterialFactory.CreateInstance(template, atlasTex);
-            if (instanced != null)
-                _ownedMaterials.Add(instanced);
-            if (instanced != null) instanced.renderQueue = 2450; // or 2450
+            // 2) Resolve atlas texture
+            var atlasTex = resolveAtlasTexture(asset);
+            if (debugTilesetBuild)
+            {
+                UnityEngine.Debug.Log(
+                    $"[TileProvider] AtlasResolved key='{key.Value}' atlasTex={(atlasTex != null ? atlasTex.name : "NULL")}");
+            }
 
+            // 3) Resolve template material
+            // Priority:
+            //  a) entry override template (resolveMaterialTemplate(entry))
+            //  b) asset.templateMaterial
+            //  c) provider fallback template created by tryEnsureTemplateMaterial
+            var template = resolveMaterialTemplate(entry);
 
+            if (template == null && asset.templateMaterial != null)
+                template = asset.templateMaterial;
+
+            if (debugTilesetBuild)
+            {
+                UnityEngine.Debug.Log(
+                    $"[TileProvider] TemplateResolved key='{key.Value}' " +
+                    $"templateMat={(template != null ? template.name : "NULL")} " +
+                    $"templateShader={(template != null ? template.shader.name : "NULL")}");
+            }
+
+            // Ensure we have a valid template (creates fallback template if needed)
+            if (!tryEnsureTemplateMaterial(key, ref template, out error))
+            {
+                if (debugTilesetBuild) UnityEngine.Debug.LogError($"[TileProvider] EnsureTemplate FAILED key='{key.Value}' :: {error}");
+                return false;
+            }
+
+            if (template == null)
+            {
+                error = $"TileLibraryProvider: template material is null after tryEnsureTemplateMaterial for key '{key.Value}'.";
+                if (debugTilesetBuild) UnityEngine.Debug.LogError(error);
+                return false;
+            }
+
+            // 4) Instantiate provider-owned runtime material
+            Material instanced = null;
+            try
+            {
+                instanced = UnityEngine.Object.Instantiate(template);
+            }
+            catch (Exception ex)
+            {
+                error = $"TileLibraryProvider: failed to instantiate template material for key '{key.Value}': {ex.Message}";
+                if (debugTilesetBuild) UnityEngine.Debug.LogError($"[TileProvider] Instantiate FAILED key='{key.Value}' :: {ex}");
+                return false;
+            }
+
+            if (instanced == null)
+            {
+                error = $"TileLibraryProvider: Instantiate returned null material for key '{key.Value}'.";
+                if (debugTilesetBuild) UnityEngine.Debug.LogError(error);
+                return false;
+            }
+
+            _ownedMaterials.Add(instanced);
+            instanced.renderQueue = 2450;
+
+            // 5) Bind atlas texture to common properties
+            if (atlasTex != null)
+            {
+                bool bound = false;
+
+                if (instanced.HasProperty("_BaseMap"))
+                {
+                    instanced.SetTexture("_BaseMap", atlasTex);
+                    bound = true;
+                }
+
+                if (instanced.HasProperty("_MainTex"))
+                {
+                    instanced.SetTexture("_MainTex", atlasTex);
+                    bound = true;
+                }
+
+                if (!bound)
+                {
+                    // last resort
+                    instanced.mainTexture = atlasTex;
+                }
+            }
+
+            // 6) Optional bind height atlas (if you're still carrying it; harmless if shader doesn't use it)
+            if (asset.heightAtlasTexture != null && instanced.HasProperty("_HeightTex"))
+                instanced.SetTexture("_HeightTex", asset.heightAtlasTexture);
+
+            // 7) Final debug snapshot of the instantiated material
+            if (debugTilesetBuild)
+            {
+                var instShader = instanced.shader != null ? instanced.shader.name : "NULL";
+                var instMainTex = instanced.mainTexture != null ? instanced.mainTexture.name : "NULL";
+
+                float rs = instanced.HasProperty("_ReliefStrength") ? instanced.GetFloat("_ReliefStrength") : -999f;
+                float amb = instanced.HasProperty("_Ambient") ? instanced.GetFloat("_Ambient") : -999f;
+                float ns = instanced.HasProperty("_NoiseScale") ? instanced.GetFloat("_NoiseScale") : -999f;
+
+                UnityEngine.Debug.Log(
+                    $"[TileProvider] BuildView OK key='{key.Value}' instMat='{instanced.name}' " +
+                    $"shader='{instShader}' mainTex='{instMainTex}' " +
+                    $"hasRelief={(instanced.HasProperty("_ReliefStrength"))} " +
+                    $"_ReliefStrength={rs} _Ambient={amb} _NoiseScale={ns}");
+            }
+
+            // 8) Create view and cache it
             var built = new TileLibraryView(key, runtimeLib, atlasTex, instanced);
             _views[key.Value] = built;
             view = built;
+
+            if (debugTilesetBuild)
+                UnityEngine.Debug.Log($"[TileProvider] BuildView END key='{key.Value}' viewCached=true");
+
             return true;
         }
+
+        private Texture2D resolveHeightAtlasTexture(TileLibraryAsset asset)
+        {
+            if (asset == null)
+                return null;
+
+            // If you added: public Texture2D heightAtlasTexture;
+            return asset.heightAtlasTexture;
+        }
+
 
         private Texture2D resolveAtlasTexture(TileLibraryAsset asset)
         {
@@ -271,11 +411,11 @@ namespace WorldGrid.Unity.Rendering
             return runtimeAtlas;
         }
 
-        private static Material resolveMaterialTemplate(TileLibraryProviderEntry entry, TileLibraryAsset asset)
+        private static Material resolveMaterialTemplate(TileLibraryProviderEntry entry)
         {
-            return entry.materialTemplateOverride != null
-                ? entry.materialTemplateOverride
-                : asset.atlasMaterial;
+            // TileLibraryAsset no longer owns materials/shaders. Provider may optionally use an override template,
+            // otherwise it will create a runtime template using a fallback shader.
+            return entry.materialTemplateOverride;
         }
 
         private bool tryEnsureTemplateMaterial(TileLibraryKey key, ref Material template, out string error)
@@ -323,83 +463,18 @@ namespace WorldGrid.Unity.Rendering
 
             var tex = new Texture2D(atlasW, atlasH, TextureFormat.RGBA32, mipChain: false, linear: false)
             {
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp,
-                name = $"{asset.name}_RuntimeColorAtlas"
+                name = $"WorldGrid_RuntimeColorAtlas_{asset.name}"
             };
 
+            // Fill with white (placeholder). Extend later to bake per-tile base colors into an atlas if desired.
             var pixels = new Color32[atlasW * atlasH];
-            fill(pixels, new Color32(0, 0, 0, 0));
-
-            paintEntries(asset, atlasW, atlasH, pixels);
+            for (int i = 0; i < pixels.Length; i++)
+                pixels[i] = new Color32(255, 255, 255, 255);
 
             tex.SetPixels32(pixels);
-            tex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+            tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
+
             return tex;
-        }
-
-        private static void fill(Color32[] pixels, Color32 c)
-        {
-            for (int i = 0; i < pixels.Length; i++)
-                pixels[i] = c;
-        }
-
-        private static void paintEntries(TileLibraryAsset asset, int atlasW, int atlasH, Color32[] pixels)
-        {
-            var tileSize = asset.tilePixelSize;
-            var pad = asset.paddingPixels;
-
-            int stepX = tileSize.x + pad.x;
-            int stepY = tileSize.y + pad.y;
-
-            for (int i = 0; i < asset.entries.Count; i++)
-            {
-                var e = asset.entries[i];
-                if (e == null)
-                    continue;
-
-                int x0 = e.tileCoord.x * stepX;
-                int y0 = e.tileCoord.y * stepY;
-
-                if (asset.originTopLeft)
-                    y0 = atlasH - y0 - tileSize.y;
-
-                int w = e.tileSpan.x * tileSize.x + (e.tileSpan.x - 1) * pad.x;
-                int h = e.tileSpan.y * tileSize.y + (e.tileSpan.y - 1) * pad.y;
-
-                clampRect(ref x0, ref y0, ref w, ref h, atlasW, atlasH);
-                if (w <= 0 || h <= 0)
-                    continue;
-
-                paintRect(pixels, atlasW, x0, y0, w, h, e.color);
-            }
-        }
-
-        private static void clampRect(ref int x0, ref int y0, ref int w, ref int h, int atlasW, int atlasH)
-        {
-            int x1 = x0 + w;
-            int y1 = y0 + h;
-
-            x0 = Mathf.Clamp(x0, 0, atlasW);
-            y0 = Mathf.Clamp(y0, 0, atlasH);
-            x1 = Mathf.Clamp(x1, 0, atlasW);
-            y1 = Mathf.Clamp(y1, 0, atlasH);
-
-            w = x1 - x0;
-            h = y1 - y0;
-        }
-
-        private static void paintRect(Color32[] pixels, int atlasW, int x0, int y0, int w, int h, Color32 c)
-        {
-            int x1 = x0 + w;
-            int y1 = y0 + h;
-
-            for (int y = y0; y < y1; y++)
-            {
-                int row = y * atlasW;
-                for (int x = x0; x < x1; x++)
-                    pixels[row + x] = c;
-            }
         }
 
         #endregion
@@ -408,47 +483,26 @@ namespace WorldGrid.Unity.Rendering
 
         private void cleanupOwnedResources()
         {
-            // Clear views first so consumers do not retain stale references across disable/enable.
-            _views.Clear();
-
-            destroyOwnedMaterials();
-            destroyOwnedTextures();
-        }
-
-        private void destroyOwnedMaterials()
-        {
+            // Destroy owned materials
             for (int i = 0; i < _ownedMaterials.Count; i++)
             {
                 var m = _ownedMaterials[i];
-                if (m == null)
-                    continue;
-
-#if UNITY_EDITOR
-                DestroyImmediate(m);
-#else
-                Destroy(m);
-#endif
+                if (m != null)
+                    Destroy(m);
             }
-
             _ownedMaterials.Clear();
-        }
 
-        private void destroyOwnedTextures()
-        {
+            // Destroy owned textures
             for (int i = 0; i < _ownedTextures.Count; i++)
             {
                 var t = _ownedTextures[i];
-                if (t == null)
-                    continue;
-
-#if UNITY_EDITOR
-                DestroyImmediate(t);
-#else
-                Destroy(t);
-#endif
+                if (t != null)
+                    Destroy(t);
             }
-
             _ownedTextures.Clear();
+
+            _views.Clear();
+            _warned.Clear();
         }
 
         #endregion

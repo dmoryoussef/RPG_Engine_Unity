@@ -12,26 +12,21 @@ namespace WorldGrid.Unity.Assets
     [CreateAssetMenu(menuName = "WorldGrid/Tile Library Asset", fileName = "TileLibraryAsset")]
     public sealed class TileLibraryAsset : ScriptableObject
     {
-        #region Atlas / Material (Authoring)
+        #region Atlas (Authoring)
 
         [Header("Atlas")]
-        [Tooltip("The atlas/spritesheet texture (PNG). Optional if using manual layout authoring.")]
+        [Tooltip("The atlas/spritesheet texture (PNG). Used for editor-time BaseColor averaging and UV validation.")]
         public Texture2D atlasTexture;
 
-        [Tooltip("Optional: material that uses the atlasTexture. If null, it can be created/updated in the Editor.")]
-        public Material atlasMaterial;
+        [Header("Rendering")]
+        [Tooltip("Optional template material. The provider will Instantiate() this at runtime. " +
+                 "If null, the provider will fall back to its default template/shader.")]
+        public Material templateMaterial;
 
-        [Header("Atlas Material Auto-Create (Editor)")]
-        [Tooltip("If true, the asset can auto-create/update atlasMaterial in the Editor when possible.")]
-        public bool autoCreateAtlasMaterial = true;
+        [Tooltip("Optional height atlas (grayscale). Must match atlasTexture layout/UVs. " +
+                 "If null, tiles render flat.")]
+        public Texture2D heightAtlasTexture;
 
-        [Tooltip("Material asset name suffix (created next to this TileLibraryAsset).")]
-        public string autoMaterialSuffix = "_WorldGrid_Mat";
-
-        [Tooltip(
-            "Preferred shader name for the auto-created material.\n" +
-            "Examples: 'WorldGrid/Unlit Vertex Tint Blend', 'Sprites/Default', 'Unlit/Transparent', 'Unlit/Texture'.")]
-        public string autoMaterialShaderName = "WorldGrid/Unlit Vertex Tint Blend";
 
         #endregion
 
@@ -55,174 +50,114 @@ namespace WorldGrid.Unity.Assets
         public Vector2Int paddingPixels = Vector2Int.zero;
 
         [Tooltip(
-            "If true, tile coords are authored with (0,0) at the top-left of the atlas grid.\n" +
-            "If false, (0,0) is bottom-left (matches UV space).")]
+            "If true, tile coords are authored with (0,0) at the TOP-LEFT of the atlas.\n" +
+            "If false, tile coords are authored with (0,0) at the BOTTOM-LEFT.")]
         public bool originTopLeft = true;
 
-        [Header("Manual Atlas Layout (No Texture Required)")]
-        [Tooltip("Used when atlasLayoutMode = ManualPixels.")]
-        public int manualAtlasWidthPixels = 1024;
+        [Header("Manual Atlas Size (Pixels)")]
+        [Tooltip("Only used when AtlasLayoutMode = ManualPixels.")]
+        public Vector2Int manualAtlasPixelSize = new Vector2Int(1024, 1024);
 
-        [Tooltip("Used when atlasLayoutMode = ManualPixels.")]
-        public int manualAtlasHeightPixels = 1024;
+        [Header("Manual Grid (Tiles)")]
+        [Tooltip("Only used when AtlasLayoutMode = ManualGrid. Auto-populate uses these dimensions.")]
+        public Vector2Int manualGridSize = new Vector2Int(16, 16);
 
-        [Tooltip("Used when atlasLayoutMode = ManualGrid. Grid columns for auto-populate and UV layout.")]
-        public int manualColumns = 8;
+        [Tooltip("Only used when AtlasLayoutMode = ManualGrid. If > 0, auto-populate will create this many entries total.")]
+        public int manualTileCount = 0;
 
-        [Tooltip("Used when atlasLayoutMode = ManualGrid if inferRowsFromTileCount is false.")]
-        public int manualRows = 8;
-
-        [Tooltip("Used when atlasLayoutMode = ManualGrid. If true, rows are computed from tile count.")]
-        public bool inferRowsFromTileCount = true;
-
-        [Tooltip("Used when atlasLayoutMode = ManualGrid. Total tiles to auto-populate (entries will be created/trimmed to this).")]
-        public int manualTileCount = 64;
-
-        #endregion
-
-        #region Auto-Populate / Ids
-
-        [Header("Auto-Populate")]
-        [Tooltip("If true, auto-populate reserves tileId=0 for 'empty/default' and starts real tiles at 1.")]
-        public bool reserveZeroForEmpty = true;
-
-        [Tooltip("If reserveZeroForEmpty is false, auto-populate will start from this id. If true, it starts at 1.")]
+        [Tooltip("Auto-populate: first tileId assigned.")]
         public int autoIdStart = 0;
 
+        [Tooltip("Auto-populate: optional name prefix.")]
+        public string autoNamePrefix = "Tile ";
+
         #endregion
 
-        #region Tile Definitions
+        #region Entries
 
-        [Header("Tile Definitions")]
-        public List<Entry> entries = new();
+        public enum BaseColorMode : byte
+        {
+            Solid = 0,
+            AverageAtlas = 1
+        }
 
         [Serializable]
         public sealed class Entry
         {
-            [Tooltip("The integer tileId stored in WorldGrid.")]
             public int tileId;
-
-            [Tooltip("Human-readable name for debugging/tools (optional during auto-populate).")]
             public string name;
 
-            [Tooltip("Tile coordinate in the atlas grid (x=column, y=row). Origin depends on 'originTopLeft'.")]
+            [Header("Atlas Addressing")]
             public Vector2Int tileCoord = Vector2Int.zero;
-
-            [Tooltip("Size in tiles. Leave as (1,1) for a standard single tile.")]
             public Vector2Int tileSpan = Vector2Int.one;
 
-            [Header("Visual Semantics")]
-            [Tooltip("Semantic base color for this tile.")]
+            [Header("UV Override")]
+            public bool overrideUv = false;
+            public Vector2 uvMin;
+            public Vector2 uvMax;
+
+            [Header("Base Color (Intrinsic / Low Detail)")]
+            public BaseColorMode baseColorMode = BaseColorMode.AverageAtlas;
+            public Color32 baseColorSolid = new Color32(255, 255, 255, 255);
+            public Color32 baseColorCachedAverage = new Color32(255, 255, 255, 255);
+            [Range(0f, 1f)] public float baseColorInfluence = 1f;
+
+            [Header("Tint (Overlay / Art Direction)")]
             public Color32 color = new Color32(255, 255, 255, 255);
-
-            [Tooltip("Optional per-cell brightness jitter amplitude for this tile (0..0.25 recommended).")]
-            [Range(0f, 0.25f)]
-            public float colorJitter = 0.05f;
-
-            [Tooltip("How much to blend tint into the sprite. 0 = no tint, 1 = full tint.")]
-            [Range(0f, 1f)]
-            public float colorBlend = 1f;
+            [Range(0f, 0.25f)] public float colorJitter = 0.05f;
+            [Range(0f, 1f)] public float colorBlend = 1f;
 
             [Header("Tags (Optional)")]
-            [Tooltip("Optional tags for debugging/querying.")]
             public List<string> tags = new();
 
             [Header("Properties (Optional)")]
-            [Tooltip("Optional, extensible semantics (authoring/build time).")]
-            [SerializeReference]
-            public List<TileProperty> properties = new();
-
-
-            [Header("Advanced")]
-            [Tooltip("If enabled, uvMin/uvMax are used directly instead of computing from tileCoord/tileSpan.")]
-            public bool overrideUv = false;
-
-            [Tooltip("Normalized UV min (0..1), bottom-left.")]
-            public Vector2 uvMin;
-
-            [Tooltip("Normalized UV max (0..1), top-right.")]
-            public Vector2 uvMax;
+            [SerializeReference] public List<TileProperty> properties = new();
         }
+
+        [Header("Tiles")]
+        public List<Entry> entries = new();
 
         #endregion
 
-        #region Effective Atlas Sizing Helpers
+        #region Effective Atlas Size
 
         public bool TryGetEffectiveAtlasSize(out int widthPx, out int heightPx)
         {
+            widthPx = 0;
+            heightPx = 0;
+
             switch (atlasLayoutMode)
             {
                 case AtlasLayoutMode.FromTexture:
-                    return tryGetSizeFromTexture(out widthPx, out heightPx);
+                    if (atlasTexture == null)
+                        return false;
+
+                    widthPx = atlasTexture.width;
+                    heightPx = atlasTexture.height;
+                    return widthPx > 0 && heightPx > 0;
 
                 case AtlasLayoutMode.ManualPixels:
-                    widthPx = Mathf.Max(1, manualAtlasWidthPixels);
-                    heightPx = Mathf.Max(1, manualAtlasHeightPixels);
+                    widthPx = Mathf.Max(1, manualAtlasPixelSize.x);
+                    heightPx = Mathf.Max(1, manualAtlasPixelSize.y);
                     return true;
 
                 case AtlasLayoutMode.ManualGrid:
-                    return tryGetSizeFromManualGrid(out widthPx, out heightPx);
+                    int cols = Mathf.Max(1, manualGridSize.x);
+                    int rows = Mathf.Max(1, manualGridSize.y);
+
+                    int tileW = Mathf.Max(1, tilePixelSize.x);
+                    int tileH = Mathf.Max(1, tilePixelSize.y);
+
+                    int padX = Mathf.Max(0, paddingPixels.x);
+                    int padY = Mathf.Max(0, paddingPixels.y);
+
+                    widthPx = (tileW * cols) + (padX * Mathf.Max(0, cols - 1));
+                    heightPx = (tileH * rows) + (padY * Mathf.Max(0, rows - 1));
+                    return true;
 
                 default:
-                    widthPx = 0;
-                    heightPx = 0;
                     return false;
             }
-        }
-
-        public bool TryGetEffectiveGridSize(out int tilesX, out int tilesY)
-        {
-            tilesX = 0;
-            tilesY = 0;
-
-            if (!TryGetEffectiveAtlasSize(out int atlasW, out int atlasH))
-                return false;
-
-            int stepX = tilePixelSize.x + paddingPixels.x;
-            int stepY = tilePixelSize.y + paddingPixels.y;
-
-            if (stepX <= 0 || stepY <= 0)
-                return false;
-
-            tilesX = atlasW / stepX;
-            tilesY = atlasH / stepY;
-
-            return tilesX > 0 && tilesY > 0;
-        }
-
-        private bool tryGetSizeFromTexture(out int widthPx, out int heightPx)
-        {
-            if (atlasTexture == null)
-            {
-                widthPx = 0;
-                heightPx = 0;
-                return false;
-            }
-
-            widthPx = atlasTexture.width;
-            heightPx = atlasTexture.height;
-            return widthPx > 0 && heightPx > 0;
-        }
-
-        private bool tryGetSizeFromManualGrid(out int widthPx, out int heightPx)
-        {
-            int cols = Mathf.Max(1, manualColumns);
-            int rows = getManualGridRows(cols);
-
-            int stepX = Mathf.Max(1, tilePixelSize.x + Mathf.Max(0, paddingPixels.x));
-            int stepY = Mathf.Max(1, tilePixelSize.y + Mathf.Max(0, paddingPixels.y));
-
-            widthPx = cols * stepX;
-            heightPx = rows * stepY;
-            return true;
-        }
-
-        private int getManualGridRows(int cols)
-        {
-            if (inferRowsFromTileCount)
-                return Mathf.CeilToInt(Mathf.Max(1, manualTileCount) / (float)cols);
-
-            return Mathf.Max(1, manualRows);
         }
 
         #endregion
@@ -231,54 +166,52 @@ namespace WorldGrid.Unity.Assets
 
         public void ValidateOrThrow()
         {
-            validateLayoutSettingsOrThrow();
-            validateEntriesOrThrow();
-        }
-
-        private void validateLayoutSettingsOrThrow()
-        {
             if (tilePixelSize.x <= 0 || tilePixelSize.y <= 0)
-                throw new ArgumentOutOfRangeException(nameof(tilePixelSize), "Tile size must be > 0 in both dimensions.");
+                throw new InvalidOperationException($"{name}: tilePixelSize must be > 0.");
 
             if (paddingPixels.x < 0 || paddingPixels.y < 0)
-                throw new ArgumentOutOfRangeException(nameof(paddingPixels), "Padding cannot be negative.");
+                throw new InvalidOperationException($"{name}: paddingPixels cannot be negative.");
 
             if (atlasLayoutMode == AtlasLayoutMode.ManualPixels)
             {
-                if (manualAtlasWidthPixels <= 0 || manualAtlasHeightPixels <= 0)
-                    throw new ArgumentOutOfRangeException(nameof(manualAtlasWidthPixels), "Manual atlas pixel size must be > 0.");
+                if (manualAtlasPixelSize.x <= 0 || manualAtlasPixelSize.y <= 0)
+                    throw new InvalidOperationException($"{name}: manualAtlasPixelSize must be > 0 for ManualPixels.");
             }
 
             if (atlasLayoutMode == AtlasLayoutMode.ManualGrid)
             {
-                if (manualColumns <= 0)
-                    throw new ArgumentOutOfRangeException(nameof(manualColumns), "Manual columns must be > 0.");
-                if (!inferRowsFromTileCount && manualRows <= 0)
-                    throw new ArgumentOutOfRangeException(nameof(manualRows), "Manual rows must be > 0 when not inferring rows.");
-                if (manualTileCount <= 0)
-                    throw new ArgumentOutOfRangeException(nameof(manualTileCount), "Manual tile count must be > 0.");
+                if (manualGridSize.x <= 0 || manualGridSize.y <= 0)
+                    throw new InvalidOperationException($"{name}: manualGridSize must be > 0 for ManualGrid.");
+            }
+
+            // Height atlas (optional) must match the main atlas dimensions if both are provided.
+            if (atlasTexture != null && heightAtlasTexture != null)
+            {
+                if (atlasTexture.width != heightAtlasTexture.width || atlasTexture.height != heightAtlasTexture.height)
+                {
+                    throw new InvalidOperationException(
+                        $"{name}: heightAtlasTexture must match atlasTexture dimensions. " +
+                        $"atlas={atlasTexture.width}x{atlasTexture.height}, height={heightAtlasTexture.width}x{heightAtlasTexture.height}");
+                }
             }
         }
 
-        private void validateEntriesOrThrow()
+        private void clampAuthoringValues()
         {
-            if (entries == null)
-                return;
+            tilePixelSize.x = Mathf.Max(1, tilePixelSize.x);
+            tilePixelSize.y = Mathf.Max(1, tilePixelSize.y);
 
-            var ids = new HashSet<int>();
+            paddingPixels.x = Mathf.Max(0, paddingPixels.x);
+            paddingPixels.y = Mathf.Max(0, paddingPixels.y);
 
-            for (int i = 0; i < entries.Count; i++)
-            {
-                var e = entries[i];
-                if (e == null)
-                    continue;
+            manualAtlasPixelSize.x = Mathf.Max(1, manualAtlasPixelSize.x);
+            manualAtlasPixelSize.y = Mathf.Max(1, manualAtlasPixelSize.y);
 
-                if (!ids.Add(e.tileId))
-                    throw new InvalidOperationException($"{name}: Duplicate tileId found: {e.tileId}.");
+            manualGridSize.x = Mathf.Max(1, manualGridSize.x);
+            manualGridSize.y = Mathf.Max(1, manualGridSize.y);
 
-                if (e.tileSpan.x <= 0 || e.tileSpan.y <= 0)
-                    throw new ArgumentOutOfRangeException(nameof(Entry.tileSpan), $"{name}: tileSpan must be >= (1,1).");
-            }
+            if (manualTileCount < 0) manualTileCount = 0;
+            if (autoIdStart < 0) autoIdStart = 0;
         }
 
         #endregion
@@ -293,7 +226,7 @@ namespace WorldGrid.Unity.Assets
             {
                 throw new InvalidOperationException(
                     $"{name}: Cannot BuildRuntime() because atlasLayoutMode={atlasLayoutMode} has no effective atlas size. " +
-                    $"Assign an atlasTexture or use ManualPixels/ManualGrid.");
+                    "Assign atlasTexture or use ManualPixels/ManualGrid.");
             }
 
             var defs = new Dictionary<int, TileDef>(entries != null ? entries.Count : 0);
@@ -306,28 +239,29 @@ namespace WorldGrid.Unity.Assets
                     if (e == null)
                         continue;
 
-                    var def = buildTileDef(e, atlasW, atlasH);
+                    string entryName = string.IsNullOrWhiteSpace(e.name) ? $"Tile {e.tileId}" : e.name;
+                    RectUv uv = resolveUv(e, atlasW, atlasH);
+
+                    Color32 baseColor = resolveBaseColor(e);
+                    float baseInfluence = Mathf.Clamp01(e.baseColorInfluence);
+
+                    List<TileProperty> runtimeProps = buildRuntimeProperties(e);
+
+                    var def = new TileDef(
+                        e.tileId,
+                        entryName,
+                        uv,
+                        baseColor,
+                        baseInfluence,
+                        e.tags,
+                        runtimeProps
+                    );
+
                     defs[e.tileId] = def;
                 }
             }
 
-            // v1: defaultTileId is conventionally 0. WorldHost and auto-populate also assume 0 is empty.
             return new TileLibrary(defs, defaultTileId: 0);
-        }
-
-        private TileDef buildTileDef(Entry e, int atlasW, int atlasH)
-        {
-            string entryName = string.IsNullOrWhiteSpace(e.name) ? $"Tile {e.tileId}" : e.name;
-            RectUv uv = resolveUv(e, atlasW, atlasH);
-            List<TileProperty> runtimeProps = buildRuntimeProperties(e);
-
-            return new TileDef(
-                e.tileId,
-                entryName,
-                uv,
-                e.tags,
-                runtimeProps
-            );
         }
 
         private RectUv resolveUv(Entry e, int atlasW, int atlasH)
@@ -346,7 +280,22 @@ namespace WorldGrid.Unity.Assets
             );
         }
 
-        private List<TileProperty> buildRuntimeProperties(Entry e)
+        private static Color32 resolveBaseColor(Entry e)
+        {
+            switch (e.baseColorMode)
+            {
+                case BaseColorMode.Solid:
+                    return e.baseColorSolid;
+
+                case BaseColorMode.AverageAtlas:
+                    return e.baseColorCachedAverage;
+
+                default:
+                    return new Color32(255, 255, 255, 255);
+            }
+        }
+
+        private static List<TileProperty> buildRuntimeProperties(Entry e)
         {
             List<TileProperty> runtimeProps;
 
@@ -360,14 +309,14 @@ namespace WorldGrid.Unity.Assets
                 runtimeProps = new List<TileProperty>(1);
             }
 
-            // Inject tile color semantics without mutating asset data.
+            // Inject tint semantics as a property.
             runtimeProps.Add(new TileColorProperty(e.color, e.colorJitter, e.colorBlend));
             return runtimeProps;
         }
 
         #endregion
 
-        #region UV Computation
+        #region UV Math
 
         public static RectUv ComputeUvFromTileCoord(
             int atlasWidthPx,
@@ -385,269 +334,133 @@ namespace WorldGrid.Unity.Assets
             if (paddingPx.x < 0 || paddingPx.y < 0)
                 throw new ArgumentOutOfRangeException(nameof(paddingPx), "Padding cannot be negative.");
             if (tileSpan.x <= 0 || tileSpan.y <= 0)
-                throw new ArgumentOutOfRangeException(nameof(tileSpan), "Tile span must be >= (1,1).");
+                throw new ArgumentOutOfRangeException(nameof(tileSpan), "Tile span must be > 0.");
 
-            int stepX = tileSizePx.x + paddingPx.x;
-            int stepY = tileSizePx.y + paddingPx.y;
+            int tileW = tileSizePx.x;
+            int tileH = tileSizePx.y;
 
-            int x0 = tileCoord.x * stepX;
-            int y0 = tileCoord.y * stepY;
+            int padX = paddingPx.x;
+            int padY = paddingPx.y;
+
+            int xPxMin = tileCoord.x * (tileW + padX);
+            int yPxMin = tileCoord.y * (tileH + padY);
+
+            int spanW = (tileSpan.x * tileW) + (Mathf.Max(0, tileSpan.x - 1) * padX);
+            int spanH = (tileSpan.y * tileH) + (Mathf.Max(0, tileSpan.y - 1) * padY);
+
+            int xPxMax = xPxMin + spanW;
+            int yPxMax = yPxMin + spanH;
+
+            float uMin = (float)xPxMin / atlasWidthPx;
+            float uMax = (float)xPxMax / atlasWidthPx;
+
+            float vMin;
+            float vMax;
 
             if (originTopLeft)
-                y0 = atlasHeightPx - y0 - tileSizePx.y;
+            {
+                float yTop = (float)yPxMin / atlasHeightPx;
+                float yBottom = (float)yPxMax / atlasHeightPx;
 
-            int w = tileSpan.x * tileSizePx.x + (tileSpan.x - 1) * paddingPx.x;
-            int h = tileSpan.y * tileSizePx.y + (tileSpan.y - 1) * paddingPx.y;
+                vMax = 1f - yTop;
+                vMin = 1f - yBottom;
+            }
+            else
+            {
+                vMin = (float)yPxMin / atlasHeightPx;
+                vMax = (float)yPxMax / atlasHeightPx;
+            }
 
-            float uMin = (float)x0 / atlasWidthPx;
-            float vMin = (float)y0 / atlasHeightPx;
-            float uMax = (float)(x0 + w) / atlasWidthPx;
-            float vMax = (float)(y0 + h) / atlasHeightPx;
+            uMin = Mathf.Clamp01(uMin);
+            uMax = Mathf.Clamp01(uMax);
+            vMin = Mathf.Clamp01(vMin);
+            vMax = Mathf.Clamp01(vMax);
 
             return new RectUv(uMin, vMin, uMax, vMax);
         }
 
         #endregion
 
-        #region Editor Convenience
-
-        [ContextMenu("Clear Entries")]
-        public void ClearEntries()
-        {
-            entries.Clear();
 #if UNITY_EDITOR
-            EditorUtility.SetDirty(this);
-#endif
-        }
+        #region Editor Actions
 
         [ContextMenu("Auto-Populate Entries From Atlas Layout")]
         public void AutoPopulateEntriesFromAtlasLayout()
         {
-            if (!validateAutoPopulateInputs())
-                return;
-
-            if (!tryResolveAutoPopulateGrid(out int tilesX, out int tilesY))
-                return;
-
-            int desiredCount = computeDesiredAutoPopulateCount(tilesX, tilesY);
-
-            entries.Clear();
-            populateEntries(tilesX, tilesY, desiredCount);
-
-#if UNITY_EDITOR
-            EditorUtility.SetDirty(this);
-#endif
-
-            UnityEngine.Debug.Log($"{name}: Auto-populated {desiredCount} entries (grid {tilesX}x{tilesY}, mode={atlasLayoutMode}).", this);
-        }
-
-        private bool validateAutoPopulateInputs()
-        {
-            if (tilePixelSize.x <= 0 || tilePixelSize.y <= 0)
-            {
-                UnityEngine.Debug.LogError($"{name}: tilePixelSize must be > 0.", this);
-                return false;
-            }
-
-            if (paddingPixels.x < 0 || paddingPixels.y < 0)
-            {
-                UnityEngine.Debug.LogError($"{name}: paddingPixels cannot be negative.", this);
-                return false;
-            }
-
-            return true;
-        }
-
-        private bool tryResolveAutoPopulateGrid(out int tilesX, out int tilesY)
-        {
-            tilesX = 0;
-            tilesY = 0;
-
-            if (atlasLayoutMode == AtlasLayoutMode.ManualGrid)
-            {
-                tilesX = Mathf.Max(1, manualColumns);
-                tilesY = Mathf.Max(1, inferRowsFromTileCount
-                    ? Mathf.CeilToInt(Mathf.Max(1, manualTileCount) / (float)tilesX)
-                    : Mathf.Max(1, manualRows));
-
-                return true;
-            }
-
-            if (!TryGetEffectiveGridSize(out tilesX, out tilesY))
-            {
-                UnityEngine.Debug.LogError(
-                    $"{name}: Cannot auto-populate because no effective atlas/grid size is available. " +
-                    $"Assign atlasTexture (FromTexture) or use ManualPixels/ManualGrid.",
-                    this);
-                return false;
-            }
-
-            return true;
-        }
-
-        private int computeDesiredAutoPopulateCount(int tilesX, int tilesY)
-        {
-            int capacity = tilesX * tilesY;
-
-            if (atlasLayoutMode == AtlasLayoutMode.ManualGrid)
-                return Mathf.Clamp(manualTileCount, 1, capacity);
-
-            return capacity;
-        }
-
-        private void populateEntries(int tilesX, int tilesY, int desiredCount)
-        {
-            int nextId = reserveZeroForEmpty ? 1 : autoIdStart;
-
-            for (int i = 0; i < desiredCount; i++)
-            {
-                int x = i % tilesX;
-                int y = i / tilesX;
-
-                entries.Add(createAutoEntry(nextId++, i, x, y));
-            }
-        }
-
-        private Entry createAutoEntry(int tileId, int index, int x, int y)
-        {
-            return new Entry
-            {
-                tileId = tileId,
-                name = $"Tile {index}",
-                tileCoord = new Vector2Int(x, y),
-                tileSpan = Vector2Int.one,
-                tags = new List<string>(),
-                properties = new List<TileProperty>(),
-                overrideUv = false,
-                uvMin = Vector2.zero,
-                uvMax = Vector2.zero,
-                color = new Color32(255, 255, 255, 255),
-                colorJitter = 0.05f,
-                colorBlend = 1f
-            };
-        }
-
-#if UNITY_EDITOR
-        private void OnValidate()
-        {
             clampAuthoringValues();
+            ValidateOrThrow();
 
-            if (autoCreateAtlasMaterial && atlasTexture != null)
+            if (!TryGetEffectiveAtlasSize(out int atlasW, out int atlasH))
             {
-                // Intentionally not auto-invoked by default in v1 polish.
-                // Use a context menu or manual call if you want to generate the material asset.
-                // EnsureAtlasMaterialExistsOrUpdated();
-            }
-        }
-
-        private void clampAuthoringValues()
-        {
-            if (tilePixelSize.x < 1) tilePixelSize.x = 1;
-            if (tilePixelSize.y < 1) tilePixelSize.y = 1;
-
-            if (paddingPixels.x < 0) paddingPixels.x = 0;
-            if (paddingPixels.y < 0) paddingPixels.y = 0;
-
-            if (manualAtlasWidthPixels < 1) manualAtlasWidthPixels = 1;
-            if (manualAtlasHeightPixels < 1) manualAtlasHeightPixels = 1;
-
-            if (manualColumns < 1) manualColumns = 1;
-            if (manualRows < 1) manualRows = 1;
-            if (manualTileCount < 1) manualTileCount = 1;
-
-            if (autoIdStart < 0) autoIdStart = 0;
-        }
-
-        private void EnsureAtlasMaterialExistsOrUpdated()
-        {
-            if (atlasTexture == null)
-                return;
-
-            Shader shader = resolveAutoMaterialShader();
-            if (shader == null)
-            {
-                UnityEngine.Debug.LogWarning($"{name}: Could not find a usable shader for atlas material creation.", this);
+                UnityEngine.Debug.LogError($"{name}: Cannot auto-populate because there is no effective atlas size.", this);
                 return;
             }
 
-            if (atlasMaterial != null)
+            int cols;
+            int rows;
+
+            if (atlasLayoutMode == AtlasLayoutMode.ManualGrid)
             {
-                updateExistingAtlasMaterial(shader);
-                return;
+                cols = Mathf.Max(1, manualGridSize.x);
+                rows = Mathf.Max(1, manualGridSize.y);
+            }
+            else
+            {
+                // derive approximate grid from atlas pixel size (best-effort)
+                int stepX = tilePixelSize.x + paddingPixels.x;
+                int stepY = tilePixelSize.y + paddingPixels.y;
+
+                cols = Mathf.Max(1, stepX > 0 ? (atlasW + paddingPixels.x) / stepX : 1);
+                rows = Mathf.Max(1, stepY > 0 ? (atlasH + paddingPixels.y) / stepY : 1);
             }
 
-            createAtlasMaterialAsset(shader);
-        }
+            int total = (manualTileCount > 0) ? manualTileCount : (cols * rows);
+            total = Mathf.Max(1, total);
 
-        private Shader resolveAutoMaterialShader()
-        {
-            Shader shader = Shader.Find(autoMaterialShaderName);
-            if (shader != null)
-                return shader;
+            if (entries == null)
+                entries = new List<Entry>(total);
+            else
+                entries.Clear();
 
-            return Shader.Find("WorldGrid/Unlit Vertex Tint Blend")
-                   ?? Shader.Find("Sprites/Default")
-                   ?? Shader.Find("Unlit/Transparent")
-                   ?? Shader.Find("Unlit/Texture");
-        }
+            for (int i = 0; i < total; i++)
+            {
+                int id = autoIdStart + i;
 
-        private void updateExistingAtlasMaterial(Shader shader)
-        {
-            if (atlasMaterial.shader != shader)
-                atlasMaterial.shader = shader;
+                int x = (cols > 0) ? (i % cols) : 0;
+                int y = (cols > 0) ? (i / cols) : 0;
 
-            bindAtlasTexture(atlasMaterial, atlasTexture);
-            EditorUtility.SetDirty(atlasMaterial);
-        }
+                entries.Add(new Entry
+                {
+                    tileId = id,
+                    name = $"{autoNamePrefix}{id}",
+                    tileCoord = new Vector2Int(x, y),
+                    tileSpan = Vector2Int.one,
+                    overrideUv = false,
 
-        private void createAtlasMaterialAsset(Shader shader)
-        {
-            string assetPath = AssetDatabase.GetAssetPath(this);
-            if (string.IsNullOrEmpty(assetPath))
-                return;
+                    baseColorMode = BaseColorMode.AverageAtlas,
+                    baseColorSolid = new Color32(255, 255, 255, 255),
+                    baseColorCachedAverage = new Color32(255, 255, 255, 255),
+                    baseColorInfluence = 1f,
 
-            string folder = System.IO.Path.GetDirectoryName(assetPath);
-            string atlasName = atlasTexture != null ? atlasTexture.name : "Atlas";
-            string assetName = name;
+                    color = new Color32(255, 255, 255, 255),
+                    colorJitter = 0.05f,
+                    colorBlend = 1f
+                });
+            }
 
-            string matName = $"{atlasName}__{assetName}{autoMaterialSuffix}.mat";
-            string matPath = AssetDatabase.GenerateUniqueAssetPath(System.IO.Path.Combine(folder, matName));
-
-            var mat = new Material(shader);
-            bindAtlasTexture(mat, atlasTexture);
-
-            AssetDatabase.CreateAsset(mat, matPath);
-            AssetDatabase.SaveAssets();
-
-            atlasMaterial = mat;
             EditorUtility.SetDirty(this);
-
-            UnityEngine.Debug.Log($"{name}: Created atlasMaterial at '{matPath}' using shader '{shader.name}'.", this);
-        }
-
-        private void bindAtlasTexture(Material mat, Texture2D tex)
-        {
-            if (mat == null || tex == null)
-                return;
-
-            if (mat.HasProperty("_BaseMap"))
-                mat.SetTexture("_BaseMap", tex);
-
-            if (mat.HasProperty("_MainTex"))
-                mat.SetTexture("_MainTex", tex);
+            UnityEngine.Debug.Log($"{name}: Auto-populated {entries.Count} entries.", this);
         }
 
         [ContextMenu("Compute UVs For Entries (Store Into uvMin/uvMax)")]
         public void ComputeAndStoreUvsForEntries()
         {
+            clampAuthoringValues();
             ValidateOrThrow();
 
             if (!TryGetEffectiveAtlasSize(out int atlasW, out int atlasH))
             {
-                UnityEngine.Debug.LogError(
-                    $"{name}: Cannot compute UVs because atlasLayoutMode={atlasLayoutMode} has no effective atlas size. " +
-                    $"Assign atlasTexture or use ManualPixels/ManualGrid.",
-                    this);
+                UnityEngine.Debug.LogError($"{name}: Cannot compute UVs because there is no effective atlas size.", this);
                 return;
             }
 
@@ -666,22 +479,13 @@ namespace WorldGrid.Unity.Assets
 
             for (int i = 0; i < entries.Count; i++)
             {
-                var e = entries[i];
+                Entry e = entries[i];
                 if (e == null)
                     continue;
 
-                if (e.overrideUv)
-                    continue;
+                RectUv uv = resolveUv(e, atlasW, atlasH);
 
-                RectUv uv = ComputeUvFromTileCoord(
-                    atlasW,
-                    atlasH,
-                    tilePixelSize,
-                    paddingPixels,
-                    originTopLeft,
-                    e.tileCoord,
-                    e.tileSpan);
-
+                e.overrideUv = true;
                 e.uvMin = new Vector2(uv.UMin, uv.VMin);
                 e.uvMax = new Vector2(uv.UMax, uv.VMax);
                 updated++;
@@ -689,8 +493,116 @@ namespace WorldGrid.Unity.Assets
 
             return updated;
         }
-#endif
+
+        [ContextMenu("Recompute BaseColor Cached Averages From Atlas")]
+        public void RecomputeBaseColorCachedAveragesFromAtlas()
+        {
+            clampAuthoringValues();
+            ValidateOrThrow();
+
+            if (atlasTexture == null)
+            {
+                UnityEngine.Debug.LogWarning($"{name}: atlasTexture is null.", this);
+                return;
+            }
+
+            if (!atlasTexture.isReadable)
+            {
+                UnityEngine.Debug.LogWarning($"{name}: atlasTexture is not readable. Enable Read/Write in import settings.", this);
+                return;
+            }
+
+            if (!TryGetEffectiveAtlasSize(out int atlasW, out int atlasH))
+            {
+                UnityEngine.Debug.LogWarning($"{name}: No effective atlas size; cannot compute base colors.", this);
+                return;
+            }
+
+            int texW = atlasTexture.width;
+            int texH = atlasTexture.height;
+
+            Color32[] pixels = atlasTexture.GetPixels32();
+
+            int updated = 0;
+            int failed = 0;
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                Entry e = entries[i];
+                if (e == null)
+                    continue;
+
+                RectUv uv = resolveUv(e, atlasW, atlasH);
+
+                if (!TryComputeAverageFromUvRect(pixels, texW, texH, uv, out var avg, alphaThreshold: 1))
+                {
+                    failed++;
+                    continue;
+                }
+
+                e.baseColorCachedAverage = avg;
+                updated++;
+            }
+
+            EditorUtility.SetDirty(this);
+            AssetDatabase.SaveAssets();
+
+            UnityEngine.Debug.Log($"{name}: BaseColor averages recomputed. updated={updated}, failed={failed}", this);
+        }
+
+        private static bool TryComputeAverageFromUvRect(
+            Color32[] pixels,
+            int texW,
+            int texH,
+            RectUv uv,
+            out Color32 avg,
+            byte alphaThreshold)
+        {
+            avg = new Color32(255, 255, 255, 255);
+
+            int xMin = Mathf.Clamp(Mathf.FloorToInt(uv.UMin * texW), 0, texW - 1);
+            int xMax = Mathf.Clamp(Mathf.CeilToInt(uv.UMax * texW), 0, texW);
+            int yMin = Mathf.Clamp(Mathf.FloorToInt(uv.VMin * texH), 0, texH - 1);
+            int yMax = Mathf.Clamp(Mathf.CeilToInt(uv.VMax * texH), 0, texH);
+
+            if (xMax <= xMin || yMax <= yMin)
+                return false;
+
+            long sumR = 0;
+            long sumG = 0;
+            long sumB = 0;
+            long sumA = 0;
+
+            for (int y = yMin; y < yMax; y++)
+            {
+                int row = y * texW;
+
+                for (int x = xMin; x < xMax; x++)
+                {
+                    Color32 c = pixels[row + x];
+                    if (c.a < alphaThreshold)
+                        continue;
+
+                    sumR += c.r * c.a;
+                    sumG += c.g * c.a;
+                    sumB += c.b * c.a;
+                    sumA += c.a;
+                }
+            }
+
+            if (sumA <= 0)
+                return false;
+
+            avg = new Color32(
+                (byte)(sumR / sumA),
+                (byte)(sumG / sumA),
+                (byte)(sumB / sumA),
+                255);
+
+            return true;
+        }
 
         #endregion
+#endif
     }
 }

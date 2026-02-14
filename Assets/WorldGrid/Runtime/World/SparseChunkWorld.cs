@@ -193,6 +193,37 @@ namespace WorldGrid.Runtime.World
                 TileUpdateResult.ValueChanged));
         }
 
+        // ---------------------------------------------------------------------
+        // Bulk-load helpers (Persistence / Streaming)
+        // ---------------------------------------------------------------------
+        // These bypass SetTile() so we can hydrate a world efficiently without:
+        // - firing TileUpdated events per tile
+        // - triggering ChunkCreated/Removed events
+        // - doing extra per-write logic
+        //
+        // After bulk load, we mark chunks dirty so the renderer can rebuild once.
+        // ---------------------------------------------------------------------
+
+        internal void ClearAllChunksForLoad()
+        {
+            _chunks.Clear();
+            _dirtyRenderChunks.Clear();
+        }
+
+        internal void AddChunkForLoad(ChunkCoord coord, Chunk chunk)
+        {
+            _chunks[coord] = chunk;
+
+            // Ensure the renderer rebuilds this coord after load.
+            _dirtyRenderChunks.Add(coord);
+        }
+
+        internal void MarkChunkDirtyForLoad(ChunkCoord coord)
+        {
+            _dirtyRenderChunks.Add(coord);
+        }
+
+
         public void ClearDirtyRender(ChunkCoord coord)
         {
             if (_chunks.TryGetValue(coord, out var chunk))

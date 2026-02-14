@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: TX Tileset Grass__TileLibraryTestAsset_WorldGrid_Mat
+  m_Name: TilePalette__TileLibraryTestAsset_WorldGrid_Mat
   m_Shader: {fileID: 4800000, guid: 712748c5cfd296844ad49755fda91970, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -24,11 +24,11 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _BaseMap:
-        m_Texture: {fileID: 2800000, guid: 1c9ed9d1200c29d4cbfd2071028c1cd5, type: 3}
+        m_Texture: {fileID: 2800000, guid: 4de25e8496ed2b74e9ed876b7de2c819, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 2800000, guid: 1c9ed9d1200c29d4cbfd2071028c1cd5, type: 3}
+        m_Texture: {fileID: 2800000, guid: 4de25e8496ed2b74e9ed876b7de2c819, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []

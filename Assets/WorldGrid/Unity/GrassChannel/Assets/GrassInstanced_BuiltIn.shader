@@ -10,63 +10,44 @@
         _WindAmp ("Wind Amplitude", Range(0,1)) = 0.25
         _WindFreq ("Wind Frequency", Range(0,8)) = 2
         _WindDir ("Wind Direction", Vector) = (1,0,0,0)
-        _WindWorldScale ("Wind World Scale", Range(0.001, 0.2)) = 0.03
 
-        // Bend shaping
-        _BaseStiffness ("Base Stiffness", Range(0,0.6)) = 0.2
-        _BendExponent ("Bend Exponent", Range(1,6)) = 3
+        // Height bend profile
+        _BaseStiffness ("Base Stiffness", Range(0,1)) = 0.2
+        _BendExponent ("Bend Exponent", Range(0.2,8)) = 2.0
 
-        // easy tuning knobs
-        _SwayStrength ("Sway Strength", Range(0,2)) = 1
-        _TipBoost ("Tip Boost", Range(0,2)) = 0.5
+        // Lateral sway profile
+        _SwayStrength ("Sway Strength", Range(0,1)) = 0.6
+        _TipBoost ("Tip Boost", Range(0,3)) = 1.0
 
-        // Patch tint
-        _PatchColorA ("Patch Color A", Color) = (0.34, 0.78, 0.32, 1)
-        _PatchColorB ("Patch Color B", Color) = (0.16, 0.48, 0.18, 1)
-        _PatchScale ("Patch Scale", Range(0.001, 0.2)) = 0.04
-        _PatchStrength ("Patch Strength", Range(0, 1)) = 0.45
+        // World scale for coherent gusts
+        _WindWorldScale ("Wind World Scale", Range(0.02,4)) = 1.0
 
-        _BaseTint ("Base Tint", Color) = (0.12, 0.30, 0.12, 1)
-        _TipTint  ("Tip Tint",  Color) = (0.45, 0.95, 0.45, 1)
-
-        _GradientStrength ("Blade Gradient Strength", Range(0,1)) = 1
-        _GradientExponent ("Blade Gradient Exponent", Range(0.5, 6)) = 2.5
-
-
-        // 0 = XY (Unity 2D default), 1 = XZ (3D ground plane)
-        _UseXZPlane ("Use XZ Plane", Range(0,1)) = 0
-
-        _EmissionStrength ("Emission Strength", Range(0,1)) = 1
-
+        // XZ plane support (when generating meshes on XZ instead of XY)
+        _UseXZPlane ("Use XZ Plane", Float) = 0
     }
 
     SubShader
     {
-        Tags { "RenderType"="Transparent" "Queue"="Overlay" }
+        Tags { "Queue"="AlphaTest" "RenderType"="TransparentCutout" "IgnoreProjector"="True" }
         LOD 200
         Cull Off
 
-        // painter-style ordering
-        ZWrite Off
-        ZTest Always
+        // For cutout you typically want depth writes ON so it sorts correctly.
+        ZWrite On
 
         CGPROGRAM
         #pragma surface surf Lambert vertex:vert addshadow
         #pragma target 3.0
+        #pragma multi_compile_instancing
+        #pragma instancing_options assumeuniformscaling
 
         sampler2D _MainTex;
-        half _Cutoff;
         fixed4 _Color;
-
-        fixed4 _BaseTint;
-        fixed4 _TipTint;
-        float _GradientStrength;
-        float _GradientExponent;
+        float _Cutoff;
 
         float _WindAmp;
         float _WindFreq;
         float4 _WindDir;
-        float _WindWorldScale;
 
         float _BaseStiffness;
         float _BendExponent;
@@ -74,23 +55,29 @@
         float _SwayStrength;
         float _TipBoost;
 
-        fixed4 _PatchColorA;
-        fixed4 _PatchColorB;
-        float _PatchScale;
-        float _PatchStrength;
-
+        float _WindWorldScale;
         float _UseXZPlane;
 
-        int _InfluencerCount;
-        float4 _Influencers[32];
-        float  _InfluencerStrength[32];
+        UNITY_INSTANCING_BUFFER_START(Props)
+            // (no per-instance props currently)
+        UNITY_INSTANCING_BUFFER_END(Props)
 
-        float _EmissionStrength;
+        // IMPORTANT: custom appdata that carries instance ID (fixes "72 instances but 1 visible")
+        struct appdata
+        {
+            float4 vertex   : POSITION;
+            float3 normal   : NORMAL;
+            float4 tangent  : TANGENT;
+            float2 texcoord : TEXCOORD0;
+            float4 color    : COLOR;
+            UNITY_VERTEX_INPUT_INSTANCE_ID
+        };
 
         struct Input
         {
             float2 uv_MainTex;
             float3 worldPos;
+            UNITY_VERTEX_INPUT_INSTANCE_ID
         };
 
         float hash11(float n) { return frac(sin(n) * 43758.5453); }
@@ -106,17 +93,21 @@
             float d = hash11(dot(i + float2(1,1), float2(127.1, 311.7)));
 
             float2 u = f * f * (3.0 - 2.0 * f);
-            return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
+            return lerp(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
         }
 
         float2 WorldPlane2D(float3 wp)
         {
-            return (_UseXZPlane > 0.5) ? wp.xz : wp.xy;
+            // If mesh is XY plane, use world XY. If mesh is XZ plane, use world XZ.
+            return (_UseXZPlane >= 0.5) ? float2(wp.x, wp.z) : float2(wp.x, wp.y);
         }
 
-        void vert(inout appdata_full v, out Input o)
+        void vert(inout appdata v, out Input o)
         {
+            UNITY_SETUP_INSTANCE_ID(v);
             UNITY_INITIALIZE_OUTPUT(Input, o);
+            UNITY_TRANSFER_INSTANCE_ID(v, o);
+
             o.uv_MainTex = v.texcoord.xy;
 
             float3 wp = mul(unity_ObjectToWorld, v.vertex).xyz;
@@ -128,92 +119,57 @@
             float h = saturate((hn - _BaseStiffness) / max(1e-4, (1.0 - _BaseStiffness)));
             h = pow(h, _BendExponent);
 
-            // NEW: master sway multiplier + extra tip looseness
+            // master sway multiplier + extra tip looseness
             float sway = _SwayStrength * lerp(1.0, 1.0 + _TipBoost, h);
 
             // Coherent wind
             float2 wp2 = WorldPlane2D(wp) * _WindWorldScale;
-            float n = valueNoise2D(wp2);
-            float phase = n * 6.2831853;
+            float gust = valueNoise2D(wp2 + _Time.y * 0.25);
 
-            float gust1 = sin((_Time.y * _WindFreq) + phase);
-            float gust2 = sin((_Time.y * (_WindFreq * 0.35)) + phase * 0.6);
-            float w = (gust1 * 0.7) + (gust2 * 0.3);
+            float2 dir = normalize(_WindDir.xy);
+            float windPhase = dot(wp2, dir) * _WindFreq + _Time.y * _WindFreq;
 
-            float3 windDir = normalize(_WindDir.xyz + 1e-5);
-            float3 windOffset = windDir * (w * _WindAmp) * h * sway;
+            float wind = sin(windPhase) * 0.5 + 0.5;
+            wind = lerp(wind, gust, 0.5);
 
-            // Influencer push
-            float3 push = 0;
-            int count = clamp(_InfluencerCount, 0, 32);
+            float amp = _WindAmp * sway * wind;
 
-            for (int i = 0; i < count; i++)
+            // Bend direction in world-plane
+            float2 bend2 = dir * amp;
+
+            // Apply bend in object space by offsetting vertex in plane direction
+            // If mesh is XY plane: offset X/Y. If XZ plane: offset X/Z.
+            if (_UseXZPlane >= 0.5)
             {
-                float3 ip = _Influencers[i].xyz;
-                float radius = _Influencers[i].w;
-                float strength = _InfluencerStrength[i];
-
-                float3 d = wp - ip;
-                float dist = length(d);
-                if (dist < radius && dist > 1e-4)
-                {
-                    float t = 1.0 - saturate(dist / radius);
-                    t = t * t * (3.0 - 2.0 * t);
-                    push += (d / dist) * (t * strength) * h * sway;
-                }
+                v.vertex.x += bend2.x;
+                v.vertex.z += bend2.y;
+            }
+            else
+            {
+                v.vertex.x += bend2.x;
+                v.vertex.y += bend2.y;
             }
 
-            float3 total = windOffset + push;
-
-            float3 localOffset = mul(unity_WorldToObject, float4(total, 0)).xyz;
-            v.vertex.xyz += localOffset;
-
-            o.worldPos = wp + total;
+            // Store worldPos after deformation
+            o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
         }
 
         void surf(Input IN, inout SurfaceOutput o)
         {
+            UNITY_SETUP_INSTANCE_ID(IN);
+
             fixed4 tex = tex2D(_MainTex, IN.uv_MainTex);
 
-            float2 pc = WorldPlane2D(IN.worldPos) * _PatchScale;
-
-            float p1 = valueNoise2D(pc);
-            float p2 = valueNoise2D(pc * 2.0);
-            float patch = saturate(p1 * 0.7 + p2 * 0.3);
-
-            fixed3 patchColor = lerp(_PatchColorA.rgb, _PatchColorB.rgb, patch);
-
-            fixed3 base = tex.rgb * _Color.rgb;
-            fixed3 patched = base * patchColor;
-
-            fixed3 outRgb = lerp(base, patched, _PatchStrength);
-
-            float bn = valueNoise2D(pc * 4.0);
-            float brighten = lerp(0.99, 1.01, bn);
-            outRgb *= brighten;
-
+            // Cutout alpha
             clip(tex.a - _Cutoff);
 
+            fixed4 c = tex * _Color;
 
-            // --- Vertical blade gradient (base -> tip) ---
-            float bladeH = saturate(IN.uv_MainTex.y);
-            bladeH = pow(bladeH, _GradientExponent);
-
-            // Blend between base and tip tint
-            float3 bladeTint = lerp(_BaseTint.rgb, _TipTint.rgb, bladeH);
-
-            // Apply gradient to the already-patched final color
-            outRgb = lerp(outRgb, outRgb * bladeTint, _GradientStrength);
-
-
-            o.Albedo = outRgb;
+            o.Albedo = c.rgb;
             o.Alpha = tex.a;
-            // Make shadows visible when EmissionStrength < 1
-            o.Emission = outRgb * _EmissionStrength;
-
         }
         ENDCG
     }
 
-    FallBack "Diffuse"
+    FallBack "Transparent/Cutout/Diffuse"
 }

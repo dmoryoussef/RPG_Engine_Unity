@@ -7,7 +7,7 @@ namespace WorldGrid.Unity.Rendering
 {
     /// <summary>
     /// Builds the foreground tile mesh for a chunk (non-default tiles only).
-    /// Mesh vertices are chunk-local. The chunk GameObject transform places it in world space.
+    /// Mesh vertices are chunk-local in XY. Z is baked per render layer; chunk transform places it in world space.
     /// </summary>
     public static class ChunkMeshBuilder
     {
@@ -21,7 +21,8 @@ namespace WorldGrid.Unity.Rendering
             int chunkSize,
             int defaultTileId,
             TileLibrary tileLibrary,
-            float cellSize)
+            float cellSize,
+            float layerZ)
         {
             if (md == null || mesh == null)
                 return;
@@ -34,7 +35,7 @@ namespace WorldGrid.Unity.Rendering
                 return;
             }
 
-            buildTiles(md, chunkCoord, chunkOrNull, chunkSize, defaultTileId, tileLibrary, cellSize);
+            buildTiles(md, chunkCoord, chunkOrNull, chunkSize, defaultTileId, tileLibrary, cellSize, layerZ);
             applyMesh(md, mesh);
         }
 
@@ -58,7 +59,8 @@ namespace WorldGrid.Unity.Rendering
             int chunkSize,
             int defaultTileId,
             TileLibrary tileLibrary,
-            float cellSize)
+            float cellSize,
+            float layerZ)
         {
             for (int ly = 0; ly < chunkSize; ly++)
             {
@@ -72,7 +74,7 @@ namespace WorldGrid.Unity.Rendering
                         continue;
 
                     var color = computeTileColor(tileLibrary, tileId, chunkCoord, lx, ly);
-                    addQuadLocal(md, cellSize, lx, ly, uv, color);
+                    addQuadLocal(md, cellSize, layerZ, lx, ly, uv, color);
                 }
             }
         }
@@ -84,10 +86,20 @@ namespace WorldGrid.Unity.Rendering
             int lx,
             int ly)
         {
-            // Defaults are handled inside TileLibrary.
-            tileLibrary.TryGetColor(tileId, out var baseColor);
+            // Tint is an overlay multiplier, blended from white -> tintColor by blend.
+            // Jitter is an optional brightness variation (applied after blend).
+            tileLibrary.TryGetColor(tileId, out var tintColor);
+            tileLibrary.TryGetColorBlend(tileId, out var blend);
             tileLibrary.TryGetColorJitter(tileId, out var jitter);
-            return applyDeterministicJitter(baseColor, jitter, chunkCoord, lx, ly);
+
+            blend = Mathf.Clamp01(blend);
+            jitter = Mathf.Max(0f, jitter);
+
+            // White->Tint lerp so blend=0 means "no tint effect".
+            Color final = Color.Lerp(Color.white, (Color)tintColor, blend);
+            Color32 baked = (Color32)final;
+
+            return applyDeterministicJitter(baked, jitter, chunkCoord, lx, ly);
         }
 
         #endregion
@@ -112,9 +124,9 @@ namespace WorldGrid.Unity.Rendering
 
         #region Geometry
 
-        private static void addQuadLocal(MeshData md, float cellSize, int cellX, int cellY, RectUv uv, Color32 color)
+        private static void addQuadLocal(MeshData md, float cellSize, float layerZ, int cellX, int cellY, RectUv uv, Color32 color)
         {
-            Vector3 p0 = new Vector3(cellX * cellSize, cellY * cellSize, 0f);
+            Vector3 p0 = new Vector3(cellX * cellSize, cellY * cellSize, layerZ);
 
             Vector3 v0 = p0;
             Vector3 v1 = p0 + new Vector3(cellSize, 0f, 0f);
@@ -157,9 +169,10 @@ namespace WorldGrid.Unity.Rendering
 
             uint h = hash((uint)chunkCoord.X, (uint)chunkCoord.Y, (uint)lx, (uint)ly);
 
-            // Map to [-1, +1]
-            float t = ((h & 0xFFFFu) / 65535f) * 2f - 1f;
-            float m = 1f + t * jitter;
+            // Map to [-1, +1] using all 32 bits (reduces banding vs using low 16 bits only).
+            float t = (h / 4294967295f) * 2f - 1f;
+
+            float m = 1f + (t * jitter);
 
             byte r = (byte)Mathf.Clamp(Mathf.RoundToInt(c.r * m), 0, 255);
             byte g = (byte)Mathf.Clamp(Mathf.RoundToInt(c.g * m), 0, 255);
@@ -167,14 +180,25 @@ namespace WorldGrid.Unity.Rendering
             return new Color32(r, g, b, c.a);
         }
 
+        // A small, fast integer mixer (better distribution than raw FNV for sequential coordinates).
         private static uint hash(uint a, uint b, uint c, uint d)
         {
-            uint x = 2166136261u;
-            x = (x ^ a) * 16777619u;
-            x = (x ^ b) * 16777619u;
-            x = (x ^ c) * 16777619u;
-            x = (x ^ d) * 16777619u;
-            return x;
+            unchecked
+            {
+                uint x = 0x9E3779B9u; // golden ratio
+                x ^= a + 0x85EBCA6Bu + (x << 6) + (x >> 2);
+                x ^= b + 0xC2B2AE35u + (x << 6) + (x >> 2);
+                x ^= c + 0x27D4EB2Fu + (x << 6) + (x >> 2);
+                x ^= d + 0x165667B1u + (x << 6) + (x >> 2);
+
+                // final avalanche (Murmur-like)
+                x ^= x >> 16;
+                x *= 0x7FEB352Du;
+                x ^= x >> 15;
+                x *= 0x846CA68Bu;
+                x ^= x >> 16;
+                return x;
+            }
         }
 
         #endregion

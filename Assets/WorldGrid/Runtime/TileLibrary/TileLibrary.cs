@@ -10,6 +10,9 @@ namespace WorldGrid.Runtime.Tiles
         private readonly Dictionary<int, TileDef> _defs;
         private readonly int _defaultTileId;
 
+        private readonly Color32[] _baseColors;
+        private readonly float[] _baseColorInfluences;
+
         /// <summary>
         /// Compiled runtime channels derived from this library.
         /// </summary>
@@ -27,6 +30,10 @@ namespace WorldGrid.Runtime.Tiles
             // Build compiled channels immediately so consumers always have them.
             // IMPORTANT: derive max tileId from keys (not count) to support sparse/non-contiguous IDs.
             int maxTileId = computeMaxTileIdKey();
+
+            _baseColors = buildBaseColorChannel(maxTileId);
+            _baseColorInfluences = buildBaseColorInfluenceChannel(maxTileId);
+
             Channels = new TileChannels(this, maxTileId);
         }
 
@@ -48,6 +55,60 @@ namespace WorldGrid.Runtime.Tiles
             }
 
             return maxId;
+        }
+
+        private Color32[] buildBaseColorChannel(int maxTileId)
+        {
+            int len = Mathf.Max(1, maxTileId + 1);
+            var arr = new Color32[len];
+
+            for (int i = 0; i < arr.Length; i++)
+            {
+                arr[i] = new Color32(255, 255, 255, 255);
+            }
+
+            foreach (var kvp in _defs)
+            {
+                int tileId = kvp.Key;
+
+                if ((uint)tileId >= (uint)arr.Length)
+                    continue;
+
+                TileDef def = kvp.Value;
+                if (def == null)
+                    continue;
+
+                arr[tileId] = def.BaseColor;
+            }
+
+            return arr;
+        }
+
+        private float[] buildBaseColorInfluenceChannel(int maxTileId)
+        {
+            int len = Mathf.Max(1, maxTileId + 1);
+            var arr = new float[len];
+
+            for (int i = 0; i < arr.Length; i++)
+            {
+                arr[i] = 1f;
+            }
+
+            foreach (var kvp in _defs)
+            {
+                int tileId = kvp.Key;
+
+                if ((uint)tileId >= (uint)arr.Length)
+                    continue;
+
+                TileDef def = kvp.Value;
+                if (def == null)
+                    continue;
+
+                arr[tileId] = def.BaseColorInfluence;
+            }
+
+            return arr;
         }
 
         #endregion
@@ -87,6 +148,46 @@ namespace WorldGrid.Runtime.Tiles
 
         #endregion
 
+        #region Base Color
+
+        public bool TryGetBaseColor(int tileId, out Color32 baseColor)
+        {
+            if (tileId == _defaultTileId)
+            {
+                baseColor = new Color32(255, 255, 255, 255);
+                return false;
+            }
+
+            if ((uint)tileId < (uint)_baseColors.Length)
+            {
+                baseColor = _baseColors[tileId];
+                return true;
+            }
+
+            baseColor = new Color32(255, 255, 255, 255);
+            return false;
+        }
+
+        public bool TryGetBaseColorInfluence(int tileId, out float influence)
+        {
+            if (tileId == _defaultTileId)
+            {
+                influence = 1f;
+                return false;
+            }
+
+            if ((uint)tileId < (uint)_baseColorInfluences.Length)
+            {
+                influence = _baseColorInfluences[tileId];
+                return true;
+            }
+
+            influence = 1f;
+            return false;
+        }
+
+        #endregion
+
         #region Color / Properties
 
         public bool TryGetColor(int tileId, out Color32 color)
@@ -100,10 +201,6 @@ namespace WorldGrid.Runtime.Tiles
             return true;
         }
 
-        /// <summary>
-        /// Renderer helper: try get per-cell jitter amplitude (0..0.25 recommended).
-        /// Defaults to 0 if tileId is unknown or has no color property.
-        /// </summary>
         public bool TryGetColorJitter(int tileId, out float jitter)
         {
             if (TryGetProperty<TileColorProperty>(tileId, out var colorProp) && colorProp != null)
@@ -113,6 +210,18 @@ namespace WorldGrid.Runtime.Tiles
             }
 
             jitter = 0f;
+            return false;
+        }
+
+        public bool TryGetColorBlend(int tileId, out float blend)
+        {
+            if (TryGetProperty<TileColorProperty>(tileId, out var colorProp) && colorProp != null)
+            {
+                blend = colorProp.Blend;
+                return true;
+            }
+
+            blend = 0f;
             return false;
         }
 
@@ -155,7 +264,6 @@ namespace WorldGrid.Runtime.Tiles
 
                 sb.Append(id);
 
-                // Include name when available for easier debugging.
                 if (def != null && !string.IsNullOrEmpty(def.Name))
                     sb.Append(":").Append(def.Name);
 

@@ -120,7 +120,7 @@ namespace WorldGrid.Unity.Editor
                 if (GUILayout.Button("Clear Tiles", GUILayout.Height(28)))
                 {
                     Undo.RecordObject(asset, "Clear Tile Entries");
-                    asset.ClearEntries();
+                    asset.entries.Clear();
                     EditorUtility.SetDirty(asset);
                 }
             }

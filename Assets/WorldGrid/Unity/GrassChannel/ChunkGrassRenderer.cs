@@ -1,613 +1,904 @@
-using System;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEngine;
 using UnityEngine.Rendering;
+using WorldGrid.Runtime.Chunks;
 using WorldGrid.Runtime.Coords;
+using WorldGrid.Runtime.Rendering;
 using WorldGrid.Runtime.Tiles;
 using WorldGrid.Runtime.World;
 
 namespace WorldGrid.Unity.Rendering
 {
+    /// <summary>
+    /// Grass render channel (instanced) driven by the orchestrator.
+    /// - View is authoritative via IChunkViewWindowProvider
+    /// - Tile libraries are injected via ITileLibraryView (no TileLibraryProvider dependency)
+    /// - Z layering is baked into instance positions: (profile.grassZ + grassLayerZ + localZOffset)
+    /// </summary>
     [DisallowMultipleComponent]
-    public sealed class ChunkGrassRenderer : MonoBehaviour
+    public sealed class ChunkGrassRenderer : MonoBehaviour, IRenderChunkChannel
     {
-        [Header("World")]
-        [SerializeField] private WorldHost worldHost;
-        [SerializeField] private ChunkWorldRenderer chunkWorldRenderer;
-
-        [Header("Tile Library")]
-        [SerializeField] private TileLibraryProvider tileLibraryProvider;
+        [Header("Tile Library (resolved by orchestrator)")]
         [SerializeField] private TileLibraryKey tileLibraryKey;
 
-        [Header("Profile")]
+        // Convention-based key consumed by ChunkRenderOrchestrator via reflection.
+        public TileLibraryKey TileLibraryKey => tileLibraryKey;
+
+        [Header("Grass")]
         [SerializeField] private Grass.GrassRenderProfile profile;
 
-        [Header("Influencers")]
-        [SerializeField] private int maxInfluencers = 16;
+        [Header("Layering (renderer-owned Z)")]
+        [Tooltip("Additional world Z added on top of profile.grassZ. Keep small.")]
+        [SerializeField] private float grassLayerZ = 0.0f;
 
-        [Header("Binding")]
-        [SerializeField] private float bindRetrySeconds = 0.25f;
+        [Tooltip("Tiny epsilon added on top of (profile.grassZ + grassLayerZ). Use only to avoid z-fighting.")]
+        [SerializeField] private float localZOffset = 0.0f;
+
+        [Header("Coloring")]
+        [Tooltip("If true, multiplies (tile base color) * (grass tile tint). Patch tint remains in shader via profile.")]
+        [SerializeField] private bool applyPerTileTint = true;
+
+        [Header("Debug")]
         [SerializeField] private bool logBind = true;
+        [SerializeField] private bool logBuild = false;
+        [SerializeField] private bool logDraw = false;
 
-        // ---- runtime ----
+        // ----------------------------
+        // Bound runtime dependencies
+        // ----------------------------
+        private WorldHost _host;
         private SparseChunkWorld _world;
+        private ITileLibraryView _tileLibraryView;
         private TileLibrary _tileLibrary;
+        private IChunkViewWindowProvider _view;
+
+        // Runtime state
         private GrassTileChannel _grassChannel;
 
-        private readonly Dictionary<ChunkCoord, ChunkGrassCache> _cache = new();
-        private readonly HashSet<ChunkCoord> _dirtyChunks = new();
-        private readonly List<ChunkCoord> _tmpToRebuild = new(256);
-
+        private Material _runtimeMat;
         private MaterialPropertyBlock _mpb;
-        private readonly List<Grass.GrassInfluencer> _influencers = new();
 
         private bool _bound;
-        private float _nextBindAttemptTime;
-        private bool _loggedBind;
 
-        private Material _runtimeMaterial;
+        private readonly HashSet<ChunkCoord> _dirty = new();
+        private readonly List<ChunkCoord> _dirtyScratch = new(512);
+        private readonly Dictionary<ChunkCoord, ChunkCache> _cache = new();
 
-        // shader ids
-        private static readonly int ID_MainTex = Shader.PropertyToID("_MainTex");
+        // view snapshot (polled from _view)
+        private bool _hasView;
+        private ChunkCoord _viewMin;
+        private Vector2Int _viewSize;
 
-        private static readonly int ID_InfluencerCount = Shader.PropertyToID("_InfluencerCount");
-        private static readonly int ID_Influencers = Shader.PropertyToID("_Influencers");
-        private static readonly int ID_InfluencerStrength = Shader.PropertyToID("_InfluencerStrength");
+        // Tile color getter (resolved once)
+        private delegate bool TryGetTileColorFn(int tileId, out Color32 c);
+        private TryGetTileColorFn _tryGetTileColor;
+
+        private int ChunkSize => _world != null ? _world.ChunkSize : 0;
+        private float CellSize => _host != null ? _host.CellSize : 1f;
+
+        private Transform WorldRoot => (_host != null && _host.WorldRoot != null) ? _host.WorldRoot : transform;
+
+        private float CombinedZ => (profile != null ? profile.grassZ : 0f) + grassLayerZ + localZOffset;
+
+        // shader ids (match your shader file)
+        private static readonly int ID_Color = Shader.PropertyToID("_Color");
+        private static readonly int ID_UseXZPlane = Shader.PropertyToID("_UseXZPlane");
 
         private static readonly int ID_WindDir = Shader.PropertyToID("_WindDir");
         private static readonly int ID_WindAmp = Shader.PropertyToID("_WindAmp");
         private static readonly int ID_WindFreq = Shader.PropertyToID("_WindFreq");
         private static readonly int ID_WindWorldScale = Shader.PropertyToID("_WindWorldScale");
 
-        private static readonly int ID_PatchColorA = Shader.PropertyToID("_PatchColorA");
-        private static readonly int ID_PatchColorB = Shader.PropertyToID("_PatchColorB");
-        private static readonly int ID_PatchScale = Shader.PropertyToID("_PatchScale");
-        private static readonly int ID_PatchStrength = Shader.PropertyToID("_PatchStrength");
-        private static readonly int ID_UseXZPlane = Shader.PropertyToID("_UseXZPlane");
-
         private static readonly int ID_BaseStiffness = Shader.PropertyToID("_BaseStiffness");
         private static readonly int ID_BendExponent = Shader.PropertyToID("_BendExponent");
         private static readonly int ID_SwayStrength = Shader.PropertyToID("_SwayStrength");
         private static readonly int ID_TipBoost = Shader.PropertyToID("_TipBoost");
 
+        private static readonly int ID_PatchColorA = Shader.PropertyToID("_PatchColorA");
+        private static readonly int ID_PatchColorB = Shader.PropertyToID("_PatchColorB");
+        private static readonly int ID_PatchScale = Shader.PropertyToID("_PatchScale");
+        private static readonly int ID_PatchStrength = Shader.PropertyToID("_PatchStrength");
+
         private static readonly int ID_EmissionStrength = Shader.PropertyToID("_EmissionStrength");
 
-        private Vector4[] _infPosRadEmpty;
-        private float[] _infStrengthEmpty;
 
-        private int ChunkSize => _world != null ? _world.ChunkSize : 0;
-        private float CellSize => worldHost != null ? worldHost.CellSize : 1f;
-        private Transform WorldRoot => worldHost != null ? worldHost.WorldRoot : transform;
+        private static readonly int ID_InstanceColor = Shader.PropertyToID("_InstanceColor");
+        private Vector4[] _instanceColorBuf; // fixed-size 1023
 
         private void Awake()
         {
-            _mpb = new MaterialPropertyBlock();
-
-            int cap = Mathf.Max(0, maxInfluencers);
-            _infPosRadEmpty = new Vector4[cap];
-            _infStrengthEmpty = new float[cap];
+            _mpb ??= new MaterialPropertyBlock();
+            if (_instanceColorBuf == null || _instanceColorBuf.Length != 1023)
+                _instanceColorBuf = new Vector4[1023];
         }
 
-        private void OnEnable()
-        {
-            _bound = false;
-            _loggedBind = false;
-            _nextBindAttemptTime = 0f;
+        // ---------------------------------------------------------------------
+        // IRenderChunkChannel
+        // ---------------------------------------------------------------------
 
-            _cache.Clear();
-            _dirtyChunks.Clear();
+        public void Bind(WorldHost host, SparseChunkWorld world, ITileLibraryView tiles, IChunkViewWindowProvider view)
+        {
+            if (_bound) return;
+
+            _host = host;
+            _world = world;
+            _tileLibraryView = tiles;
+            _tileLibrary = tiles != null ? tiles.Library : null;
+            _view = view;
+
+            if (_host == null || _world == null)
+            {
+                UnityEngine.Debug.LogError("[ChunkGrassRenderer] Bind failed: host/world null.", this);
+                return;
+            }
+
+            if (_view == null)
+            {
+                UnityEngine.Debug.LogError("[ChunkGrassRenderer] Bind failed: view provider is null.", this);
+                return;
+            }
+
+            if (profile == null)
+            {
+                UnityEngine.Debug.LogError("[ChunkGrassRenderer] Missing GrassRenderProfile.", this);
+                return;
+            }
+
+            if (!profile.IsValid(out var reason))
+            {
+                UnityEngine.Debug.LogError($"[ChunkGrassRenderer] Invalid GrassRenderProfile: {reason}", this);
+                return;
+            }
+
+            if (_tileLibrary == null)
+            {
+                UnityEngine.Debug.LogError("[ChunkGrassRenderer] Bind failed: ITileLibraryView.Library is null.", this);
+                return;
+            }
+
+            // Build grass channel from compiled tile definitions
+            int maxTileId = ComputeMaxTileId(_tileLibrary);
+            _grassChannel = GrassTileChannel.BuildFrom(_tileLibrary, maxTileId);
+
+            // Resolve best color API
+            _tryGetTileColor = ResolveTileColorGetter(_tileLibrary);
 
             EnsureRuntimeMaterial();
+
+            if (_runtimeMat == null || _runtimeMat.shader == null || !_runtimeMat.shader.isSupported)
+            {
+                UnityEngine.Debug.LogError($"[ChunkGrassRenderer] Runtime material invalid. shader={(_runtimeMat?.shader ? _runtimeMat.shader.name : "NULL")}", this);
+                return;
+            }
+
+            BindWorldEvents();
+
+            _bound = true;
+
+            // Force initial view snapshot + build
+            DetectViewWindowChangeAndMarkDirty();
+
+            if (logBind)
+            {
+                UnityEngine.Debug.Log(
+                    $"[ChunkGrassRenderer] Bound (channel). chunkSize={ChunkSize}, cellSize={CellSize}, mesh={profile.EffectiveMesh?.name}, " +
+                    $"mat={_runtimeMat.name}, shader={_runtimeMat.shader.name}, combinedZ={CombinedZ}",
+                    this);
+            }
+        }
+
+        public void Tick()
+        {
+            if (!_bound) return;
+
+            UploadGlobalsFromProfile();
+            DetectViewWindowChangeAndMarkDirty();
+
+            RebuildDirtyInView();
+            DrawVisible();
+        }
+
+        public void Unbind()
+        {
+            if (!_bound) return;
+
+            UnbindWorldEvents();
+
+            _bound = false;
+
+            _dirty.Clear();
+            _dirtyScratch.Clear();
+
+            // Note: if you ever pool matrices, release them here.
+            _cache.Clear();
+
+            _hasView = false;
+
+            _host = null;
+            _world = null;
+            _tileLibraryView = null;
+            _tileLibrary = null;
+            _view = null;
+            _grassChannel = null;
+            _tryGetTileColor = null;
+
+            if (_runtimeMat != null)
+            {
+                Destroy(_runtimeMat);
+                _runtimeMat = null;
+            }
         }
 
         private void OnDisable()
         {
-            if (_bound && _world != null)
-                _world.TileUpdated -= OnTileUpdated;
-
-            _bound = false;
-            _cache.Clear();
-            _dirtyChunks.Clear();
-
-            if (_runtimeMaterial != null)
-            {
-                Destroy(_runtimeMaterial);
-                _runtimeMaterial = null;
-            }
+            // Safety: orchestrator should call UnbindAll(), but this prevents leaks when components are disabled manually.
+            if (_bound)
+                Unbind();
         }
 
-        public void SetInfluencers(List<Grass.GrassInfluencer> points)
+        // ---------------------------------------------------------------------
+        // Material + Globals
+        // ---------------------------------------------------------------------
+        private static Color32 NormalizeTintPreserveValue(Color32 c)
         {
-            _influencers.Clear();
-            if (points == null) return;
+            float r = c.r / 255f;
+            float g = c.g / 255f;
+            float b = c.b / 255f;
 
-            int count = Mathf.Min(points.Count, Mathf.Max(0, maxInfluencers));
-            for (int i = 0; i < count; i++)
-                _influencers.Add(points[i]);
-        }
+            float max = Mathf.Max(0.0001f, Mathf.Max(r, Mathf.Max(g, b)));
 
-        private void LateUpdate()
-        {
-            if (profile == null)
-                return;
+            // Scale so the brightest channel becomes 1.0 (preserves "value"/brightness)
+            r = Mathf.Clamp01(r / max);
+            g = Mathf.Clamp01(g / max);
+            b = Mathf.Clamp01(b / max);
 
-            EnsureRuntimeMaterial();
-            if (_runtimeMaterial == null)
-                return;
-
-            if (!_bound)
-            {
-                TryBind();
-                if (!_bound) return;
-            }
-
-            if (_world == null || _tileLibrary == null || _grassChannel == null)
-                return;
-
-            if (profile.EffectiveMesh == null)
-                return;
-
-            UploadGlobalsFromProfile();
-            RebuildDirtyVisibleChunks();
-            DrawVisibleChunksSorted();
-        }
-
-        private void EnsureRuntimeMaterial()
-        {
-            if (profile == null) return;
-            if (_runtimeMaterial != null) return;
-
-            if (!profile.IsValid(out _))
-                return;
-
-            _runtimeMaterial = new Material(profile.materialTemplate)
-            {
-                name = $"{profile.materialTemplate.name} (Runtime)"
-            };
-
-            if (profile.renderQueueOverride >= 0)
-                _runtimeMaterial.renderQueue = profile.renderQueueOverride;
-
-            if (profile.mainTextureOverride != null)
-                _runtimeMaterial.SetTexture(ID_MainTex, profile.mainTextureOverride);
-        }
-
-        private void TryBind()
-        {
-            if (Time.unscaledTime < _nextBindAttemptTime)
-                return;
-
-            _nextBindAttemptTime = Time.unscaledTime + Mathf.Max(0.05f, bindRetrySeconds);
-
-            if (worldHost == null || worldHost.World == null) return;
-            if (chunkWorldRenderer == null) return;
-            if (tileLibraryProvider == null || !tileLibraryProvider.IsReady) return;
-            if (tileLibraryKey.IsEmpty) return;
-
-            _world = worldHost.World;
-
-            if (!TryResolveTileLibrary(out _))
-                return;
-
-            var size = chunkWorldRenderer.ViewChunksSize;
-            if (size.x <= 0 || size.y <= 0)
-                return;
-
-            _world.TileUpdated += OnTileUpdated;
-            MarkAllVisibleDirty();
-
-            _bound = true;
-
-            if (logBind && !_loggedBind)
-            {
-                _loggedBind = true;
-                UnityEngine.Debug.Log($"ChunkGrassRenderer bound. chunkSize={_world.ChunkSize}, view={chunkWorldRenderer.ViewChunksSize}", this);
-            }
-        }
-
-        private bool TryResolveTileLibrary(out string error)
-        {
-            error = null;
-
-            object viewObj;
-            try { viewObj = tileLibraryProvider.Get(tileLibraryKey); }
-            catch (Exception ex)
-            {
-                error = $"ChunkGrassRenderer: provider threw resolving '{tileLibraryKey.Value}': {ex.Message}";
-                return false;
-            }
-
-            if (viewObj == null)
-            {
-                error = $"ChunkGrassRenderer: provider returned null view for '{tileLibraryKey.Value}'.";
-                return false;
-            }
-
-            _tileLibrary = ExtractTileLibraryFromView(viewObj);
-            if (_tileLibrary == null)
-            {
-                error = "ChunkGrassRenderer: could not extract TileLibrary from view.";
-                return false;
-            }
-
-            _grassChannel = _tileLibrary.Channels?.Grass;
-            if (_grassChannel == null)
-            {
-                error = "ChunkGrassRenderer: tileLibrary.Channels.Grass is null.";
-                return false;
-            }
-
-            return true;
-        }
-
-        private static TileLibrary ExtractTileLibraryFromView(object viewObj)
-        {
-            var t = viewObj.GetType();
-            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            string[] propNames = { "Library", "TileLibrary", "RuntimeLib", "RuntimeLibrary" };
-            foreach (var name in propNames)
-            {
-                var p = t.GetProperty(name, flags);
-                if (p != null && typeof(TileLibrary).IsAssignableFrom(p.PropertyType))
-                    return p.GetValue(viewObj) as TileLibrary;
-            }
-
-            string[] fieldNames = { "Library", "TileLibrary", "runtimeLib", "_runtimeLib", "RuntimeLib", "RuntimeLibrary" };
-            foreach (var name in fieldNames)
-            {
-                var f = t.GetField(name, flags);
-                if (f != null && typeof(TileLibrary).IsAssignableFrom(f.FieldType))
-                    return f.GetValue(viewObj) as TileLibrary;
-            }
-
-            return null;
-        }
-
-        private void OnTileUpdated(SparseChunkWorld.TileUpdatedEvent e)
-        {
-            _dirtyChunks.Add(e.Chunk);
-        }
-
-        private void MarkAllVisibleDirty()
-        {
-            var min = chunkWorldRenderer.ViewChunkMin;
-            var size = chunkWorldRenderer.ViewChunksSize;
-
-            for (int dy = 0; dy < size.y; dy++)
-                for (int dx = 0; dx < size.x; dx++)
-                    _dirtyChunks.Add(new ChunkCoord(min.X + dx, min.Y + dy));
-        }
-
-        private void RebuildDirtyVisibleChunks()
-        {
-            var min = chunkWorldRenderer.ViewChunkMin;
-            var size = chunkWorldRenderer.ViewChunksSize;
-
-            if (size.x <= 0 || size.y <= 0)
-                return;
-
-            _tmpToRebuild.Clear();
-
-            foreach (var cc in _dirtyChunks)
-            {
-                if (cc.X < min.X || cc.Y < min.Y) continue;
-                if (cc.X >= min.X + size.x || cc.Y >= min.Y + size.y) continue;
-                _tmpToRebuild.Add(cc);
-            }
-
-            for (int i = 0; i < _tmpToRebuild.Count; i++)
-            {
-                var cc = _tmpToRebuild[i];
-                BuildChunkCache(cc);
-                _dirtyChunks.Remove(cc);
-            }
-        }
-
-        private void BuildChunkCache(ChunkCoord cc)
-        {
-            if (!_world.TryGetChunk(cc, out var chunk) || chunk == null)
-            {
-                _cache.Remove(cc);
-                return;
-            }
-
-            if (!_cache.TryGetValue(cc, out var cache))
-            {
-                cache = new ChunkGrassCache();
-                _cache[cc] = cache;
-            }
-
-            float clumps = profile.clumpsPerTile * Mathf.Max(0.001f, profile.clumpsPerTileMultiplier);
-
-            cache.Build(
-                chunk: chunk,
-                chunkCoord: cc,
-                chunkSize: ChunkSize,
-                cellSize: CellSize,
-                worldRoot: WorldRoot,
-                grassChannel: _grassChannel,
-                clumpsPerTile: clumps,
-                tilePadding: profile.tilePadding,
-                uniformScale: profile.uniformScale,
-                scaleWidthMin: profile.scaleWidthMin,
-                scaleWidthMax: profile.scaleWidthMax,
-                scaleHeightMin: profile.scaleHeightMin,
-                scaleHeightMax: profile.scaleHeightMax,
-                heightBias: profile.heightBias,
-                randomRotation: profile.randomRotation,
-                minRotationDeg: profile.minRotationDeg,
-                maxRotationDeg: profile.maxRotationDeg,
-                useXZPlane: profile.useXZPlane,
-                globalSeed: profile.globalSeed,
-                grassZ: profile.grassZ,
-                maxClumpsPerChunk: profile.maxClumpsPerChunk
+            return new Color32(
+                (byte)Mathf.RoundToInt(r * 255f),
+                (byte)Mathf.RoundToInt(g * 255f),
+                (byte)Mathf.RoundToInt(b * 255f),
+                c.a
             );
         }
 
-        private void DrawVisibleChunksSorted()
+
+        private void EnsureRuntimeMaterial()
         {
-            var min = chunkWorldRenderer.ViewChunkMin;
-            var size = chunkWorldRenderer.ViewChunksSize;
+            if (_runtimeMat != null) return;
 
-            if (size.x <= 0 || size.y <= 0)
+            if (profile == null || profile.materialTemplate == null)
+            {
+                UnityEngine.Debug.LogError("[ChunkGrassRenderer] profile/materialTemplate is null.", this);
                 return;
+            }
 
-            var shadowMode = profile.castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
+            _runtimeMat = new Material(profile.materialTemplate)
+            {
+                name = $"{profile.materialTemplate.name} (Grass Runtime)"
+            };
 
-            for (int dy = size.y - 1; dy >= 0; dy--)
-                for (int dx = 0; dx < size.x; dx++)
-                {
-                    var cc = new ChunkCoord(min.X + dx, min.Y + dy);
+            _runtimeMat.enableInstancing = true;
 
-                    if (!_cache.TryGetValue(cc, out var cache) || cache.InstanceCount == 0)
-                        continue;
+            if (profile.renderQueueOverride >= 0)
+                _runtimeMat.renderQueue = profile.renderQueueOverride;
 
-                    cache.Draw(profile.EffectiveMesh, _runtimeMaterial, _mpb, shadowMode, profile.receiveShadows);
-                }
+            if (profile.mainTextureOverride != null)
+            {
+                if (_runtimeMat.HasProperty("_MainTex"))
+                    _runtimeMat.SetTexture("_MainTex", profile.mainTextureOverride);
+                if (_runtimeMat.HasProperty("_BaseMap"))
+                    _runtimeMat.SetTexture("_BaseMap", profile.mainTextureOverride);
+            }
+
+            if (_runtimeMat.HasProperty(ID_UseXZPlane))
+                _runtimeMat.SetFloat(ID_UseXZPlane, profile.useXZPlane);
+
+            // Cutout safety clamp
+            if (_runtimeMat.HasProperty("_Cutoff") && _runtimeMat.GetFloat("_Cutoff") <= 0f)
+                _runtimeMat.SetFloat("_Cutoff", 0.001f);
+            if (_runtimeMat.HasProperty("_AlphaCutoff") && _runtimeMat.GetFloat("_AlphaCutoff") <= 0f)
+                _runtimeMat.SetFloat("_AlphaCutoff", 0.001f);
+
         }
+
 
         private void UploadGlobalsFromProfile()
         {
-            // Wind
-            Vector3 wd = profile.windDirection.sqrMagnitude > 0.0001f ? profile.windDirection.normalized : Vector3.right;
-            _mpb.SetVector(ID_WindDir, new Vector4(wd.x, wd.y, wd.z, 0f));
+            // Use MPB for per-frame updates (wind etc.)
+            _mpb.SetFloat(ID_UseXZPlane, profile.useXZPlane);
+
+            _mpb.SetVector(ID_WindDir, profile.windDirection);
             _mpb.SetFloat(ID_WindAmp, profile.windAmplitude);
             _mpb.SetFloat(ID_WindFreq, profile.windFrequency);
             _mpb.SetFloat(ID_WindWorldScale, profile.windWorldScale);
 
-            // Patch
-            _mpb.SetColor(ID_PatchColorA, profile.patchColorA);
-            _mpb.SetColor(ID_PatchColorB, profile.patchColorB);
-            _mpb.SetFloat(ID_PatchScale, profile.patchScale);
-            _mpb.SetFloat(ID_PatchStrength, profile.patchStrength);
-            _mpb.SetFloat(ID_UseXZPlane, profile.useXZPlane);
-
-            // Bend/Sway
             _mpb.SetFloat(ID_BaseStiffness, profile.baseStiffness);
             _mpb.SetFloat(ID_BendExponent, profile.bendExponent);
             _mpb.SetFloat(ID_SwayStrength, profile.swayStrength);
             _mpb.SetFloat(ID_TipBoost, profile.tipBoost);
 
-            // Lighting (requires shader support)
-            _mpb.SetFloat(ID_EmissionStrength, profile.emissionStrength);
+            _mpb.SetColor(ID_PatchColorA, profile.patchColorA);
+            _mpb.SetColor(ID_PatchColorB, profile.patchColorB);
+            _mpb.SetFloat(ID_PatchScale, profile.patchScale);
+            _mpb.SetFloat(ID_PatchStrength, profile.patchStrength);
 
-            // Influencers (optional)
-            int cap = Mathf.Max(0, maxInfluencers);
-            if (_infPosRadEmpty == null || _infPosRadEmpty.Length != cap)
+            _mpb.SetFloat(ID_EmissionStrength, profile.emissionStrength);
+        }
+
+        // ---------------------------------------------------------------------
+        // World events -> dirty
+        // ---------------------------------------------------------------------
+
+        private void BindWorldEvents()
+        {
+            _world.TileUpdated += OnTileUpdated;
+            _world.ChunkCreated += OnChunkChanged;
+            _world.ChunkRemoved += OnChunkChanged;
+            _world.ChunkStorageKindChanged += OnChunkStorageChanged;
+        }
+
+        private void UnbindWorldEvents()
+        {
+            if (_world == null) return;
+
+            _world.TileUpdated -= OnTileUpdated;
+            _world.ChunkCreated -= OnChunkChanged;
+            _world.ChunkRemoved -= OnChunkChanged;
+            _world.ChunkStorageKindChanged -= OnChunkStorageChanged;
+        }
+
+        private void OnTileUpdated(SparseChunkWorld.TileUpdatedEvent e)
+        {
+            if (e.Result == SparseChunkWorld.TileUpdateResult.NoChange) return;
+            _dirty.Add(e.Chunk);
+        }
+
+        private void OnChunkChanged(ChunkCoord cc)
+        {
+            _dirty.Add(cc);
+            _cache.Remove(cc);
+        }
+
+        private void OnChunkStorageChanged(ChunkCoord cc, ChunkStorageKind oldKind, ChunkStorageKind newKind)
+        {
+            _dirty.Add(cc);
+        }
+
+        // ---------------------------------------------------------------------
+        // View window (authoritative via IChunkViewWindowProvider)
+        // ---------------------------------------------------------------------
+
+        private void DetectViewWindowChangeAndMarkDirty()
+        {
+            if (!TryGetViewWindow(out var min, out var size))
+                return;
+
+            if (!_hasView || !_viewMin.Equals(min) || _viewSize != size)
             {
-                _infPosRadEmpty = new Vector4[cap];
-                _infStrengthEmpty = new float[cap];
+                _hasView = true;
+                _viewMin = min;
+                _viewSize = size;
+
+                for (int y = 0; y < size.y; y++)
+                    for (int x = 0; x < size.x; x++)
+                        _dirty.Add(new ChunkCoord(min.X + x, min.Y + y));
+
+                // Prune out-of-view cache entries
+                var vmax = new ChunkCoord(min.X + size.x - 1, min.Y + size.y - 1);
+                PruneCacheOutside(min, vmax);
+            }
+        }
+
+        private bool TryGetViewWindow(out ChunkCoord min, out Vector2Int size)
+        {
+            min = default;
+            size = default;
+
+            if (_view == null)
+                return false;
+
+            // Interface in this project exposes ViewMin/ViewSize (no "Current" snapshot).
+            min = _view.ViewMin;
+            size = _view.ViewSize;
+
+            return size.x > 0 && size.y > 0;
+        }
+
+        private void PruneCacheOutside(ChunkCoord vmin, ChunkCoord vmax)
+        {
+            if (_cache.Count == 0) return;
+
+            // Collect keys to remove
+            _dirtyScratch.Clear();
+            foreach (var kv in _cache)
+            {
+                var cc = kv.Key;
+                if (cc.X < vmin.X || cc.Y < vmin.Y || cc.X > vmax.X || cc.Y > vmax.Y)
+                    _dirtyScratch.Add(cc);
             }
 
-            int count = Mathf.Min(_influencers.Count, cap);
-            if (count <= 0)
+            for (int i = 0; i < _dirtyScratch.Count; i++)
+                _cache.Remove(_dirtyScratch[i]);
+
+            _dirtyScratch.Clear();
+        }
+
+        // ---------------------------------------------------------------------
+        // Build / cache
+        // ---------------------------------------------------------------------
+
+        private void RebuildDirtyInView()
+        {
+            if (_dirty.Count == 0) return;
+            if (!TryGetViewWindow(out var vmin, out var vsize)) return;
+
+            var vmax = new ChunkCoord(vmin.X + vsize.x - 1, vmin.Y + vsize.y - 1);
+
+            _dirtyScratch.Clear();
+            foreach (var cc in _dirty) _dirtyScratch.Add(cc);
+            _dirty.Clear();
+
+            int rebuilt = 0;
+
+            for (int i = 0; i < _dirtyScratch.Count; i++)
             {
-                _mpb.SetInt(ID_InfluencerCount, 0);
-                if (cap > 0)
-                {
-                    _mpb.SetVectorArray(ID_Influencers, _infPosRadEmpty);
-                    _mpb.SetFloatArray(ID_InfluencerStrength, _infStrengthEmpty);
-                }
+                var cc = _dirtyScratch[i];
+
+                if (cc.X < vmin.X || cc.Y < vmin.Y || cc.X > vmax.X || cc.Y > vmax.Y)
+                    continue;
+
+                BuildChunk(cc);
+                rebuilt++;
+            }
+
+            if (logBuild && rebuilt > 0)
+                UnityEngine.Debug.Log($"[ChunkGrassRenderer] Rebuilt {rebuilt} chunks. cache={_cache.Count}", this);
+
+            _dirtyScratch.Clear();
+        }
+        [SerializeField] private bool logBuildDetails = false;
+        [SerializeField] private int logBuildMaxClumps = 12;   // limit spam
+        [SerializeField] private int logBuildMaxTiles = 12;    // limit spam
+
+        private void BuildChunk(ChunkCoord cc)
+        {
+            if (_world == null)
+            {
+                _cache.Remove(cc);
                 return;
             }
 
-            var posRad = new Vector4[cap];
-            var strength = new float[cap];
-
-            for (int i = 0; i < count; i++)
+            if (!_world.TryGetChunk(cc, out Chunk chunk) || chunk == null)
             {
-                var inf = _influencers[i];
-                posRad[i] = new Vector4(inf.position.x, inf.position.y, inf.position.z, inf.radius);
-                strength[i] = inf.strength;
+                if (logBuild)
+                    UnityEngine.Debug.Log($"[ChunkGrassRenderer] Build {cc}: missing chunk -> remove cache", this);
+
+                _cache.Remove(cc);
+                return;
             }
 
-            _mpb.SetInt(ID_InfluencerCount, count);
-            _mpb.SetVectorArray(ID_Influencers, posRad);
-            _mpb.SetFloatArray(ID_InfluencerStrength, strength);
-        }
+            int cs = ChunkSize;
+            float cell = Mathf.Max(0.0001f, CellSize);
 
-        // ----------------- Chunk cache -----------------
+            int maxClumps = Mathf.Max(0, profile.maxClumpsPerChunk);
+            float padding = Mathf.Clamp01(profile.tilePadding);
+            float z = CombinedZ;
 
-        private sealed class ChunkGrassCache
-        {
-            private const int BatchMax = 1023;
+            var batches = new Dictionary<int, Batch>(64);
 
-            private readonly List<Matrix4x4[]> _matBatches = new();
-            private readonly List<int> _batchCounts = new();
-            private int _count;
+            int grassTiles = 0;
+            int totalClumps = 0;
 
-            public int InstanceCount => _count;
+            int dbgTilesLogged = 0;
+            int dbgClumpsLogged = 0;
 
-            private struct Item
-            {
-                public float y;
-                public Matrix4x4 m;
-            }
+            for (int ly = 0; ly < cs; ly++)
+                for (int lx = 0; lx < cs; lx++)
+                {
+                    int tileId = chunk.Get(lx, ly);
 
-            public void Build(
-                WorldGrid.Runtime.Chunks.Chunk chunk,
-                ChunkCoord chunkCoord,
-                int chunkSize,
-                float cellSize,
-                Transform worldRoot,
-                GrassTileChannel grassChannel,
-                float clumpsPerTile,
-                float tilePadding,
-                bool uniformScale,
-                float scaleWidthMin,
-                float scaleWidthMax,
-                float scaleHeightMin,
-                float scaleHeightMax,
-                float heightBias,
-                bool randomRotation,
-                float minRotationDeg,
-                float maxRotationDeg,
-                float useXZPlane,
-                int globalSeed,
-                float grassZ,
-                int maxClumpsPerChunk)
-            {
-                _matBatches.Clear();
-                _batchCounts.Clear();
-                _count = 0;
+                    if (_grassChannel == null || !_grassChannel.IsGrassable(tileId))
+                        continue;
 
-                int worldX0 = chunkCoord.X * chunkSize;
-                int worldY0 = chunkCoord.Y * chunkSize;
+                    var info = _grassChannel.Get(tileId);
+                    if (!info.grassable)
+                        continue;
 
-                var items = new List<Item>(Mathf.Min(maxClumpsPerChunk, 8192));
+                    grassTiles++;
 
-                for (int y = 0; y < chunkSize; y++)
-                    for (int x = 0; x < chunkSize; x++)
+                    float target =
+                        Mathf.Max(0f, profile.clumpsPerTile) *
+                        Mathf.Max(0.0001f, profile.clumpsPerTileMultiplier) *
+                        Mathf.Max(0f, info.density);
+
+                    if (target <= 0f)
+                        continue;
+
+                    int baseCount = Mathf.FloorToInt(target);
+                    float frac = target - baseCount;
+
+                    int count = baseCount;
+                    if (frac > 0f)
                     {
-                        int tileId = chunk.Get(x, y);
+                        float r = Hash01(cc.X, cc.Y, lx, ly, 777, profile.globalSeed);
+                        if (r < frac) count++;
+                    }
 
-                        if (!grassChannel.IsGrassable(tileId))
-                            continue;
+                    if (count <= 0)
+                        continue;
 
-                        var info = grassChannel.Get(tileId);
-                        float mult = Mathf.Max(0f, info.density);
-                        if (mult <= 0f)
-                            continue;
+                    // Final color comes from assets:
+                    // - tile base color from TileLibrary
+                    // - grass tint from GrassTileChannel
+                    Color32 tileC = Color.white;
+                    bool hasTileC = _tryGetTileColor != null && _tryGetTileColor(tileId, out tileC);
+                    if (!hasTileC)
+                        tileC = new Color32(255, 255, 255, 255);
 
-                        float d = clumpsPerTile * mult;
-                        int n0 = Mathf.FloorToInt(d);
-                        float f = Mathf.Clamp01(d - n0);
+                    Color32 grassTint = info.tint;
 
-                        uint seed = HashToUint(globalSeed, worldX0 + x, worldY0 + y);
-                        var rng = new XorShift32(seed);
+                    // Multiply tile color by grass tint (both asset-defined)
+                    Color32 tileTint = NormalizeTintPreserveValue(tileC);
 
-                        int count = n0 + (rng.NextFloat01() < f ? 1 : 0);
-                        if (count <= 0) continue;
+                    Color32 final32 = applyPerTileTint
+                        ? MultiplyColor32(tileTint, grassTint)
+                        : grassTint;
 
-                        for (int i = 0; i < count; i++)
+
+                    int colorKey =
+                        (final32.r << 24) |
+                        (final32.g << 16) |
+                        (final32.b << 8) |
+                         final32.a;
+
+                    if (!batches.TryGetValue(colorKey, out var batch))
+                    {
+                        batch = new Batch(final32);
+                        batches[colorKey] = batch;
+                    }
+
+                    if (logBuildDetails && dbgTilesLogged < logBuildMaxTiles)
+                    {
+                        UnityEngine.Debug.Log(
+                            $"[GrassColorBuild] cc={cc} lx={lx} ly={ly} tileId={tileId} " +
+                            $"hasTileC={hasTileC} tileC=({tileC.r},{tileC.g},{tileC.b},{tileC.a}) " +
+                            $"grassTint=({grassTint.r},{grassTint.g},{grassTint.b},{grassTint.a}) " +
+                            $"final=({final32.r},{final32.g},{final32.b},{final32.a}) " +
+                            $"applyPerTileTint={applyPerTileTint}",
+                            this);
+                    }
+
+                    // Tile center in grid space
+                    float baseX = (cc.X * cs + lx + 0.5f) * cell;
+                    float baseY = (cc.Y * cs + ly + 0.5f) * cell;
+
+                    if (logBuildDetails && dbgTilesLogged < logBuildMaxTiles)
+                    {
+                        dbgTilesLogged++;
+                        UnityEngine.Debug.Log(
+                            $"[ChunkGrassRenderer] BuildTile cc={cc} lx={lx} ly={ly} tileId={tileId} " +
+                            $"density={info.density:0.###} target={target:0.###} count={count} baseX={baseX:0.###} baseY={baseY:0.###} cell={cell:0.###} z={z:0.###}",
+                            this);
+                    }
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        if (totalClumps >= maxClumps)
+                            break;
+                        float h1 = Hash01(cc.X, cc.Y, lx, ly, i * 2 + 1, profile.globalSeed);
+                        float h2 = Hash01(cc.X, cc.Y, lx, ly, i * 2 + 2, profile.globalSeed);
+
+                        //if (logBuildDetails && dbgClumpsLogged < logBuildMaxClumps)
+                        //{
+                        //    UnityEngine.Debug.Log($"[ChunkGrassRenderer] Hash cc={cc} lx={lx} ly={ly} i={i} h1={h1} h2={h2}", this);
+                        //}
+
+                        // Jitter around center, constrained by padding
+                        float jx = Mathf.Lerp(-0.5f + padding, 0.5f - padding,
+                            Hash01(cc.X, cc.Y, lx, ly, i * 2 + 1, profile.globalSeed));
+                        float jy = Mathf.Lerp(-0.5f + padding, 0.5f - padding,
+                            Hash01(cc.X, cc.Y, lx, ly, i * 2 + 2, profile.globalSeed));
+
+                        float wx = baseX + jx * cell;
+                        float wy = baseY + jy * cell;
+
+                        Vector3 posLocal = new Vector3(wx, wy, z);
+                        Vector3 pos = (WorldRoot != null) ? WorldRoot.TransformPoint(posLocal) : posLocal;
+
+                        float rotDeg = profile.baseRotationDeg;
+                        if (profile.randomRotation)
+                            rotDeg += Mathf.Lerp(profile.minRotationDeg, profile.maxRotationDeg,
+                                Hash01(cc.X, cc.Y, lx, ly, i + 17, profile.globalSeed));
+
+                        Quaternion rot = (profile.useXZPlane >= 0.5f)
+                            ? Quaternion.Euler(0f, rotDeg, 0f)
+                            : Quaternion.Euler(0f, 0f, rotDeg);
+
+                        float sx = Mathf.Lerp(profile.scaleWidthMin, profile.scaleWidthMax,
+                            Hash01(cc.X, cc.Y, lx, ly, i + 53, profile.globalSeed));
+
+                        float sy = Mathf.Lerp(profile.scaleHeightMin, profile.scaleHeightMax,
+                            Hash01(cc.X, cc.Y, lx, ly, i + 61, profile.globalSeed)) * Mathf.Max(0.0001f, profile.heightBias);
+
+                        // Prevent collapse
+                        sx = Mathf.Max(0.0001f, sx);
+                        sy = Mathf.Max(0.0001f, sy);
+
+                        if (profile.uniformScale)
                         {
-                            if (items.Count >= maxClumpsPerChunk)
-                                goto BUILD_DONE;
+                            float u = Mathf.Min(sx, sy);
+                            sx = u; sy = u;
+                        }
 
-                            float jx = rng.Range(-0.5f + tilePadding, 0.5f - tilePadding);
-                            float jy = rng.Range(-0.5f + tilePadding, 0.5f - tilePadding);
+                        batch.Matrices.Add(Matrix4x4.TRS(pos, rot, new Vector3(sx, sy, 1f)));
+                        totalClumps++;
 
-                            float wx = (worldX0 + x + 0.5f + jx) * cellSize;
-                            float wy = (worldY0 + y + 0.5f + jy) * cellSize;
-
-                            Vector3 pos = new Vector3(wx, wy, grassZ);
-                            if (worldRoot != null)
-                                pos = worldRoot.TransformPoint(pos);
-
-                            float rotDeg = 0f;
-                            if (randomRotation && !Mathf.Approximately(maxRotationDeg, minRotationDeg))
-                                rotDeg = rng.Range(minRotationDeg, maxRotationDeg);
-
-                            Vector3 scale;
-                            if (uniformScale)
-                            {
-                                float s = rng.Range(scaleWidthMin, scaleWidthMax);
-                                scale = new Vector3(s, s, s);
-                            }
-                            else
-                            {
-                                float sx = rng.Range(scaleWidthMin, scaleWidthMax);
-                                float sy = rng.Range(scaleHeightMin, scaleHeightMax) * Mathf.Max(0.001f, heightBias);
-                                scale = new Vector3(sx, sy, 1f);
-                            }
-
-                            // XY mode rotates around Z; XZ mode rotates around Y
-                            Quaternion rot = (useXZPlane > 0.5f)
-                                ? Quaternion.AngleAxis(rotDeg, Vector3.up)
-                                : Quaternion.AngleAxis(rotDeg, Vector3.forward);
-
-                            var m = Matrix4x4.TRS(pos, rot, scale);
-                            items.Add(new Item { y = pos.y, m = m });
+                        if (logBuildDetails && dbgClumpsLogged < logBuildMaxClumps)
+                        {
+                            dbgClumpsLogged++;
+                            UnityEngine.Debug.Log(
+                                $"[ChunkGrassRenderer] BuildClump cc={cc} lx={lx} ly={ly} i={i} " +
+                                $"jx={jx:0.###} jy={jy:0.###} wx={wx:0.###} wy={wy:0.###} pos={pos} sx={sx:0.###} sy={sy:0.###}",
+                                this);
                         }
                     }
 
-                BUILD_DONE:
-                items.Sort((a, b) => b.y.CompareTo(a.y)); // higher Y first, lower Y last
-
-                _count = items.Count;
-
-                int offset = 0;
-                while (offset < items.Count)
-                {
-                    int n = Mathf.Min(BatchMax, items.Count - offset);
-                    var batch = new Matrix4x4[n];
-
-                    for (int i = 0; i < n; i++)
-                        batch[i] = items[offset + i].m;
-
-                    _matBatches.Add(batch);
-                    _batchCounts.Add(n);
-                    offset += n;
+                    if (totalClumps >= maxClumps)
+                        break;
                 }
+
+            if (batches.Count == 0 || totalClumps == 0)
+            {
+                if (logBuild)
+                    UnityEngine.Debug.Log($"[ChunkGrassRenderer] Build {cc}: grassTiles={grassTiles} clumps={totalClumps} -> remove cache", this);
+
+                _cache.Remove(cc);
+                return;
             }
 
-            public void Draw(Mesh mesh, Material mat, MaterialPropertyBlock mpb, ShadowCastingMode shadowMode, bool receiveShadows)
+            _cache[cc] = new ChunkCache(batches);
+
+            if (logBuild)
+                UnityEngine.Debug.Log($"[ChunkGrassRenderer] Build {cc}: grassTiles={grassTiles}, clumps={totalClumps}, batches={batches.Count}, z={z:0.###}", this);
+        }
+
+        private static Color32 MultiplyColor32(Color32 a, Color32 b)
+        {
+            // Convert bytes -> Colors (0..1)
+            Color ca = new Color(a.r / 255f, a.g / 255f, a.b / 255f, a.a / 255f);
+            Color cb = new Color(b.r / 255f, b.g / 255f, b.b / 255f, b.a / 255f);
+
+            // If project is Linear, do the multiply in linear space, then convert back to gamma.
+            // If project is Gamma, multiply directly.
+            Color outC;
+            if (QualitySettings.activeColorSpace == ColorSpace.Linear)
             {
-                for (int i = 0; i < _matBatches.Count; i++)
-                {
-                    Graphics.DrawMeshInstanced(mesh, 0, mat, _matBatches[i], _batchCounts[i], mpb, shadowMode, receiveShadows);
-                }
+                outC = (ca.linear * cb.linear);
+                outC = outC.gamma;
+            }
+            else
+            {
+                outC = ca * cb;
             }
 
-            private static uint HashToUint(int seed, int x, int y)
+            // Clamp + back to Color32
+            outC.r = Mathf.Clamp01(outC.r);
+            outC.g = Mathf.Clamp01(outC.g);
+            outC.b = Mathf.Clamp01(outC.b);
+            outC.a = Mathf.Clamp01(outC.a);
+
+            return (Color32)outC;
+        }
+
+
+
+        // ---------------------------------------------------------------------
+        // Draw
+        // ---------------------------------------------------------------------
+        [SerializeField] private bool logDrawMatrices = true;
+        [SerializeField] private bool debugForceSpread = false;     // keep OFF unless debugging
+        [SerializeField] private float debugSpreadStep = 0.5f;
+        [SerializeField] private bool debugDrawNonInstanced = false; // keep OFF unless debugging
+        [SerializeField] private int debugMaxMatrixLogsPerFrame = 6;
+
+        // Debug controls (put these as fields if you want them in Inspector)
+        [SerializeField] private int debugMpbMode = 1;
+        // 0 = null MPB (baseline)
+        // 1 = color-only MPB (sets only _Color/_BaseColor)
+        // 2 = full MPB (_mpb as currently used)
+
+        [SerializeField] private bool debugLogMpbMode = true;
+        [SerializeField] private int debugMaxLogsPerFrame = 6;
+
+        // Fixed-size buffers (Unity MPB caches array size — keep it constant)
+        private readonly Matrix4x4[] _matBuf = new Matrix4x4[1023];
+        private readonly Vector4[] _colBuf = new Vector4[1023];
+
+        private void DrawVisible()
+        {
+            if (_cache.Count == 0) return;
+            if (_runtimeMat == null) return;
+            if (!TryGetViewWindow(out var vmin, out var vsize)) return;
+
+            Mesh mesh = profile.EffectiveMesh;
+            if (mesh == null) return;
+
+            // MPB must exist and already contain your per-frame globals (wind/patch/etc.)
+            if (_mpb == null) _mpb = new MaterialPropertyBlock();
+
+            var vmax = new ChunkCoord(vmin.X + vsize.x - 1, vmin.Y + vsize.y - 1);
+            var shadowMode = profile.castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
+
+            int drawCalls = 0;
+            int instances = 0;
+
+            for (int cy = vmin.Y; cy <= vmax.Y; cy++)
+                for (int cx = vmin.X; cx <= vmax.X; cx++)
+                {
+                    var cc = new ChunkCoord(cx, cy);
+                    if (!_cache.TryGetValue(cc, out var cache))
+                        continue;
+
+                    foreach (var kv in cache.Batches)
+                    {
+                        var batch = kv.Value;
+                        int total = batch.Matrices.Count;
+                        if (total == 0) continue;
+
+                        // This color was computed in BuildChunk:
+                        // - applyPerTileTint? tileTint*grassTint : grassTint
+                        var c32 = batch.Color;
+                        Vector4 instColor = new Vector4(
+                            c32.r / 255f,
+                            c32.g / 255f,
+                            c32.b / 255f,
+                            c32.a / 255f
+                        );
+
+                        int offset = 0;
+                        while (offset < total)
+                        {
+                            int count = Mathf.Min(1023, total - offset);
+
+                            // Fill matrix buffer slice
+                            for (int i = 0; i < count; i++)
+                                _matBuf[i] = batch.Matrices[offset + i];
+
+                            // Fill color buffer slice
+                            for (int i = 0; i < count; i++)
+                                _colBuf[i] = instColor;
+
+                            // CRITICAL: always set the SAME array size (1023) to avoid Unity “cap to previous size”
+                            _mpb.SetVectorArray(ID_InstanceColor, _colBuf);
+
+                            Graphics.DrawMeshInstanced(
+                                mesh,
+                                0,
+                                _runtimeMat,
+                                _matBuf,
+                                count,
+                                _mpb,
+                                shadowMode,
+                                profile.receiveShadows,
+                                gameObject.layer
+                            );
+
+                            drawCalls++;
+                            instances += count;
+                            offset += count;
+                        }
+                    }
+                }
+
+            if (logDraw && drawCalls > 0)
+                UnityEngine.Debug.Log($"[ChunkGrassRenderer] Draw: calls={drawCalls}, instances={instances}, cache={_cache.Count}", this);
+        }
+
+
+        // ---------------------------------------------------------------------
+        // Internal cache types
+        // ---------------------------------------------------------------------
+
+        private sealed class ChunkCache
+        {
+            public readonly Dictionary<int, Batch> Batches;
+            public ChunkCache(Dictionary<int, Batch> batches) => Batches = batches;
+        }
+
+        private sealed class Batch
+        {
+            public readonly Color32 Color;
+            public readonly List<Matrix4x4> Matrices = new(256);
+            public Batch(Color32 c) => Color = c;
+        }
+
+        private static class MatrixArrayPool
+        {
+            private static readonly Dictionary<int, Matrix4x4[]> Pool = new();
+            public static Matrix4x4[] Get(int size)
             {
-                unchecked
+                if (!Pool.TryGetValue(size, out var arr) || arr == null || arr.Length != size)
                 {
-                    uint h = 2166136261u;
-                    h = (h ^ (uint)seed) * 16777619u;
-                    h = (h ^ (uint)x) * 16777619u;
-                    h = (h ^ (uint)y) * 16777619u;
-                    h ^= h >> 13;
-                    h *= 1274126177u;
-                    h ^= h >> 16;
-                    return h;
+                    arr = new Matrix4x4[size];
+                    Pool[size] = arr;
                 }
-            }
-
-            private struct XorShift32
-            {
-                private uint _state;
-
-                public XorShift32(uint seed)
-                {
-                    _state = seed == 0 ? 0x6C8E9CF5u : seed;
-                }
-
-                public uint NextU()
-                {
-                    uint x = _state;
-                    x ^= x << 13;
-                    x ^= x >> 17;
-                    x ^= x << 5;
-                    _state = x;
-                    return x;
-                }
-
-                public float NextFloat01() => (NextU() & 0x00FFFFFFu) / 16777216f;
-                public float Range(float a, float b) => a + (b - a) * NextFloat01();
+                return arr;
             }
         }
+
+        // ---------------------------------------------------------------------
+        // Tile helpers
+        // ---------------------------------------------------------------------
+
+        private static int ComputeMaxTileId(TileLibrary lib)
+        {
+            int max = 0;
+            foreach (var def in lib.EnumerateDefs())
+            {
+                if (def != null && def.TileId > max)
+                    max = def.TileId;
+            }
+            return max;
+        }
+
+        private static TryGetTileColorFn ResolveTileColorGetter(TileLibrary lib)
+        {
+            // Prefer: TryGetBaseColor(int, out Color32) if present in your newer TileLibrary
+            var miBase = typeof(TileLibrary).GetMethod("TryGetBaseColor", new[] { typeof(int), typeof(Color32).MakeByRefType() });
+            if (miBase != null)
+            {
+                return (int tileId, out Color32 c) =>
+                {
+                    object[] args = { tileId, default(Color32) };
+                    bool ok = (bool)miBase.Invoke(lib, args);
+                    c = (Color32)args[1];
+                    return ok;
+                };
+            }
+
+            // Fallback: TryGetColor(int, out Color32)
+            var miColor = typeof(TileLibrary).GetMethod("TryGetColor", new[] { typeof(int), typeof(Color32).MakeByRefType() });
+            if (miColor != null)
+            {
+                return (int tileId, out Color32 c) =>
+                {
+                    object[] args = { tileId, default(Color32) };
+                    bool ok = (bool)miColor.Invoke(lib, args);
+                    c = (Color32)args[1];
+                    return ok;
+                };
+            }
+
+            // No color API found
+            return (int _, out Color32 c) =>
+            {
+                c = new Color32(255, 255, 255, 255);
+                return false;
+            };
+        }
+
+        private static float Hash01(int a, int b, int c, int d, int e, int f)
+        {
+            unchecked
+            {
+                // FNV-1a mix over all 6 ints
+                uint h = 2166136261u;
+
+                h = (h ^ (uint)a) * 16777619u;
+                h = (h ^ (uint)b) * 16777619u;
+                h = (h ^ (uint)c) * 16777619u;
+                h = (h ^ (uint)d) * 16777619u;
+                h = (h ^ (uint)e) * 16777619u;
+                h = (h ^ (uint)f) * 16777619u;
+
+                // extra avalanche
+                h ^= h >> 13;
+                h *= 1274126177u;
+                h ^= h >> 16;
+
+                // [0,1)
+                return (h & 0x00FFFFFFu) / 16777216f;
+            }
+        }
+
     }
 }

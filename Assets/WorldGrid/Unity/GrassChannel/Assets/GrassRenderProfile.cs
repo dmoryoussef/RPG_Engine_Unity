@@ -57,9 +57,11 @@ namespace Grass
         [Header("Assets")]
         [Tooltip("Template material using the grass shader. Renderer instantiates a runtime copy.")]
         public Material materialTemplate;
-
         [Tooltip("Optional override for _MainTex on the runtime material.")]
         public Texture2D mainTextureOverride;
+        [Header("Material Shader")]
+        public Shader shader;
+
 
         [Tooltip("-1 = keep material default render queue")]
         public int renderQueueOverride = -1;

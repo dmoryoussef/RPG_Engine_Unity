@@ -72,7 +72,7 @@ public sealed class GrassInfluenceSystem : MonoBehaviour
             });
         }
 
-        grassRenderer.SetInfluencers(_scratch);
+        //grassRenderer.SetInfluencers(_scratch);
     }
 
     private float SpeedMultiplier(Transform t, float dt, bool isPlayer)

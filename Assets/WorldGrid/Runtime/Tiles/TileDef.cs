@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace WorldGrid.Runtime.Tiles
 {
@@ -10,6 +11,19 @@ namespace WorldGrid.Runtime.Tiles
         public int TileId { get; }
         public string Name { get; }
         public RectUv Uv { get; }
+
+        /// <summary>
+        /// Intrinsic low-detail identity color for this tile.
+        /// This is not tint; it is stable and authored/baked.
+        /// </summary>
+        public Color32 BaseColor { get; }
+
+        /// <summary>
+        /// Optional multiplier used by render systems that partially blend BaseColor.
+        /// Defaults to 1.
+        /// </summary>
+        public float BaseColorInfluence { get; }
+
         public IReadOnlyList<string> Tags { get; }
         public IReadOnlyList<TileProperty> Properties { get; }
 
@@ -17,16 +31,34 @@ namespace WorldGrid.Runtime.Tiles
 
         #region Construction
 
+        /// <summary>
+        /// Backwards-compatible constructor (BaseColor defaults to white, influence defaults to 1).
+        /// </summary>
         public TileDef(
             int tileId,
             string name,
             RectUv uv,
             IEnumerable<string> tags = null,
             IEnumerable<TileProperty> properties = null)
+            : this(tileId, name, uv, new Color32(255, 255, 255, 255), 1f, tags, properties)
+        {
+        }
+
+        public TileDef(
+            int tileId,
+            string name,
+            RectUv uv,
+            Color32 baseColor,
+            float baseColorInfluence,
+            IEnumerable<string> tags = null,
+            IEnumerable<TileProperty> properties = null)
         {
             TileId = tileId;
             Name = name ?? string.Empty;
             Uv = uv;
+
+            BaseColor = baseColor;
+            BaseColorInfluence = Mathf.Clamp01(baseColorInfluence);
 
             Tags = normalizeTags(tags);
             Properties = normalizeProperties(properties);
@@ -70,22 +102,24 @@ namespace WorldGrid.Runtime.Tiles
 
             foreach (var raw in tags)
             {
-                var t = raw?.Trim();
-                if (string.IsNullOrEmpty(t))
+                if (string.IsNullOrWhiteSpace(raw))
                     continue;
 
-                seen ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (!seen.Add(t))
+                string tag = raw.Trim();
+
+                if (seen == null)
+                    seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                if (!seen.Add(tag))
                     continue;
 
-                list ??= new List<string>();
-                list.Add(t);
+                if (list == null)
+                    list = new List<string>();
+
+                list.Add(tag);
             }
 
-            if (list == null || list.Count == 0)
-                return Array.Empty<string>();
-
-            return list.ToArray();
+            return list != null ? list : Array.Empty<string>();
         }
 
         private static IReadOnlyList<TileProperty> normalizeProperties(IEnumerable<TileProperty> properties)
@@ -93,26 +127,20 @@ namespace WorldGrid.Runtime.Tiles
             if (properties == null)
                 return Array.Empty<TileProperty>();
 
-            Dictionary<Type, TileProperty> map = null;
+            List<TileProperty> list = null;
 
             foreach (var p in properties)
             {
                 if (p == null)
                     continue;
 
-                map ??= new Dictionary<Type, TileProperty>();
-                map[p.GetType()] = p;
+                if (list == null)
+                    list = new List<TileProperty>();
+
+                list.Add(p);
             }
 
-            if (map == null || map.Count == 0)
-                return Array.Empty<TileProperty>();
-
-            var arr = new TileProperty[map.Count];
-            int i = 0;
-            foreach (var kvp in map)
-                arr[i++] = kvp.Value;
-
-            return arr;
+            return list != null ? list : Array.Empty<TileProperty>();
         }
 
         #endregion
