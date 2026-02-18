@@ -4,26 +4,19 @@ using WorldPlacement.Runtime.Grid;           // Cell2i
 
 namespace WorldPlacement.Unity.Adapters
 {
-    /// <summary>
-    /// MVP adapter that bridges WorldPlacement.Runtime to your existing SparseChunkWorld tile grid.
-    /// Uses WorldHost.World.GetTile(x,y) to retrieve tile ids.
-    ///
-    /// Notes:
-    /// - SparseChunkWorld is sparse, so "valid cell" is effectively always true.
-    /// - If you later add world bounds, implement IsValidCell accordingly.
-    /// </summary>
     [DisallowMultipleComponent]
     public sealed class WorldGridTileQueryAdapter : WorldQueryAdapterBehaviour
     {
         [SerializeField] private WorldHost worldHost;
 
         private WorldGrid.Runtime.World.SparseChunkWorld _world;
+        private bool _warned;
 
         private void Start()
         {
             if (worldHost == null)
             {
-                UnityEngine.Debug.LogError("WorldGridTileQueryAdapter: worldHost not assigned.", this);
+                WarnOnce("WorldGridTileQueryAdapter: worldHost not assigned.");
                 enabled = false;
                 return;
             }
@@ -31,15 +24,14 @@ namespace WorldPlacement.Unity.Adapters
             _world = worldHost.World;
             if (_world == null)
             {
-                UnityEngine.Debug.LogError("WorldGridTileQueryAdapter: worldHost.World is null (did WorldHost Awake run?).", this);
+                WarnOnce("WorldGridTileQueryAdapter: worldHost.World is null (init order issue?).");
                 enabled = false;
             }
         }
 
         public override bool IsValidCell(Cell2i cell)
         {
-            // MVP: sparse world => any cell is "valid".
-            // Later: return false if outside map bounds, forbidden region, unloaded chunk, etc.
+            // MVP: sparse world => treat all cells as valid if the world exists.
             return _world != null;
         }
 
@@ -47,12 +39,20 @@ namespace WorldPlacement.Unity.Adapters
         {
             if (_world == null)
             {
+                WarnOnce("WorldGridTileQueryAdapter: world is null; cannot query tile ids.");
                 tileId = 0;
                 return false;
             }
 
             tileId = _world.GetTile(cell.X, cell.Y);
             return true;
+        }
+
+        private void WarnOnce(string msg)
+        {
+            if (_warned) return;
+            _warned = true;
+            UnityEngine.Debug.LogWarning(msg, this);
         }
     }
 }
