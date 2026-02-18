@@ -135,6 +135,7 @@ namespace WorldGrid.Unity.Tilemap
         {
             _hoverValid = false;
             setVisible(false);
+          
         }
 
         private void applyHover(WorldPointerHit hit)
