@@ -26,10 +26,10 @@ namespace WorldPlacement.Unity
         private void Awake()
         {
             if (pointer == null)
-                Debug.LogError("PlacementFromPointer: WorldPointer2D not assigned.", this);
+                UnityEngine.Debug.LogError("PlacementFromPointer: WorldPointer2D not assigned.", this);
 
             if (host == null)
-                Debug.LogError("PlacementFromPointer: WorldPlacementHost not assigned.", this);
+                UnityEngine.Debug.LogError("PlacementFromPointer: WorldPlacementHost not assigned.", this);
         }
 
         private void Update()
@@ -41,19 +41,19 @@ namespace WorldPlacement.Unity
 
             if (selected == null)
             {
-                Debug.LogWarning("WorldPlacement: No placeable set (selected is null).", this);
+                UnityEngine.Debug.LogWarning("WorldPlacement: No placeable set (selected is null).", this);
                 return;
             }
 
             if (host == null || host.System == null)
             {
-                Debug.LogWarning("WorldPlacement: Host/System not ready.", this);
+                UnityEngine.Debug.LogWarning("WorldPlacement: Host/System not ready.", this);
                 return;
             }
 
             if (pointer == null)
             {
-                Debug.LogWarning("WorldPlacement: Pointer not assigned.", this);
+                UnityEngine.Debug.LogWarning("WorldPlacement: Pointer not assigned.", this);
                 return;
             }
 
@@ -61,7 +61,7 @@ namespace WorldPlacement.Unity
 
             if (!hit.Valid)
             {
-                Debug.LogWarning("WorldPlacement: No valid hover hit (pointer not over world plane).", this);
+                UnityEngine.Debug.LogWarning("WorldPlacement: No valid hover hit (pointer not over world plane).", this);
                 return;
             }
 
@@ -74,14 +74,14 @@ namespace WorldPlacement.Unity
 
             if (!report.Allowed)
             {
-                Debug.LogWarning(
+                UnityEngine.Debug.LogWarning(
                     $"WorldPlacement: BLOCKED '{def.Id}' at {cell} rot={rotation}.",
                     this);
 
                 for (int i = 0; i < report.Reasons.Count; i++)
                 {
                     var reason = report.Reasons[i];
-                    Debug.LogWarning($"  - {reason.Message} @ {reason.Cell}", this);
+                    UnityEngine.Debug.LogWarning($"  - {reason.Message} @ {reason.Cell}", this);
                 }
 
                 return;
@@ -90,7 +90,7 @@ namespace WorldPlacement.Unity
             // Placement is valid — commit
             if (host.System.TryPlace(def, cell, rotation, requireNonDefaultTile, out var inst))
             {
-                Debug.Log(
+                UnityEngine.Debug.Log(
                     $"WorldPlacement: Placed '{inst.DefId}' id={inst.InstanceId} at {cell} rot={rotation}",
                     this);
             }
@@ -98,7 +98,7 @@ namespace WorldPlacement.Unity
             {
                 // Should not normally happen (Evaluate just passed),
                 // but protects against race conditions in future systems.
-                Debug.LogWarning(
+                UnityEngine.Debug.LogWarning(
                     $"WorldPlacement: Placement unexpectedly failed after successful evaluation at {cell}.",
                     this);
             }

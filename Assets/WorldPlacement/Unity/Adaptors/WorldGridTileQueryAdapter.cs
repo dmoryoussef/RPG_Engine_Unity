@@ -23,7 +23,7 @@ namespace WorldPlacement.Unity.Adapters
         {
             if (worldHost == null)
             {
-                Debug.LogError("WorldGridTileQueryAdapter: worldHost not assigned.", this);
+                UnityEngine.Debug.LogError("WorldGridTileQueryAdapter: worldHost not assigned.", this);
                 enabled = false;
                 return;
             }
@@ -31,7 +31,7 @@ namespace WorldPlacement.Unity.Adapters
             _world = worldHost.World;
             if (_world == null)
             {
-                Debug.LogError("WorldGridTileQueryAdapter: worldHost.World is null (did WorldHost Awake run?).", this);
+                UnityEngine.Debug.LogError("WorldGridTileQueryAdapter: worldHost.World is null (did WorldHost Awake run?).", this);
                 enabled = false;
             }
         }

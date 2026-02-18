@@ -18,7 +18,7 @@ namespace WorldPlacement.Unity.Host
         {
             if (worldQuery == null)
             {
-                Debug.LogError("WorldPlacementHost: worldQuery adapter not assigned.", this);
+                UnityEngine.Debug.LogError("WorldPlacementHost: worldQuery adapter not assigned.", this);
                 enabled = false;
                 return;
             }
