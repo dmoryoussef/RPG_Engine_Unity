@@ -17,6 +17,7 @@ namespace WorldPlacement.Unity.Debug
         [Header("Placement Preview Settings")]
         [SerializeField] private Rotation4 rotation = Rotation4.R0;
         [SerializeField] private bool requireNonDefaultTile = true;
+        [SerializeField] private WorldPlacement.Unity.PlacementFromPointer placementController;
 
         [Header("Drawing")]
         [SerializeField] private float tileWorldSize = 1f;
@@ -69,10 +70,16 @@ namespace WorldPlacement.Unity.Debug
                 return;
 
             var anchor = _lastHoverCell;
-            var def = selected.ToRuntime();
 
-            var report = host.System.Evaluate(def, anchor, rotation, requireNonDefaultTile);
-            def.Footprint.GetOccupiedWorldCells(anchor, rotation, _scratch);
+            var defAsset = placementController != null ? placementController.Selected : selected;
+            if (defAsset == null) return;
+
+            var rot = placementController != null ? placementController.Rotation : rotation;
+            var require = placementController != null ? placementController.RequireNonDefaultTile : requireNonDefaultTile;
+
+            var def = defAsset.ToRuntime();
+            var report = host.System.Evaluate(def, anchor, rot, require);
+            def.Footprint.GetOccupiedWorldCells(anchor, rot, _scratch);
 
             // Ghost color: green allowed, red blocked
             Gizmos.color = report.Allowed

@@ -28,6 +28,7 @@ namespace WorldPlacement.Unity
         [Header("Debug")]
         [SerializeField] private bool logSanityLineOnPlace = true;
 
+
         private void Awake()
         {
             if (pointer == null)
@@ -58,6 +59,10 @@ namespace WorldPlacement.Unity
                 TryPlaceAtPointer();
             }
         }
+
+        public Rotation4 Rotation => rotation;
+        public bool RequireNonDefaultTile => requireNonDefaultTile;
+        public PlacementDefAsset Selected => selected;
 
         private bool TryGetHoveredCell(out Cell2i cell)
         {

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Placeable
   prefab: {fileID: 4779070313387944969, guid: 36c293dff8a72834fac045c24c1c0f85, type: 3}
   icon: {fileID: 0}
-  width: 1
-  height: 1
+  width: 2
+  height: 2
   pivot: {x: 0, y: 0}
-  cells: 01
+  cells: 01010001

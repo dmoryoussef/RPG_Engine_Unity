@@ -517,7 +517,7 @@ GameObject:
   - component: {fileID: 353368238}
   - component: {fileID: 353368239}
   m_Layer: 0
-  m_Name: ChunkTileRenderer
+  m_Name: ChunkWorldRenderer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1804,6 +1804,90 @@ MonoBehaviour:
   debugMpbMode: 1
   debugLogMpbMode: 0
   debugMaxLogsPerFrame: 6
+--- !u!1 &1033802738
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1033802739}
+  - component: {fileID: 1033802742}
+  - component: {fileID: 1033802740}
+  - component: {fileID: 1033802741}
+  m_Layer: 0
+  m_Name: WorldPlacementRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1033802739
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1033802738}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1937451457}
+  m_Father: {fileID: 2024021570}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1033802740
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1033802738}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ab76eca3a12d02643bcb45a36ae0de72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldPlacement.Unity.Host.WorldPlacementHost
+  worldQuery: {fileID: 1033802741}
+  defaultTileId: 0
+  _totalBuildings: 0
+--- !u!114 &1033802741
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1033802738}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b7533dc844d6f948b2c5b2b5f845d21, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldPlacement.Unity.Adapters.WorldGridTileQueryAdapter
+  worldHost: {fileID: 1058400943}
+--- !u!114 &1033802742
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1033802738}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40e44cbb3e316524794a92bef27272a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldPlacement.Unity.PlacementFromPointer
+  pointer: {fileID: 2024021569}
+  host: {fileID: 1033802740}
+  selected: {fileID: 11400000, guid: 3c4e69416bc8eae4c83ed67567834c86, type: 2}
+  placeKey: 112
+  rotateKey: 114
+  removeKey: 8
+  rotation: 0
+  requireNonDefaultTile: 1
+  logSanityLineOnPlace: 1
 --- !u!1 &1058400940
 GameObject:
   m_ObjectHideFlags: 0
@@ -1815,7 +1899,6 @@ GameObject:
   - component: {fileID: 1058400944}
   - component: {fileID: 1058400943}
   - component: {fileID: 1058400957}
-  - component: {fileID: 1058400945}
   - component: {fileID: 1058400953}
   - component: {fileID: 1058400954}
   - component: {fileID: 1058400956}
@@ -1852,8 +1935,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1058400940}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 4.42326, y: -0.63831, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1861,24 +1944,9 @@ Transform:
   - {fileID: 1294804326}
   - {fileID: 353368238}
   - {fileID: 993725135}
-  m_Father: {fileID: 0}
+  - {fileID: 1330107191}
+  m_Father: {fileID: 2024021570}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1058400945
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1058400940}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cffcd178b542f0641a7c292ad4b65712, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Input.WorldPointer2D
-  worldHost: {fileID: 1058400943}
-  cameraOverride: {fileID: 519420031}
-  ignoreWhenPointerOverUi: 1
-  clickMaxSeconds: 0.25
 --- !u!114 &1058400953
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1912,7 +1980,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf4cb0404d4438d4392517f523af3ec1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InteractionAudioRouter
-  pointer: {fileID: 1058400945}
+  pointer: {fileID: 2024021569}
   hoverEnter: {fileID: 8300000, guid: 2f38da8a844a40a44aabf9c8e8474093, type: 3}
   hoverExit: {fileID: 0}
   click: {fileID: 8300000, guid: 2486bb872c132bf4caf2886fed6f1c0f, type: 3}
@@ -1935,7 +2003,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Tilemap.WorldStampTool
   worldHost: {fileID: 1058400943}
-  pointer: {fileID: 1058400945}
+  pointer: {fileID: 2024021569}
   brushState: {fileID: 11400000, guid: 5a6b91c4236f2d24781d479320ed06be, type: 2}
   enableStamping: 1
   minWriteIntervalSeconds: 0.02
@@ -1958,7 +2026,7 @@ MonoBehaviour:
       value: TestWorld
     asset: {fileID: 11400000, guid: 0163a0fc49b330343beec8e0071f1a54, type: 2}
     materialTemplateOverride: {fileID: 0}
-  debugTilesetBuild: 1
+  debugTilesetBuild: 0
 --- !u!114 &1058400958
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1992,7 +2060,7 @@ MonoBehaviour:
     value: 
   channels:
   - {fileID: 353368239}
-  logBinding: 1
+  logBinding: 0
 --- !u!1 &1106162213
 GameObject:
   m_ObjectHideFlags: 0
@@ -3066,7 +3134,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 97e1d9a9b5a572540be599cc4b0f399c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldHoverDebugView
-  pointer: {fileID: 1058400945}
+  pointer: {fileID: 2024021569}
   drawTileOutline: 1
   drawCenterCross: 1
   drawLabel: 1
@@ -3118,7 +3186,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldDebugPaintTool
   worldHost: {fileID: 1058400943}
-  pointer: {fileID: 1058400945}
+  pointer: {fileID: 2024021569}
   tileLibraryAsset: {fileID: 0}
   enablePainting: 1
   paintSelectionMode: 0
@@ -3144,7 +3212,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldPinDebug
   worldHost: {fileID: 1058400943}
-  pointer: {fileID: 1058400945}
+  pointer: {fileID: 2024021569}
   enablePinning: 1
   clearWithBackspace: 1
   drawPinnedOutline: 1
@@ -3168,7 +3236,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2db5480dbdde2ea41899d848841dbca7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldHoverInspectorProbe
-  pointer: {fileID: 1058400945}
+  pointer: {fileID: 2024021569}
   worldHost: {fileID: 1058400943}
   tileLibraryAsset: {fileID: 11400000, guid: 0163a0fc49b330343beec8e0071f1a54, type: 2}
   hoverValid: 0
@@ -3191,7 +3259,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Debug.WorldGridLinesDebugView
   worldHost: {fileID: 1058400943}
   rendererSource: {fileID: 0}
-  pointer: {fileID: 1058400945}
+  pointer: {fileID: 2024021569}
   drawRendererChunkBounds: 1
   drawRendererChunkLabels: 1
   drawCameraChunkBounds: 1
@@ -3251,6 +3319,53 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1496903595}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1330107190
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1330107191}
+  - component: {fileID: 1330107192}
+  m_Layer: 0
+  m_Name: SaveSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1330107191
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1330107190}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1058400944}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1330107192
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1330107190}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c1a2933e0a6de494a89f944f09e892b5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SaveDriver
+  worldHost: {fileID: 1058400943}
+  saveFolder: Saves
+  saveFileName: slot1.sav
 --- !u!1 &1385903662
 GameObject:
   m_ObjectHideFlags: 0
@@ -3814,7 +3929,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Tilemap.WorldBrushPreviewOverlay
   worldHost: {fileID: 1058400943}
-  pointer: {fileID: 1058400945}
+  pointer: {fileID: 2024021569}
   brushState: {fileID: 11400000, guid: 5a6b91c4236f2d24781d479320ed06be, type: 2}
   hoverCellFill: {fileID: 1892953516}
   brushOutline: {fileID: 1892953515}
@@ -4088,6 +4203,61 @@ Transform:
   - {fileID: 567940721}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1937451456
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1937451457}
+  - component: {fileID: 1937451458}
+  m_Layer: 0
+  m_Name: Debug
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1937451457
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1937451456}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1033802739}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1937451458
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1937451456}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3042354597960642a60a6ef513d724e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldPlacement.Unity.Debug.WorldPlacementDebugOverlay
+  pointer: {fileID: 2024021569}
+  host: {fileID: 1033802740}
+  selected: {fileID: 11400000, guid: 3c4e69416bc8eae4c83ed67567834c86, type: 2}
+  rotation: 0
+  requireNonDefaultTile: 1
+  placementController: {fileID: 1033802742}
+  tileWorldSize: 1
+  worldOrigin: {x: 0, y: 0, z: 0}
+  overlayZOffset: -0.05
+  drawPlaced: 1
+  drawGhost: 1
 --- !u!1 &1952485570
 GameObject:
   m_ObjectHideFlags: 0
@@ -4299,6 +4469,56 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2008907797}
   m_CullTransparentMesh: 1
+--- !u!1 &2024021568
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2024021570}
+  - component: {fileID: 2024021569}
+  m_Layer: 0
+  m_Name: WorldRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2024021569
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2024021568}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cffcd178b542f0641a7c292ad4b65712, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGrid.Unity.Input.WorldPointer2D
+  worldHost: {fileID: 1058400943}
+  cameraOverride: {fileID: 519420031}
+  ignoreWhenPointerOverUi: 1
+  clickMaxSeconds: 0.25
+--- !u!4 &2024021570
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2024021568}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -4.42326, y: 0.63831, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1058400944}
+  - {fileID: 1033802739}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -4313,5 +4533,5 @@ SceneRoots:
   - {fileID: 970198419}
   - {fileID: 1907383955}
   - {fileID: 65112652}
-  - {fileID: 1058400944}
   - {fileID: 727727478}
+  - {fileID: 2024021570}
